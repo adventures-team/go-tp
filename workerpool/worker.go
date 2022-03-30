@@ -1,0 +1,57 @@
+package workerpool
+
+import (
+	"time"
+
+	"gitlab.corp.mail.ru/mygo/utils.git/mylog"
+)
+
+func (wp *WorkerPool) needExit() bool {
+	wp.lock.Lock()
+	defer wp.lock.Unlock()
+
+	needExit := wp.goroutinesRunning > wp.goroutinesRequired
+
+	if needExit {
+		wp.goroutinesRunning--
+	}
+
+	return needExit
+}
+
+func (wp *WorkerPool) workerGoroutine() {
+	defer func() {
+		// тут перехватываем только паники в коде WorkerPool - в "прикладном" коде ("работы"/очереди) должна быть отдельная обработка, с учётом семантики (логгим контекст - id очередей/событий и т.д.)
+		if reason := recover(); reason != nil {
+			mylog.LogPanic(wp.logger.Error(), reason).Msg("panic in WorkerPool")
+			time.Sleep(InternalPanicDelay)
+
+			go wp.workerGoroutine()
+		}
+	}()
+
+	for !wp.needExit() {
+		select {
+		case jobID := <-wp.jobChan:
+			func() { // "лишний" defer, чтобы в случае паники всё равно ушло событие завершения работы
+				defer func() {
+					wp.doneChan <- jobID
+				}()
+
+				wrk := wp.Poller.Poll(jobID)
+				hasJob := wrk != nil
+
+				wp.hasJobChan <- hasJobInfo{
+					jobID:  jobID,
+					hasJob: hasJob,
+				}
+
+				if hasJob {
+					wrk.Work()
+				}
+			}()
+
+		case <-wp.checkExitChan:
+		}
+	}
+}

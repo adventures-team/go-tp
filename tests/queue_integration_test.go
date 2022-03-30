@@ -1,0 +1,96 @@
+//go:build integration
+// +build integration
+
+package tptest
+
+import (
+	"testing"
+
+	"github.com/onlineconf/onlineconf-go"
+
+	"gitlab.corp.mail.ru/mygo/tp.git"
+	"gitlab.corp.mail.ru/mygo/tp.git/queueconfig"
+	"gitlab.corp.mail.ru/mygo/tp.git/workerpool"
+	"gitlab.corp.mail.ru/mygo/utils.git/mylog"
+	"gitlab.corp.mail.ru/mygo/utils.git/oconf"
+)
+
+func TestQueueWorker(t *testing.T) {
+	logger := mylog.InitTestZerolog(t)
+
+	conf := oconf.NewSubtree(onlineconf.GetModule("TREE"), testConfPrefix)
+	queueConf := queueconfig.New(conf, testInstanceName)
+	queue, err := tp.New(queueConf, logger)
+
+	if err != nil {
+		t.Fatal("error initializing queue processor:", err)
+	}
+
+	cnt := newCounter(1) // 1 - событие, посылаемое вне цикла
+
+	err = queue.Register(testQueueWithAddonsID, &eventWithAddons{}, cnt)
+	if err != nil {
+		t.Fatal("Register failed:", err)
+	}
+
+	err = queue.Register(testQueueWithAddonsID, &eventWithAddonsV2{}, cnt)
+	if err != nil {
+		t.Fatal("Register failed:", err)
+	}
+
+	pool := workerpool.New(queue, logger)
+	pool.SetWorkerCount(testQueueWithAddonsID, 5)
+
+	ev := &eventWithAddons{
+		TrackID: 1,
+		ExternalID:   2,
+	}
+
+	evV2 := &eventWithAddonsV2{
+		TrackID: 11,
+		ExternalID:   22,
+	}
+
+	eventID, err := queue.Publish(ev)
+	if err != nil {
+		t.Fatalf("Publish(%v) failed: %v", ev, err)
+	}
+
+	eventID, err = queue.Publish(ev)
+	if err != nil {
+		t.Fatalf("Publish(%v) failed with IgnoreDuplicateItems set: %v", ev, err)
+	}
+
+	logger.Info().Msgf("event_id=0x%016X published", eventID)
+
+	for i := 0; i < 7; i++ {
+		ev.TrackID++
+		ev.ExternalID++
+
+		eventID, err = queue.Publish(ev)
+		if err != nil {
+			t.Fatalf("Publish(%v) failed set: %v", ev, err)
+		}
+
+		logger.Info().Msgf("event_id=0x%016X published", eventID)
+
+		eventID, err = queue.Publish(evV2)
+		if err != nil {
+			t.Fatalf("Publish(%v) failed set: %v", ev, err)
+		}
+
+		logger.Info().Msgf("V2 event_id=0x%016X published", eventID)
+
+		evV2.TrackID++
+		evV2.ExternalID++
+
+		cnt.Add(2)
+	}
+
+	go func() {
+		cnt.Wait()
+		pool.Stop()
+	}()
+
+	pool.Manage() // тест на то, что Manage не выйдет раньше вызова pool.Stop. если запускать в горутине его, а в основной ждать doneChan, это будет неочевидно
+}

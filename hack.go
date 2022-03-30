@@ -1,0 +1,51 @@
+//nolint:gosec,revive
+package tp
+
+// ТУТ АДЪ
+
+import (
+	"reflect"
+	"unsafe"
+
+	"github.com/rs/zerolog"
+	zLog "github.com/rs/zerolog/log"
+)
+
+// очень костыльная реализация. "идиоматичная" схема (zerolog.Logger.Level) не очень ложится в архитектуру,
+// а метод для inplace-установки они не предусмотрели. и зря:
+// 1. можно было сделать атомарно (т.к. идиоматика "копирование вместо шаринга" делается ради отказа от локов, а не чтобы напрягать разработчиков!)
+// 2. запись/чтение int8 атомарны почти везде, но могут быть reorder-спецэффекты. для данной задачи и то, и другое простительно - апдейтер онлайнконфа и так даёт задержку до 30 сек)
+// пришлось извращаться с ручным поиском поля, т.к. reflect.Value.FieldByName не ищет приватные поля
+
+var levelOffset = func() uintptr {
+	typ := reflect.TypeOf(zLog.Logger)
+
+	for i := 0; i < typ.NumField(); i++ {
+		if field := typ.Field(i); field.Name == "level" {
+			return field.Offset
+		}
+	}
+
+	zLog.Fatal().Msg("no zerolog.Logger.level field found")
+
+	return 0 // unreachable
+}()
+
+func setLogLevel(logger *zerolog.Logger, newLevel zerolog.Level) {
+	zerolog.SetGlobalLevel(newLevel)
+
+	// unsafe.Add requires go1.17 or later
+	*(*zerolog.Level)(unsafe.Pointer(uintptr(unsafe.Pointer(logger)) + levelOffset)) = newLevel
+}
+
+// проверка на интерфейс с типизированным nil (не является nil-интерфейсом).
+// типичная ошибка - странно, что функций для проверки такого нет в reflect (а reflect.InterfaceData - deprecated)
+
+type iface struct {
+	_    uintptr
+	data uintptr
+}
+
+func isTypedNil(v interface{}) bool {
+	return v != nil && (*iface)(unsafe.Pointer(&v)).data == 0
+}
