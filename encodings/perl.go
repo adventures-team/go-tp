@@ -1,8 +1,7 @@
 package encodings
 
 import (
-	"github.com/funny-falcon/go-iproto/marshal"
-
+	"gitlab.corp.mail.ru/e-mail-ru/easygo/iproto"
 	"gitlab.corp.mail.ru/mygo/queuedproto.git"
 )
 
@@ -12,17 +11,22 @@ func perlEncoder(version uint8, valPtr interface{}) ([]byte, error) {
 		return nil, err
 	}
 
-	return marshal.Write(queuedproto.PerlData{
+	data, err := iproto.Pack(valPtr)
+	if err != nil {
+		return nil, err
+	}
+
+	return iproto.Pack(queuedproto.PerlData{
 		Version: version,
 		Addons:  queuedproto.PerlAddons{List: addons},
-		Data:    marshal.Write(valPtr),
-	}), nil
+		Data:    data,
+	})
 }
 
 func perlDecoder(encoded []byte, valPtr interface{}) error {
 	var perlData queuedproto.PerlData
 
-	if err := marshal.Read(encoded, &perlData); err != nil {
+	if _, err := iproto.Unpack(encoded, &perlData); err != nil {
 		return err
 	}
 
@@ -32,5 +36,7 @@ func perlDecoder(encoded []byte, valPtr interface{}) error {
 		}
 	}
 
-	return marshal.Read(perlData.Data, valPtr)
+	_, err := iproto.Unpack(perlData.Data, valPtr)
+
+	return err
 }

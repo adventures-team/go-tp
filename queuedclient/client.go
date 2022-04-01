@@ -7,8 +7,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	goi "github.com/funny-falcon/go-iproto"
-	"github.com/funny-falcon/go-iproto/marshal"
 	"github.com/rs/zerolog"
 
 	"gitlab.corp.mail.ru/e-mail-ru/easygo/iproto"
@@ -84,14 +82,18 @@ func New(conf *queueconfig.Config, logger *zerolog.Logger) (*QueuedClient, error
 	}, nil
 }
 
-func (qc *QueuedClient) makeReqRaw(req goi.RequestData) ([]byte, error) {
+func (qc *QueuedClient) makeReqRaw(req queuedproto.Request) ([]byte, error) {
 	ctx := context.Background() // TODO XXX
-	reqBytes := marshal.Write(req)
 
-	return qc.endpoint.Call(ctx, uint32(req.IMsg()), reqBytes)
+	reqBytes, err := iproto.Pack(req)
+	if err != nil {
+		return nil, err
+	}
+
+	return qc.endpoint.Call(ctx, req.Cmd(), reqBytes)
 }
 
-func (qc *QueuedClient) makeReq(req goi.RequestData, respPtr interface{}) error {
+func (qc *QueuedClient) makeReq(req queuedproto.Request, respPtr interface{}) error {
 	respBytes, err := qc.makeReqRaw(req)
 	if err != nil {
 		return err
@@ -101,7 +103,7 @@ func (qc *QueuedClient) makeReq(req goi.RequestData, respPtr interface{}) error 
 		return ErrEmptyResponse
 	}
 
-	if err = queuedproto.ErrorByRetCode(goi.RetCode(respBytes[0])); err != nil {
+	if err = queuedproto.ErrorByRetCode(respBytes[0]); err != nil {
 		return err
 	}
 
@@ -109,7 +111,9 @@ func (qc *QueuedClient) makeReq(req goi.RequestData, respPtr interface{}) error 
 		return nil
 	}
 
-	return marshal.Read(respBytes[1:], respPtr)
+	_, err = iproto.Unpack(respBytes[1:], respPtr)
+
+	return err
 }
 
 // GetActive получает активные события из очереди queueID. Если count не задано (<=0), используется значение из конфига (fetch_batch_size)
@@ -127,17 +131,17 @@ func (qc *QueuedClient) GetActive(queueID uint16, count int) (queuedproto.ItemLi
 		return queuedproto.ItemList{}, fmt.Errorf("GetActive: queue_id=%d: %w", queueID, err)
 	}
 
-	if goi.RetCode(respBytes[0]) == queuedproto.RcNoActiveItems {
+	if respBytes[0] == queuedproto.RcNoActiveItems {
 		return queuedproto.ItemList{}, nil
 	}
 
-	if err := queuedproto.ErrorByRetCode(goi.RetCode(respBytes[0])); err != nil {
+	if err := queuedproto.ErrorByRetCode(respBytes[0]); err != nil {
 		return queuedproto.ItemList{}, fmt.Errorf("GetActive: queue_id=%d: %w", queueID, err)
 	}
 
 	result := queuedproto.ItemList{}
 
-	if err := marshal.Read(respBytes[1:], &result); err != nil {
+	if _, err := iproto.Unpack(respBytes[1:], &result); err != nil {
 		return queuedproto.ItemList{}, fmt.Errorf("GetActive: queue_id=%d: %w", queueID, err)
 	}
 

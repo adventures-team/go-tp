@@ -11,7 +11,7 @@ const (
 type (
 	// Event - высокоуровневое представление события. Предоставлены также врапперы к нужным частям API очередей.
 	Event struct {
-		eventInternal `iproto:"skip" json:"-"`
+		eventInternal `iproto:"-" json:"-"`
 	}
 
 	// next это слишком C-style, особенно вместе с костыльным логгированием. Кажется, более красиво это реализуется через канал в Queue.Work.
@@ -120,19 +120,19 @@ func (evl *eventList) commit() error {
 	return evl.queue.client.Defer(evl.queueID, 0, deferEventIDs)
 }
 
-// IWrite - см. описание NoHandler.IWrite
-func (Event) IWrite(incompatible) {}
+// IprotoPack - см. описание NoHandler.IprotoPack
+func (Event) IprotoPack(incompatible) {}
 
-// IRead - см. описание NoHandler.IWrite
-func (Event) IRead(incompatible) {}
+// IprotoUnpack - см. описание NoHandler.IprotoPack
+func (Event) IprotoUnpack(incompatible) {}
 
-// MarshalAddon - см. описание NoHandler.IWrite
+// MarshalAddon - см. описание NoHandler.IprotoPack
 func (Event) MarshalAddon(incompatible) {}
 
-// UnmarshalAddon - см. описание NoHandler.IWrite
+// UnmarshalAddon - см. описание NoHandler.IprotoPack
 func (Event) UnmarshalAddon(incompatible) {}
 
-// AddonID - см. описание NoHandler.IWrite
+// AddonID - см. описание NoHandler.IprotoPack
 func (Event) AddonID(incompatible) {}
 
 func (Event) marshalerDisabled(incompatible) {} //nolint:unused

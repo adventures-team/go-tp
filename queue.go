@@ -1,13 +1,14 @@
 package tp
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"reflect"
 
-	"github.com/funny-falcon/go-iproto/marshal"
 	"github.com/rs/zerolog"
 
+	"gitlab.corp.mail.ru/e-mail-ru/easygo/iproto"
 	"gitlab.corp.mail.ru/mygo/queuedproto.git"
 	"gitlab.corp.mail.ru/mygo/tp.git/encodings"
 	"gitlab.corp.mail.ru/mygo/tp.git/queueconfig"
@@ -58,7 +59,7 @@ type (
 		IgnoreDuplicateItems() bool
 	}
 
-	// DisableMarshaler - встраивание этого типа в структуру отключает сериализацию средствами go-iproto
+	// DisableMarshaler - встраивание этого типа в структуру отключает сериализацию средствами iproto
 	DisableMarshaler struct{}
 
 	// marshalerDisabled - для проверки, отключен ли у типа маршалер средствами DisableMarshaler
@@ -218,16 +219,20 @@ func (queue *Queue) eventListFromItems(queueID QueueIDType, get func() (queuedpr
 }
 
 var (
-	_ marshal.IShortReader = DisableMarshaler{}
-	_ marshal.IShortWriter = DisableMarshaler{}
-	_ marshalerDisabled    = DisableMarshaler{}
+	_ iproto.IprotoPacker   = DisableMarshaler{}
+	_ iproto.IprotoUnpacker = DisableMarshaler{}
+	_ marshalerDisabled     = DisableMarshaler{}
 )
 
-// IRead - не делает ничего
-func (DisableMarshaler) IRead(*marshal.Reader) {}
+// IprotoPack - не делает ничего
+func (DisableMarshaler) IprotoPack(w []byte, _ iproto.PackMode) ([]byte, error) {
+	return w, nil
+}
 
-// IWrite - не делает ничего
-func (DisableMarshaler) IWrite(*marshal.Writer) {}
+// IprotoUnpack - не делает ничего
+func (DisableMarshaler) IprotoUnpack(*bytes.Reader, iproto.PackMode) error {
+	return nil
+}
 
 func (DisableMarshaler) marshalerDisabled() {}
 
@@ -243,7 +248,7 @@ func (NoHandler) GetEvent() *Event {
 
 func (NoHandler) noHandler() {}
 
-// IWrite - ломаем совместимость NoHandler с маршалерами, чтобы маршалер из вложенной структуры (например,
+// IprotoPack - ломаем совместимость NoHandler с маршалерами, чтобы маршалер из вложенной структуры (например,
 // DisableMarshaler из структуры объектов API, вложенный в событие), не повлиял на маршалинг события.
 //
 // Почему бы не объявить приватный тип с запрещёнными маршалерами, и не встроить его в типы NoHandler и Event?
@@ -258,18 +263,18 @@ func (NoHandler) noHandler() {}
 //
 // Если же всё-таки зачем-то потребуется объявить маршалеры для типа события - это можно сделать, т.к. они перекроют
 // "наследуемые" методы (и с правильной, и с неправильной сигнатурой).
-func (NoHandler) IWrite(incompatible) {}
+func (NoHandler) IprotoPack(incompatible) {}
 
-// IRead - см. описание NoHandler.IWrite
-func (NoHandler) IRead(incompatible) {}
+// IprotoUnpack - см. описание NoHandler.IprotoPack
+func (NoHandler) IprotoUnpack(incompatible) {}
 
-// MarshalAddon - см. описание NoHandler.IWrite
+// MarshalAddon - см. описание NoHandler.IprotoPack
 func (NoHandler) MarshalAddon(incompatible) {}
 
-// UnmarshalAddon - см. описание NoHandler.IWrite
+// UnmarshalAddon - см. описание NoHandler.IprotoPack
 func (NoHandler) UnmarshalAddon(incompatible) {}
 
-// AddonID - см. описание NoHandler.IWrite
+// AddonID - см. описание NoHandler.IprotoPack
 func (NoHandler) AddonID(incompatible) {}
 
 func (NoHandler) marshalerDisabled(incompatible) {} //nolint:unused

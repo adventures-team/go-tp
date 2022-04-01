@@ -7,8 +7,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/funny-falcon/go-iproto/marshal"
-
+	"gitlab.corp.mail.ru/e-mail-ru/easygo/iproto"
 	"gitlab.corp.mail.ru/mygo/queuedproto.git/addons"
 	"gitlab.corp.mail.ru/mygo/tp.git"
 )
@@ -69,14 +68,14 @@ func (*testEvent) Handle(context.Context) error {
 }
 
 func checkMarshalers(t *testing.T, val interface{}) {
-	_, ok := val.(marshal.IShortReader)
+	_, ok := val.(iproto.IprotoPacker)
 	if ok {
-		t.Errorf("%T must not implement marshal.IShortReader", val)
+		t.Errorf("%T must not implement iproto.IprotoPacker", val)
 	}
 
-	_, ok = val.(marshal.IShortWriter)
+	_, ok = val.(iproto.IprotoUnpacker)
 	if ok {
-		t.Errorf("%T must not implement marshal.IShortWriter", val)
+		t.Errorf("%T must not implement iproto.IprotoUnpacker", val)
 	}
 
 	_, ok = val.(addons.PerlAddon)
