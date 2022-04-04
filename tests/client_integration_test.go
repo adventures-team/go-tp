@@ -1,7 +1,7 @@
 //go:build integration
 // +build integration
 
-package queuedclient_test
+package tptest
 
 import (
 	"bytes"
@@ -17,12 +17,12 @@ func TestSingle(t *testing.T) {
 
 	client := getTestClient(t)
 
-	eventID, err := client.Publish(testQueueID, 0, 0, testData)
+	eventID, err := client.Publish(testRawQueueID, 0, 0, testData)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	events, err := client.GetByIDs(testQueueID, []uint64{eventID})
+	events, err := client.GetByIDs(testRawQueueID, []uint64{eventID})
 	if err != nil {
 		t.Fatalf("GetByIDs(%d): %v", eventID, err)
 	}
@@ -35,7 +35,7 @@ func TestSingle(t *testing.T) {
 		t.Fatalf("testData: got: %s, expected: %s", events.Items[0].Data, testData)
 	}
 
-	if err = client.Delete(testQueueID, []uint64{eventID}); err != nil {
+	if err = client.Delete(testRawQueueID, []uint64{eventID}); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -52,7 +52,7 @@ func TestBatch(t *testing.T) {
 			t.Fatalf("rand.Read: %v", err)
 		}
 
-		eventID, err := client.Publish(testQueueID, 0, 0, testData)
+		eventID, err := client.Publish(testRawQueueID, 0, 0, testData)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -60,7 +60,7 @@ func TestBatch(t *testing.T) {
 		t.Logf("eventID=%d published", eventID)
 
 		if rand.Intn(2) == 1 {
-			err = client.Defer(testQueueID, testDefer, []uint64{eventID})
+			err = client.Defer(testRawQueueID, testDefer, []uint64{eventID})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -102,13 +102,13 @@ func TestBatch(t *testing.T) {
 }
 
 func getItems(t *testing.T, iter *int, client *queuedclient.QueuedClient, byID map[uint64][]byte) {
-	events, err := client.GetActive(testQueueID, 2*testBatchSize) // двойной размер - чтобы получить все задержанные значения от предыдущих (сфейливших/прерванных) запусков теста )
+	events, err := client.GetActive(testRawQueueID, 2*testBatchSize) // двойной размер - чтобы получить все задержанные значения от предыдущих (сфейливших/прерванных) запусков теста )
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	for _, event := range events.Items {
-		if err = client.Delete(testQueueID, []uint64{event.ID}); err != nil {
+		if err = client.Delete(testRawQueueID, []uint64{event.ID}); err != nil {
 			t.Fatal(err)
 		}
 

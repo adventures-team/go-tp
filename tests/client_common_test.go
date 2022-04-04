@@ -1,11 +1,10 @@
 //go:build integration || stress
 // +build integration stress
 
-package queuedclient_test
+package tptest
 
 import (
 	"testing"
-	"time"
 
 	"github.com/onlineconf/onlineconf-go"
 	zLog "github.com/rs/zerolog/log"
@@ -13,15 +12,6 @@ import (
 	"gitlab.corp.mail.ru/mygo/tp.git/queueconfig"
 	"gitlab.corp.mail.ru/mygo/tp.git/queuedclient"
 	"gitlab.corp.mail.ru/mygo/utils.git/oconf"
-)
-
-const (
-	testConfPrefix   = "/project/queued"
-	testInstanceName = "test"
-	testQueueID      = 65534
-	testBatchSize    = 10
-	testDefer        = 2 * time.Second
-	testPollDelay    = time.Second
 )
 
 func getTestClient(t *testing.T) *queuedclient.QueuedClient {

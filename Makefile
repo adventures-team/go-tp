@@ -59,7 +59,7 @@ test-integration:
 	    -covermode count                    \
 	    -coverprofile cover.integration.out \
 	    -coverpkg ./...                     \
-	    ./...
+	    ./tests
 	$(GO) tool cover -html cover.integration.out -o cover.integration.html
 
 .PHONY: bench

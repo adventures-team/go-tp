@@ -1,7 +1,7 @@
 //go:build stress
 // +build stress
 
-package queuedclient_test
+package tptest
 
 import (
 	"fmt"
@@ -28,7 +28,7 @@ func TestIProtoStress(t *testing.T) {
 	for i := 0; i < goroutines; i++ {
 		go func() {
 			for {
-				client.GetByIDs(testQueueID, ids)
+				client.GetByIDs(testRawQueueID, ids)
 				atomic.AddUint64(&current, 1)
 			}
 		}()
