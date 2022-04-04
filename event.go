@@ -1,6 +1,9 @@
 package tp
 
-import "time"
+import (
+	"context"
+	"time"
+)
 
 const (
 	evIsDeleted      uint8 = 1 << iota // события с этим флагом удаляются балком методом eventList.commit
@@ -59,8 +62,8 @@ func (ev *Event) Done() {
 //
 // Время задержки устанавливается сразу же. По завершении цикла обработки событиям, для которых не был вызван метод Done
 // либо Defer, проставляется задержка по умолчанию.
-func (ev *Event) Defer(delay time.Duration) error {
-	if err := ev.list.queue.client.Defer(ev.list.queueID, delay, []uint64{ev.id}); err != nil {
+func (ev *Event) Defer(ctx context.Context, delay time.Duration) error {
+	if err := ev.list.queue.client.Defer(ctx, ev.list.queueID, delay, []uint64{ev.id}); err != nil {
 		return err
 	}
 
@@ -70,8 +73,8 @@ func (ev *Event) Defer(delay time.Duration) error {
 }
 
 // Publish - враппер к Queue.Publish (см. его доку для описания параметра и возвращаемого значения). Отправляет новое событие в очередь, указанную при регистрации для этого типа методом Queue.Register
-func (ev *Event) Publish(data Handler) (eventID uint64, err error) {
-	return ev.list.queue.Publish(data)
+func (ev *Event) Publish(ctx context.Context, data Handler) (eventID uint64, err error) {
+	return ev.list.queue.Publish(ctx, data)
 }
 
 // BatchLen возвращает количество событий одинакового типа (т.е. кол-во раз, когда tp.Next(&ev) вернёт true + 1).
@@ -101,7 +104,7 @@ func (ev *Event) BatchLen() int {
 
 // commit удаляет события, для которых был вызван метод Done, а также проставляет дефолтный дефер (defer_time из конфига)
 // всем событиям из списка, которые не были удалены, и для которых не был вызван метод Defer с кастомным временем.
-func (evl *eventList) commit() error {
+func (evl *eventList) commit(ctx context.Context) error {
 	deleteEventIDs := make([]uint64, 0, len(evl.events))
 	deferEventIDs := make([]uint64, 0, len(evl.events))
 
@@ -113,11 +116,11 @@ func (evl *eventList) commit() error {
 		}
 	}
 
-	if err := evl.queue.client.Delete(evl.queueID, deleteEventIDs); err != nil {
+	if err := evl.queue.client.Delete(ctx, evl.queueID, deleteEventIDs); err != nil {
 		return err
 	}
 
-	return evl.queue.client.Defer(evl.queueID, 0, deferEventIDs)
+	return evl.queue.client.Defer(ctx, evl.queueID, 0, deferEventIDs)
 }
 
 // IprotoPack - см. описание NoHandler.IprotoPack

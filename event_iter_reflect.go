@@ -4,6 +4,7 @@
 package tp
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 )
@@ -14,10 +15,12 @@ import (
 // объекты по ID из коробки/базы одним запросом, более того, если набор ID небольшой (например, все юзеры смотрят
 // одну какую-то очень популярную страницу), экономия трафика/нагрузки на БД будет существенна.
 //
-//	func (ev *MyEvent) Handler(....) ... {
+//	func (ev *MyEvent) Handler(ctx context.Context) ... {
 //		...
-//		ids := []uint32{ev.UserID}
-//		for nev := ev; tp.Next(&ev); {
+//		ids := make([]uint32, 0, ev.BatchLen())
+//
+//		for nctx, nev := ctx, ev; tp.Next(&nctx, &ev); {
+//			zerolog.Ctx(nctx).Trace().Uint32("user_id", nev.UserID).Msg("fetching user info")
 //			ids = append(ids, nev.UserID)
 //		}
 //
@@ -25,9 +28,10 @@ import (
 //		// заполняем map по UserID
 //
 //		for {
+//			zerolog.Ctx(ctx).Trace().Uint32("user_id", ev.UserID).Msg("processing user info")
 //			Process(byUserID[ev.UserID])
 //			ev.Done() // вызывать Done при использовании Next обязательно
-//			if !tp.Next(&ev) {
+//			if !tp.Next(&ctx, &ev) {
 //				break
 //			}
 //		}
@@ -38,7 +42,11 @@ import (
 // Вызывать метод Done для событий, полученных при помощи Next, обязательно. Чтобы обеспечить более однообразный подход
 // и исключить путаницу, возможно, выпилю неявный Done при возврате без ошибки из Handler (для первого события из пачки).
 //
-// Передавать надо указатель на receiver метода Handler.
+// Передавать надо указатель на receiver метода Handler, проверки при компиляции нет (в go.18+ будет).
+//
+// Логгировать надо через явное получение логгера из контекста при каждой итерации цикла. Можно было бы
+// заставить юзера вручную логгировать event_id, но это чревато очепятками (строки же не проверяются ничем),
+// что может затруднить автоматическую обработку логов.
 //
 // При передаче неправильного значения (указатель на объект события, вместо указателя на указатель, и т.п.) произойдёт
 // паника. При передаче правильного значения функция всегда отработает успешно, поэтому паники здесь не нарушают
@@ -55,7 +63,7 @@ import (
 // Для рефлективной версии пришлось бы возвращать Handler, и кастить к своему типу вручную. Для версии на дженериках
 // для этого потребуется сделать тип Event шаблонным, чего делать не хотелось бы (как для совместимости с рефлективной версией,
 // так и по другим соображениям). Возвращать же тип-параметр для "нешаблонного" ресивера невозможно из-за текущих (1.18) ограничений дженериков.
-func Next(evPtr interface{}) bool {
+func Next(ctxPtr *context.Context, evPtr interface{}) bool {
 	dst := reflect.ValueOf(evPtr)
 	if dst.Kind() != reflect.Ptr {
 		panic(ErrPointerRequired)
@@ -87,7 +95,7 @@ func Next(evPtr interface{}) bool {
 	nextEv := next.GetEvent()
 	nextEv.flags |= evIsProcessed
 
-	nextEv.list.queue.logger.Debug().Uint16("queue_id", nextEv.QueueID()).Uint64("event_id", nextEv.id).Interface("event", evPtr).Msg("new event received (batch mode)")
+	nextEventLogger(ctxPtr, nextEv.id).Debug().Uint16("queue_id", nextEv.QueueID()).Uint64("event_id", nextEv.id).Interface("event", evPtr).Msg("new event received (batch mode)")
 
 	return true
 }

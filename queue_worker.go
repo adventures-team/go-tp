@@ -10,16 +10,31 @@ import (
 	"gitlab.corp.mail.ru/mygo/tp.git/workerpool"
 )
 
-type queueWorker struct {
-	*Queue
-	events *eventList
-	zLog   *zerolog.Logger
-}
+type (
+	queuePoller struct {
+		*Queue
+		logger *zerolog.Logger
+	}
+
+	queueWorker struct {
+		*Queue
+		events *eventList
+		ctx    context.Context
+	}
+)
 
 var (
-	_ workerpool.Poller = &Queue{}
+	_ workerpool.Poller = queuePoller{}
 	_ workerpool.Worker = queueWorker{}
 )
+
+// NewPoller возвращает объект для опроса новых событий из WorkerPool
+func (q *Queue) NewPoller(logger *zerolog.Logger) workerpool.Poller {
+	return queuePoller{
+		Queue:  q,
+		logger: logger,
+	}
+}
 
 // EntityIDName - для WorkerPool. Возвращает "queue_id"
 func (*Queue) EntityIDName() string {
@@ -27,52 +42,53 @@ func (*Queue) EntityIDName() string {
 }
 
 // Poll - получение событий из указанной очереди из WorkerPool
-func (queue *Queue) Poll(queueID QueueIDType) workerpool.Worker {
-	zLog := queue.logger.With().Uint16("queue_id", queueID).Logger()
+func (qp queuePoller) Poll(queueID QueueIDType) workerpool.Worker {
+	logger := qp.logger.With().Uint16("queue_id", queueID).Logger()
+	ctx := withBaseLog(context.Background(), &logger)
 
 	// TODO handle panics
 
-	//zLog.Debug().Msg("queue poll")
+	// logger.Debug().Msg("queue poll")
 
-	events, err := queue.GetActiveEvents(queueID, 0)
+	events, err := qp.GetActiveEvents(ctx, queueID, 0)
 	if err != nil {
 		if errors.Is(err, queuedproto.ErrUnknownQueueType) {
 			return nil // отсутствие очереди в queued - это не ошибка, просто ещё не было событий
 		}
 
-		zLog.Err(err).Msg("error getting active events")
+		logger.Err(err).Msg("error getting active events")
 
 		return nil
 	}
 
 	if len(events.events) == 0 {
-		zLog.Trace().Msg("no events received")
+		logger.Trace().Msg("no events received")
 		return nil
 	}
 
 	return queueWorker{
-		Queue:  queue,
+		Queue:  qp.Queue,
 		events: events,
-		zLog:   &zLog,
+		ctx:    ctx,
 	}
 }
 
 func (qw queueWorker) Work() {
-	ctx := context.Background() // TODO зачем тут? мы же не будем грохать всю обработку в случае паники вне цикла?
+	logger := logFromCtx(qw.ctx)
 
 	defer func() { // TODO даже без обработки паник, хотя бы страхуемся обновлением всех обработанных событий и деферим необработанные
-		if err := qw.events.commit(); err != nil {
-			qw.zLog.Err(err).Msg("failed to apply events processing status")
+		if err := qw.events.commit(qw.ctx); err != nil {
+			logger.Err(err).Msg("failed to apply events processing status")
 		}
 	}()
 
-	if qw.zLog.GetLevel() <= zerolog.DebugLevel {
+	if logger.GetLevel() <= zerolog.DebugLevel {
 		eventIDs := make([]uint64, len(qw.events.events))
 		for i, handler := range qw.events.events {
 			eventIDs[i] = handler.GetEvent().id
 		}
 
-		qw.zLog.Debug().Int("events_count", len(qw.events.events)).Uints64("event_ids", eventIDs).Msg("queue poll status")
+		logger.Debug().Int("events_count", len(qw.events.events)).Uints64("event_ids", eventIDs).Msg("queue poll status")
 	}
 
 	for _, handler := range qw.events.events {
@@ -81,8 +97,8 @@ func (qw queueWorker) Work() {
 			continue
 		}
 
-		evLog := qw.zLog.With().Uint64("event_id", event.id).Logger()
-		evCtx := evLog.WithContext(ctx) // TODO cancel? timeouts?
+		evLog := logger.With().Uint64("event_id", event.id).Logger()
+		evCtx := evLog.WithContext(qw.ctx) // TODO cancel? timeouts?
 		// TODO handle panics, cancel context
 
 		evLog.Debug().Interface("event", handler).Msg("new event received")

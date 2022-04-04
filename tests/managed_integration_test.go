@@ -4,6 +4,7 @@
 package tptest
 
 import (
+	"context"
 	"os"
 	"syscall"
 	"testing"
@@ -55,9 +56,11 @@ func reloadConfig() {
 }
 
 func TestDeferred(t *testing.T) {
+	ctx := context.Background()
+
 	testManaged(t, func(qm *tp.QueueManager, cnt *counter) {
 		for i := 0; i < 10; i++ {
-			_, err := qm.Publish(&eventSleeper{
+			_, err := qm.Publish(ctx, &eventSleeper{
 				DurationMin: 3 * time.Second,
 				DurationMax: 5 * time.Second,
 				Percentage:  40,
@@ -79,12 +82,13 @@ func TestDeferred(t *testing.T) {
 }
 
 func TestOOM(t *testing.T) {
+	ctx := context.Background()
 	eventIDs := make([]uint64, 0, 50)
 	confLogLevel = "info"
 
 	qm := testManaged(t, func(qm *tp.QueueManager, cnt *counter) {
 		for i := 0; i < 50; i++ {
-			eventID, err := qm.Publish(&eventSleeper{
+			eventID, err := qm.Publish(ctx, &eventSleeper{
 				DurationMin: 5,
 				DurationMax: time.Duration(5.5 * float64(time.Second)),
 				Percentage:  10,
@@ -114,7 +118,7 @@ func TestOOM(t *testing.T) {
 
 	zLog.Info().Uints64("event_ids", eventIDs).Msg("deleting events")
 
-	if err := qm.Queued().Delete(testQueueSleeperID, eventIDs); err != nil {
+	if err := qm.Queued().Delete(ctx, testQueueSleeperID, eventIDs); err != nil {
 		t.Fatal(err)
 	}
 }

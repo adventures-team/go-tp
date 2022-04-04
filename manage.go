@@ -34,16 +34,18 @@ type (
 	QueueManager struct {
 		*Queue
 		pool          *workerpool.WorkerPool
+		logger        *zerolog.Logger
 		queuesRunning map[QueueIDType]bool
 		oldLogLevel   zerolog.Level
 		oldScale      float64
 	}
 )
 
-func NewQueueManager(queue *Queue, pool *workerpool.WorkerPool) *QueueManager {
+func NewQueueManager(queue *Queue, pool *workerpool.WorkerPool, logger *zerolog.Logger) *QueueManager {
 	return &QueueManager{
 		Queue:         queue,
 		pool:          pool,
+		logger:        logger,
 		queuesRunning: make(map[QueueIDType]bool),
 		oldLogLevel:   zerolog.Disabled,
 		oldScale:      -1, // невозможное значение, чтобы при первом запуске конфиг применился полностью

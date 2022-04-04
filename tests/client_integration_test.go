@@ -5,6 +5,7 @@ package tptest
 
 import (
 	"bytes"
+	"context"
 	"math/rand"
 	"testing"
 	"time"
@@ -15,14 +16,14 @@ import (
 func TestSingle(t *testing.T) {
 	testData := []byte("test event")
 
-	client := getTestClient(t)
+	ctx, client := getTestClient(t)
 
-	eventID, err := client.Publish(testRawQueueID, 0, 0, testData)
+	eventID, err := client.Publish(ctx, testRawQueueID, 0, 0, testData)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	events, err := client.GetByIDs(testRawQueueID, []uint64{eventID})
+	events, err := client.GetByIDs(ctx, testRawQueueID, []uint64{eventID})
 	if err != nil {
 		t.Fatalf("GetByIDs(%d): %v", eventID, err)
 	}
@@ -35,13 +36,13 @@ func TestSingle(t *testing.T) {
 		t.Fatalf("testData: got: %s, expected: %s", events.Items[0].Data, testData)
 	}
 
-	if err = client.Delete(testRawQueueID, []uint64{eventID}); err != nil {
+	if err = client.Delete(ctx, testRawQueueID, []uint64{eventID}); err != nil {
 		t.Fatal(err)
 	}
 }
 
 func TestBatch(t *testing.T) {
-	client := getTestClient(t)
+	ctx, client := getTestClient(t)
 
 	byID := map[uint64][]byte{}
 
@@ -52,7 +53,7 @@ func TestBatch(t *testing.T) {
 			t.Fatalf("rand.Read: %v", err)
 		}
 
-		eventID, err := client.Publish(testRawQueueID, 0, 0, testData)
+		eventID, err := client.Publish(ctx, testRawQueueID, 0, 0, testData)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -60,7 +61,7 @@ func TestBatch(t *testing.T) {
 		t.Logf("eventID=%d published", eventID)
 
 		if rand.Intn(2) == 1 {
-			err = client.Defer(testRawQueueID, testDefer, []uint64{eventID})
+			err = client.Defer(ctx, testRawQueueID, testDefer, []uint64{eventID})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -74,7 +75,7 @@ func TestBatch(t *testing.T) {
 	started := time.Now()
 	iter := 1
 
-	getItems(t, &iter, client, byID)
+	getItems(ctx, t, &iter, client, byID)
 
 	if len(byID) == 0 {
 		t.Fatal("all items received in one batch, looks like Defer is broken")
@@ -82,7 +83,7 @@ func TestBatch(t *testing.T) {
 
 	for {
 		time.Sleep(testPollDelay)
-		getItems(t, &iter, client, byID)
+		getItems(ctx, t, &iter, client, byID)
 
 		if len(byID) == 0 {
 			return
@@ -101,14 +102,14 @@ func TestBatch(t *testing.T) {
 	}
 }
 
-func getItems(t *testing.T, iter *int, client *queuedclient.QueuedClient, byID map[uint64][]byte) {
-	events, err := client.GetActive(testRawQueueID, 2*testBatchSize) // двойной размер - чтобы получить все задержанные значения от предыдущих (сфейливших/прерванных) запусков теста )
+func getItems(ctx context.Context, t *testing.T, iter *int, client *queuedclient.QueuedClient, byID map[uint64][]byte) {
+	events, err := client.GetActive(ctx, testRawQueueID, 2*testBatchSize) // двойной размер - чтобы получить все задержанные значения от предыдущих (сфейливших/прерванных) запусков теста )
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	for _, event := range events.Items {
-		if err = client.Delete(testRawQueueID, []uint64{event.ID}); err != nil {
+		if err = client.Delete(ctx, testRawQueueID, []uint64{event.ID}); err != nil {
 			t.Fatal(err)
 		}
 

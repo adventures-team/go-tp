@@ -32,12 +32,11 @@ var ErrEmptyResponse = errors.New("empty response from queued")
 type QueuedClient struct {
 	*queueconfig.Config
 	endpoint *iproto.Pool
-	logger   *zerolog.Logger
 	pid      uint32
 }
 
-// New инициализирует клиент, и коннектится к серверам, указанным в конфиге. Не вызывать, если не нужны сетевые коннекты
-func New(conf *queueconfig.Config, logger *zerolog.Logger) (*QueuedClient, error) {
+// Dial открывает соединения к серверам queued, указанным в онлайнконфе
+func Dial(ctx context.Context, conf *queueconfig.Config) (*QueuedClient, error) {
 	pid, err := getPID(conf.OnlineConf)
 	if err != nil {
 		return nil, err
@@ -54,7 +53,7 @@ func New(conf *queueconfig.Config, logger *zerolog.Logger) (*QueuedClient, error
 			continue
 		}
 
-		endpoint, err = iproto.Dial(context.Background(), "tcp", server, &iproto.PoolConfig{ // TODO прогрепать вообще все его опции по исходнику iproto
+		endpoint, err = iproto.Dial(ctx, "tcp", server, &iproto.PoolConfig{ // TODO прогрепать вообще все его опции по исходнику iproto
 			ConnectTimeout: timeout,
 			DialTimeout:    timeout,
 			RedialForever:  true,
@@ -77,14 +76,11 @@ func New(conf *queueconfig.Config, logger *zerolog.Logger) (*QueuedClient, error
 	return &QueuedClient{
 		Config:   conf,
 		endpoint: endpoint,
-		logger:   logger,
 		pid:      pid,
 	}, nil
 }
 
-func (qc *QueuedClient) makeReqRaw(req queuedproto.Request) ([]byte, error) {
-	ctx := context.Background() // TODO XXX
-
+func (qc *QueuedClient) makeReqRaw(ctx context.Context, req queuedproto.Request) ([]byte, error) {
 	reqBytes, err := iproto.Pack(req)
 	if err != nil {
 		return nil, err
@@ -93,8 +89,8 @@ func (qc *QueuedClient) makeReqRaw(req queuedproto.Request) ([]byte, error) {
 	return qc.endpoint.Call(ctx, req.Cmd(), reqBytes)
 }
 
-func (qc *QueuedClient) makeReq(req queuedproto.Request, respPtr interface{}) error {
-	respBytes, err := qc.makeReqRaw(req)
+func (qc *QueuedClient) makeReq(ctx context.Context, req queuedproto.Request, respPtr interface{}) error {
+	respBytes, err := qc.makeReqRaw(ctx, req)
 	if err != nil {
 		return err
 	}
@@ -117,12 +113,12 @@ func (qc *QueuedClient) makeReq(req queuedproto.Request, respPtr interface{}) er
 }
 
 // GetActive получает активные события из очереди queueID. Если count не задано (<=0), используется значение из конфига (fetch_batch_size)
-func (qc *QueuedClient) GetActive(queueID uint16, count int) (queuedproto.ItemList, error) {
+func (qc *QueuedClient) GetActive(ctx context.Context, queueID uint16, count int) (queuedproto.ItemList, error) {
 	if count <= 0 {
 		count = qc.FetchBatchSize(queueID)
 	}
 
-	respBytes, err := qc.makeReqRaw(queuedproto.ReqGetActive{
+	respBytes, err := qc.makeReqRaw(ctx, queuedproto.ReqGetActive{
 		StorageType: queueID,
 		Count:       uint32(count),
 	})
@@ -148,10 +144,10 @@ func (qc *QueuedClient) GetActive(queueID uint16, count int) (queuedproto.ItemLi
 	return result, nil
 }
 
-func (qc *QueuedClient) GetByIDs(queueID uint16, eventIDs []uint64) (queuedproto.ItemList, error) {
+func (qc *QueuedClient) GetByIDs(ctx context.Context, queueID uint16, eventIDs []uint64) (queuedproto.ItemList, error) {
 	result := queuedproto.ItemList{}
 
-	err := qc.makeReq(queuedproto.ReqGetItems{
+	err := qc.makeReq(ctx, queuedproto.ReqGetItems{
 		StorageType: queueID,
 		IDs:         eventIDs,
 	}, &result)
@@ -163,7 +159,7 @@ func (qc *QueuedClient) GetByIDs(queueID uint16, eventIDs []uint64) (queuedproto
 	return result, nil
 }
 
-func (qc *QueuedClient) Delete(queueID uint16, eventIDs []uint64) error {
+func (qc *QueuedClient) Delete(ctx context.Context, queueID uint16, eventIDs []uint64) error {
 	batchSize := qc.UpdateBatchSize(queueID)
 
 	for start := 0; start < len(eventIDs); start += batchSize {
@@ -174,7 +170,7 @@ func (qc *QueuedClient) Delete(queueID uint16, eventIDs []uint64) error {
 
 		batch := eventIDs[start:end]
 
-		err := qc.makeReq(queuedproto.ReqDeleteItems{
+		err := qc.makeReq(ctx, queuedproto.ReqDeleteItems{
 			StorageType: queueID,
 			IDs:         batch,
 		}, nil)
@@ -188,13 +184,13 @@ func (qc *QueuedClient) Delete(queueID uint16, eventIDs []uint64) error {
 }
 
 // Defer устанавливает задержку для указанных событий. Если задержка не указана (delay == 0), используется значение defer_time из конфига
-func (qc *QueuedClient) Defer(queueID uint16, delay time.Duration, eventIDs []uint64) error {
+func (qc *QueuedClient) Defer(ctx context.Context, queueID uint16, delay time.Duration, eventIDs []uint64) error {
 	if delay == 0 {
 		var err error
 		delay, err = qc.DeferTime(queueID)
 
 		if err != nil {
-			qc.logger.Warn().Err(err).Msg("config error (default is used)")
+			zerolog.Ctx(ctx).Warn().Err(err).Msg("config error (default is used)")
 		}
 	}
 
@@ -208,7 +204,7 @@ func (qc *QueuedClient) Defer(queueID uint16, delay time.Duration, eventIDs []ui
 
 		batch := eventIDs[start:end]
 
-		err := qc.makeReq(queuedproto.ReqUpdateItems{
+		err := qc.makeReq(ctx, queuedproto.ReqUpdateItems{
 			StorageType:   queueID,
 			UnixTime:      uint32(time.Now().Add(delay).Unix()),
 			IDs:           batch,
@@ -225,10 +221,10 @@ func (qc *QueuedClient) Defer(queueID uint16, delay time.Duration, eventIDs []ui
 
 // Publish отправляет событие в очередь. Если eventID == 0, queued создаёт новый ID, который возвращается.
 // Если в конфиге задано initial_delay, событие сработает с задержкой.
-func (qc *QueuedClient) Publish(queueID uint16, eventID uint64, flags uint32, eventData []byte) (uint64, error) {
+func (qc *QueuedClient) Publish(ctx context.Context, queueID uint16, eventID uint64, flags uint32, eventData []byte) (uint64, error) {
 	initialDelay, err := qc.InitialDelay(queueID)
 	if err != nil {
-		qc.logger.Warn().Err(err).Msg("config error (default is used)")
+		zerolog.Ctx(ctx).Warn().Err(err).Msg("config error (default is used)")
 	}
 
 	req := queuedproto.ReqAddItem{
@@ -241,13 +237,9 @@ func (qc *QueuedClient) Publish(queueID uint16, eventID uint64, flags uint32, ev
 		Flags:       flags,
 	}
 
-	err = qc.makeReq(req, &eventID)
+	err = qc.makeReq(ctx, req, &eventID)
 
-	if err != nil {
-		if flags&queuedproto.FlagIgnoreWrongItem != 0 && errors.Is(err, queuedproto.ErrWrongItem) && eventID != 0 { // вообще непонятно, как эта ошибка может возникнуть при eventID == 0 - поэтому, если такое случится, пусть падает
-			return eventID, nil
-		}
-
+	if err != nil && !(flags&queuedproto.FlagIgnoreWrongItem != 0 && errors.Is(err, queuedproto.ErrWrongItem) && eventID != 0) { // вообще непонятно, как эта ошибка может возникнуть при eventID == 0 - поэтому, если такое случится, пусть падает
 		return 0, fmt.Errorf("Publish: queue_id=%d: %w", queueID, err)
 	}
 

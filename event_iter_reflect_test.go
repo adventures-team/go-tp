@@ -7,6 +7,7 @@
 package tp
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -32,25 +33,26 @@ func panicsWithErrorIs(t *testing.T, err error, f func(), name string) {
 
 func TestNextPanic(t *testing.T) {
 	ev := getTestEvents(t)
+	ctx := context.Background()
 
 	assert.PanicsWithValue(t, ErrPointerRequired, func() {
 		// Нужен указатель на указатель, а не просто указатель на событие.
 		// Думаю, это будет ошибка номер 1 в обработчиках :)
-		Next(ev)
+		Next(&ctx, ev)
 	})
 
 	assert.PanicsWithValue(t, ErrPointerRequired, func() {
 		// Передать событие по значению, при вызове метода Handle по указателю - более тонкое извращение
-		Next(*ev)
+		Next(&ctx, *ev)
 	})
 
 	panicsWithErrorIs(t, ErrEventTypesDiffer, func() {
 		ev.next = &testAnotherEvent{}
-		Next(&ev)
+		Next(&ctx, &ev)
 	}, "different event types in batch")
 
 	assert.PanicsWithValue(t, ErrMisconstructedEvent, func() {
 		ev.next = (*testEvent)(nil)
-		Next(&ev)
+		Next(&ctx, &ev)
 	})
 }

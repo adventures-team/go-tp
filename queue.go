@@ -19,7 +19,6 @@ type (
 	// Queue - высокоуровневое API очередей. Содержит информацию об обрабатываемых очередях (см. Register)
 	Queue struct {
 		QueueGroup
-		logger *zerolog.Logger
 		client *queuedclient.QueuedClient
 	}
 
@@ -73,16 +72,15 @@ type (
 	incompatible struct{}
 )
 
-// New создаёт объект для высокоуровневой работы с API очередей. Инициализирует клиент очередей (queuedclient) с указанным конфигом.
-func New(conf *queueconfig.Config, logger *zerolog.Logger) (*Queue, error) {
-	client, err := queuedclient.New(conf, logger)
+// Init создаёт объект для высокоуровневой работы с API очередей. Инициализирует клиент очередей (queuedclient) с указанным конфигом.
+func Init(ctx context.Context, conf *queueconfig.Config) (*Queue, error) {
+	client, err := queuedclient.Dial(ctx, conf)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Queue{
 		client: client,
-		logger: logger,
 	}, nil
 }
 
@@ -104,7 +102,7 @@ func (queue *Queue) Queued() *queuedclient.QueuedClient {
 //
 // Если тип события поддерживает интерфейс IgnoreDuplicateItems, и метод IgnoreDuplicateItems возвращает true, дубли при
 // совпадении ID события игнорируются (также подавляется ошибка в логе queued флагом queuedproto.FlagIgnoreWrongItem).
-func (queue *Queue) Publish(data Handler) (eventID uint64, err error) {
+func (queue *Queue) Publish(ctx context.Context, data Handler) (eventID uint64, err error) {
 	queueID, eventID, eventData, err := queue.Encode(data)
 	if err != nil {
 		return 0, err
@@ -116,26 +114,26 @@ func (queue *Queue) Publish(data Handler) (eventID uint64, err error) {
 		flags |= queuedproto.FlagIgnoreWrongItem
 	}
 
-	return queue.client.Publish(queueID, eventID, flags, eventData)
+	return queue.client.Publish(ctx, queueID, eventID, flags, eventData)
 }
 
 // TODO тут нужны высокоуровневые методы Delete и Defer, чтобы не приходилось собирать вручную айдишник и лезть в низкоуровневый QueuedClient
 
 // GetActiveEvents получает активные события (наступило время срабатывания) в декодированном виде из очереди queueID. Если count не задано (==0), используется значение из конфига (fetch_batch_size)
-func (queue *Queue) GetActiveEvents(queueID QueueIDType, count int) (*eventList, error) {
-	return queue.eventListFromItems(queueID, func() (queuedproto.ItemList, error) {
-		return queue.client.GetActive(queueID, count)
+func (queue *Queue) GetActiveEvents(ctx context.Context, queueID QueueIDType, count int) (*eventList, error) {
+	return queue.eventListFromItems(ctx, queueID, func() (queuedproto.ItemList, error) {
+		return queue.client.GetActive(ctx, queueID, count)
 	})
 }
 
 // GetEventsByIDs получает события в декодированном виде с указанными ID из очереди queueID
-func (queue *Queue) GetEventsByIDs(queueID QueueIDType, eventIDs []uint64) (*eventList, error) {
-	return queue.eventListFromItems(queueID, func() (queuedproto.ItemList, error) {
-		return queue.client.GetByIDs(queueID, eventIDs)
+func (queue *Queue) GetEventsByIDs(ctx context.Context, queueID QueueIDType, eventIDs []uint64) (*eventList, error) {
+	return queue.eventListFromItems(ctx, queueID, func() (queuedproto.ItemList, error) {
+		return queue.client.GetByIDs(ctx, queueID, eventIDs)
 	})
 }
 
-func (queue *Queue) eventListFromItems(queueID QueueIDType, get func() (queuedproto.ItemList, error)) (*eventList, error) {
+func (queue *Queue) eventListFromItems(ctx context.Context, queueID QueueIDType, get func() (queuedproto.ItemList, error)) (*eventList, error) {
 	byVersion, ok := queue.incoming[queueID]
 	if !ok {
 		return nil, fmt.Errorf("%w %d", ErrUnknownQueue, queueID)
@@ -161,8 +159,7 @@ func (queue *Queue) eventListFromItems(queueID QueueIDType, get func() (queuedpr
 
 	for _, item := range items.Items {
 		if len(item.Data) == 0 {
-			// TODO пофиксить логи - протащить контекст всюду, или куда надо, решить, как будет не громоздко, и при этом без лишнего разнообразия, вызывающего путаницу
-			queue.logger.Error().Uint16("queue_id", queueID).Uint64("event_id", item.ID).Msg("empty event received")
+			zerolog.Ctx(ctx).Error().Uint16("queue_id", queueID).Uint64("event_id", item.ID).Msg("empty event received")
 			unsupported = append(unsupported, item.ID)
 
 			continue
@@ -172,7 +169,7 @@ func (queue *Queue) eventListFromItems(queueID QueueIDType, get func() (queuedpr
 		hinfo, ok := byVersion[version]
 
 		if !ok {
-			queue.logger.Error().Uint16("queue_id", queueID).Uint64("event_id", item.ID).Uint8("version", version).Msg("unsupported version")
+			zerolog.Ctx(ctx).Error().Uint16("queue_id", queueID).Uint64("event_id", item.ID).Uint8("version", version).Msg("unsupported version")
 			unsupported = append(unsupported, item.ID)
 
 			continue
@@ -190,7 +187,7 @@ func (queue *Queue) eventListFromItems(queueID QueueIDType, get func() (queuedpr
 		}
 
 		if err := encodings.Decode(hinfo.format, item.Data, handler); err != nil {
-			queue.logger.Err(err).Uint16("queue_id", queueID).Uint64("event_id", item.ID).Uint8("version", version).Send()
+			zerolog.Ctx(ctx).Err(err).Uint16("queue_id", queueID).Uint64("event_id", item.ID).Uint8("version", version).Send()
 			unsupported = append(unsupported, item.ID)
 
 			continue
@@ -210,8 +207,8 @@ func (queue *Queue) eventListFromItems(queueID QueueIDType, get func() (queuedpr
 	}
 
 	if len(unsupported) != 0 {
-		if err := queue.client.Defer(queueID, 0, unsupported); err != nil {
-			queue.logger.Err(err).Uint16("queue_id", queueID).Uints64("event_ids", unsupported).Msg("failed to defer items")
+		if err := queue.client.Defer(ctx, queueID, 0, unsupported); err != nil {
+			zerolog.Ctx(ctx).Err(err).Uint16("queue_id", queueID).Uints64("event_ids", unsupported).Msg("failed to defer items")
 		}
 	}
 

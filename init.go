@@ -1,6 +1,7 @@
 package tp
 
 import (
+	"context"
 	"flag"
 
 	"github.com/rs/zerolog"
@@ -59,8 +60,9 @@ func (conf Config) InitProcessor() *QueueManager {
 	}
 
 	instanceLogger := conf.Logger.With().Str("instance", conf.InstanceName).Logger()
+	ctx := instanceLogger.WithContext(context.Background())
 
-	queue, err := New(queueconfig.New(conf.Config, conf.InstanceName), &instanceLogger)
+	queue, err := Init(ctx, queueconfig.New(conf.Config, conf.InstanceName))
 
 	if err != nil {
 		instanceLogger.Fatal().Err(err).Msg("error initializing queue processor")
@@ -68,7 +70,11 @@ func (conf Config) InitProcessor() *QueueManager {
 
 	instanceLogger.Info().Msg("queue processor started")
 
-	return NewQueueManager(queue, workerpool.New(queue, &instanceLogger))
+	return NewQueueManager(
+		queue,
+		workerpool.New(queue.NewPoller(&instanceLogger), &instanceLogger),
+		&instanceLogger,
+	)
 }
 
 // InitProducer - инициализация типового продюсера (веб-сервис, и т.д.):
@@ -117,7 +123,9 @@ func (conf Config) InitProducer() *Queue {
 		conf.InstanceName = DefaultProducerInstance
 	}
 
-	queue, err := New(queueconfig.New(conf.Config, conf.InstanceName), conf.Logger)
+	ctx := conf.Logger.WithContext(context.Background())
+	queue, err := Init(ctx, queueconfig.New(conf.Config, conf.InstanceName))
+
 	if err != nil {
 		conf.Logger.Fatal().Err(err).Msg("error initializing queue processor")
 	}

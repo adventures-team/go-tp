@@ -90,7 +90,7 @@ func (ev *eventWithAddons) Handle(ctx context.Context) error {
 	ev.Done()
 	ev.Counter.Done()
 
-	for nev := ev; tp.Next(&nev); {
+	for nev := ev; tp.Next(&ctx, &nev); {
 		zerolog.Ctx(ctx).Info().Interface("event", nev).Msgf("Next: event_id=0x%016X", nev.ID())
 		nev.Done()
 		ev.Counter.Done()
@@ -105,7 +105,7 @@ func (ev *eventWithAddonsV2) Handle(ctx context.Context) error {
 	ev.Done()
 	ev.Counter.Done()
 
-	for nev := ev; tp.Next(&nev); {
+	for nev := ev; tp.Next(&ctx, &nev); {
 		zerolog.Ctx(ctx).Info().Interface("event", nev).Msgf("V2 Next: event_id=0x%016X", nev.ID())
 		nev.Done()
 		ev.Counter.Done()

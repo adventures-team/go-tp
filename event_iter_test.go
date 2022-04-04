@@ -8,9 +8,8 @@ import (
 	"testing"
 
 	"github.com/rs/zerolog"
+	zLog "github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/assert"
-
-	"gitlab.corp.mail.ru/mygo/utils.git/mylog"
 )
 
 type (
@@ -58,12 +57,10 @@ func getTestEvents(t *testing.T) *testEvent {
 
 	evl := &eventList{
 		queueID: 12345,
-		queue: &Queue{
-			logger: mylog.InitTestZerolog(t),
-		},
+		queue:   &Queue{},
 	}
 
-	setLogLevel(evl.queue.logger, zerolog.Disabled)
+	setLogLevel(&zLog.Logger, zerolog.Disabled)
 
 	for i := 0; i < 10; i++ {
 		ev := &testEvent{}
@@ -78,10 +75,11 @@ func getTestEvents(t *testing.T) *testEvent {
 
 func TestNext(t *testing.T) {
 	ev := getTestEvents(t)
+	ctx := context.Background()
 
-	for Next(&ev) { // просто тестируем на отсутствие паник
+	for Next(&ctx, &ev) { // просто тестируем на отсутствие паник
 	}
 
 	noHandler := &testUnhandledEvent{}
-	assert.Equal(t, false, Next(&noHandler))
+	assert.Equal(t, false, Next(&ctx, &noHandler))
 }

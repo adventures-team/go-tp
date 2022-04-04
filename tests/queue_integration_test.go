@@ -4,6 +4,7 @@
 package tptest
 
 import (
+	"context"
 	"testing"
 
 	"github.com/onlineconf/onlineconf-go"
@@ -17,10 +18,11 @@ import (
 
 func TestQueueWorker(t *testing.T) {
 	logger := mylog.InitTestZerolog(t)
+	ctx := logger.WithContext(context.Background())
 
 	conf := oconf.NewSubtree(onlineconf.GetModule("TREE"), testConfPrefix)
 	queueConf := queueconfig.New(conf, testInstanceName)
-	queue, err := tp.New(queueConf, logger)
+	queue, err := tp.Init(ctx, queueConf)
 
 	if err != nil {
 		t.Fatal("error initializing queue processor:", err)
@@ -38,7 +40,8 @@ func TestQueueWorker(t *testing.T) {
 		t.Fatal("Register failed:", err)
 	}
 
-	pool := workerpool.New(queue, logger)
+	pool := workerpool.New(queue.NewPoller(logger), logger)
+
 	pool.SetWorkerCount(testQueueWithAddonsID, 5)
 
 	ev := &eventWithAddons{
@@ -51,12 +54,12 @@ func TestQueueWorker(t *testing.T) {
 		ExternalID:   22,
 	}
 
-	eventID, err := queue.Publish(ev)
+	eventID, err := queue.Publish(ctx, ev)
 	if err != nil {
 		t.Fatalf("Publish(%v) failed: %v", ev, err)
 	}
 
-	eventID, err = queue.Publish(ev)
+	eventID, err = queue.Publish(ctx, ev)
 	if err != nil {
 		t.Fatalf("Publish(%v) failed with IgnoreDuplicateItems set: %v", ev, err)
 	}
@@ -67,14 +70,14 @@ func TestQueueWorker(t *testing.T) {
 		ev.TrackID++
 		ev.ExternalID++
 
-		eventID, err = queue.Publish(ev)
+		eventID, err = queue.Publish(ctx, ev)
 		if err != nil {
 			t.Fatalf("Publish(%v) failed set: %v", ev, err)
 		}
 
 		logger.Info().Msgf("event_id=0x%016X published", eventID)
 
-		eventID, err = queue.Publish(evV2)
+		eventID, err = queue.Publish(ctx, evV2)
 		if err != nil {
 			t.Fatalf("Publish(%v) failed set: %v", ev, err)
 		}
