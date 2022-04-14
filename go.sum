@@ -487,10 +487,10 @@ github.com/yuin/goldmark v1.2.1/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9dec
 github.com/yuin/goldmark v1.3.5/go.mod h1:mwnBkeHKe2W/ZEtQ+71ViKU8L12m81fl3OWwC1Zlc8k=
 github.com/yuin/goldmark v1.4.0/go.mod h1:mwnBkeHKe2W/ZEtQ+71ViKU8L12m81fl3OWwC1Zlc8k=
 gitlab.corp.mail.ru/e-mail-ru/easygo v0.0.0-20220401110100-120766db59c3/go.mod h1:Tthzl5QY1jBCBhOKFACHFSJx0O+fQfTcHLrKmYVlS7M=
-gitlab.corp.mail.ru/e-mail-ru/easygo v0.0.0-20220404154448-4ac02f1976fe h1:BGV1t6zzTxlbCaMq8KUPecTJ/vEx7ue/ZYpfVIoSx8I=
-gitlab.corp.mail.ru/e-mail-ru/easygo v0.0.0-20220404154448-4ac02f1976fe/go.mod h1:Tthzl5QY1jBCBhOKFACHFSJx0O+fQfTcHLrKmYVlS7M=
-gitlab.corp.mail.ru/mygo/queuedproto.git v0.0.2-0.20220401155158-037f9e3acd8c h1:u3zIROfPaK3UwM0eLRuiKcI8BIU72r2Qan+xp8pgSSk=
-gitlab.corp.mail.ru/mygo/queuedproto.git v0.0.2-0.20220401155158-037f9e3acd8c/go.mod h1:4mQvQlgVT3OpZIH2DxO+QHliIqEecg0ikKxicvHrpu4=
+gitlab.corp.mail.ru/e-mail-ru/easygo v0.0.0-20220407134138-1d7b80a0721f h1:ukCwp0tdt9kgr23e9jNjnZV7muRTNn9oitiy+AC24SY=
+gitlab.corp.mail.ru/e-mail-ru/easygo v0.0.0-20220407134138-1d7b80a0721f/go.mod h1:Tthzl5QY1jBCBhOKFACHFSJx0O+fQfTcHLrKmYVlS7M=
+gitlab.corp.mail.ru/mygo/queuedproto.git v0.0.2-0.20220412130758-28b1905cc780 h1:my6wUcqg5l0dcKl0Ir1+wayR4ZeXW11H5/q42hyunB0=
+gitlab.corp.mail.ru/mygo/queuedproto.git v0.0.2-0.20220412130758-28b1905cc780/go.mod h1:4mQvQlgVT3OpZIH2DxO+QHliIqEecg0ikKxicvHrpu4=
 gitlab.corp.mail.ru/mygo/utils.git v0.0.5-0.20220404125527-de8e22d4b145 h1:p72cqsWOfxRchWASDFkMKOldFiwAw7qGVTPG+A4J4ME=
 gitlab.corp.mail.ru/mygo/utils.git v0.0.5-0.20220404125527-de8e22d4b145/go.mod h1:7StfmMtkw/mQMvDVvY5ZVSM3MegYMFuqvVJliWAZD1k=
 go.etcd.io/bbolt v1.3.3/go.mod h1:IbVyRI1SCnLcuJnV2u8VeU0CEYM7e686BmAb1XKL+uU=

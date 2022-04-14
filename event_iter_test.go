@@ -10,6 +10,8 @@ import (
 	"github.com/rs/zerolog"
 	zLog "github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/assert"
+
+	"gitlab.corp.mail.ru/mygo/queuedproto.git"
 )
 
 type (
@@ -64,7 +66,7 @@ func getTestEvents(t *testing.T) *testEvent {
 
 	for i := 0; i < 10; i++ {
 		ev := &testEvent{}
-		ev.id = uint64(i)
+		ev.id = queuedproto.EventID{ID: 1, Shard: 1}
 		ev.next = next
 		ev.list = evl
 		next = ev

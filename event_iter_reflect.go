@@ -95,7 +95,7 @@ func Next(ctxPtr *context.Context, evPtr interface{}) bool {
 	nextEv := next.GetEvent()
 	nextEv.flags |= evIsProcessed
 
-	nextEventLogger(ctxPtr, nextEv.id).Debug().Uint16("queue_id", nextEv.QueueID()).Uint64("event_id", nextEv.id).Interface("event", evPtr).Msg("new event received (batch mode)")
+	nextEventLogger(ctxPtr, nextEv.id).Debug().Interface("event", evPtr).Msg("new event received (batch mode)")
 
 	return true
 }

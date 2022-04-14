@@ -64,7 +64,7 @@ func (qm *QueueManager) forceReload() {
 func (qm *QueueManager) applyConfig() error {
 	logLevel, err := qm.client.LogLevel()
 	if err != nil {
-		qm.logger.Err(err).Str("log_level", logLevel.String()).Msg("using the default log level")
+		qm.logger.Err(err).Stringer("log_level", logLevel).Msg("using the default log level")
 	}
 
 	if qm.oldLogLevel != logLevel {
@@ -176,11 +176,13 @@ func (qm *QueueManager) applyMemLimits() (float64, error) {
 
 		if softLimit != 0 && memstats.Sys > softLimit {
 			scale, err = qm.client.OOMSoftDownscaleRate()
-			if err != nil {
-				qm.logger.Err(err).Msg("using the default scale=1")
-			}
+			if qm.oldScale != scale {
+				if err != nil {
+					qm.logger.Err(err).Msgf("using the default scale %g", scale)
+				}
 
-			qm.logger.Warn().Uint64("mem_usage", memstats.Sys).Uint64("oom_soft_limit", softLimit).Float64("scale", scale).Msg("memory usage is over the soft limit, downscaling worker count")
+				qm.logger.Warn().Uint64("mem_usage", memstats.Sys).Uint64("oom_soft_limit", softLimit).Float64("scale", scale).Msg("memory usage is over the soft limit, downscaling worker count")
+			}
 		}
 	}
 
@@ -249,8 +251,8 @@ func (qm *QueueManager) Manage() {
 		return
 	}
 
-	go qm.manage()
-	qm.pool.Manage()
+	go qm.manage()   // менеджер конфига запускается асинхронно, т.к. просто посылает команды пулу
+	qm.pool.Manage() // пул должен запускаться синхронно, чтобы выход из Manage происходил после окончания всей обработки
 }
 
 func (qm *QueueManager) manage() {

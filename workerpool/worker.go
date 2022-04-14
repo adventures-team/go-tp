@@ -6,17 +6,17 @@ import (
 	"gitlab.corp.mail.ru/mygo/utils.git/mylog"
 )
 
-func (wp *WorkerPool) needExit() bool {
+func (wp *WorkerPool) needShrink() bool {
 	wp.lock.Lock()
 	defer wp.lock.Unlock()
 
-	needExit := wp.goroutinesRunning > wp.goroutinesRequired
+	needShrink := wp.goroutinesRunning > wp.goroutinesRequired
 
-	if needExit {
+	if needShrink {
 		wp.goroutinesRunning--
 	}
 
-	return needExit
+	return needShrink
 }
 
 func (wp *WorkerPool) workerGoroutine() {
@@ -30,7 +30,7 @@ func (wp *WorkerPool) workerGoroutine() {
 		}
 	}()
 
-	for !wp.needExit() {
+	for !wp.needShrink() {
 		select {
 		case jobID := <-wp.jobChan:
 			func() { // "лишний" defer, чтобы в случае паники всё равно ушло событие завершения работы

@@ -9,6 +9,7 @@ import (
 
 	"github.com/onlineconf/onlineconf-go"
 
+	"gitlab.corp.mail.ru/mygo/queuedproto.git"
 	"gitlab.corp.mail.ru/mygo/tp.git"
 	"gitlab.corp.mail.ru/mygo/tp.git/queueconfig"
 	"gitlab.corp.mail.ru/mygo/utils.git/mylog"
@@ -37,9 +38,9 @@ func TestNoHandler(t *testing.T) {
 		t.Fatal("Publish:", err)
 	}
 
-	logger.Info().Uint64("event_id", eventID).Msg("Publish OK, deleting event")
+	logger.Info().Stringer("event_id", eventID).Msg("Publish OK, deleting event")
 
-	if err = queue.Queued().Delete(ctx, testQueueWithoutHandlerID, []uint64{eventID}); err != nil {
+	if err = queue.Queued().Delete(ctx, testQueueWithoutHandlerID, []queuedproto.EventID{eventID}); err != nil {
 		t.Fatal("Delete:", err)
 	}
 }

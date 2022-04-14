@@ -18,7 +18,7 @@ import (
 type (
 	// Queue - высокоуровневое API очередей. Содержит информацию об обрабатываемых очередях (см. Register)
 	Queue struct {
-		QueueGroup
+		queueGroup
 		client *queuedclient.QueuedClient
 	}
 
@@ -56,6 +56,19 @@ type (
 	// Перловый аналог называется так же.
 	IgnoreDuplicateItems interface {
 		IgnoreDuplicateItems() bool
+	}
+
+	// Hasher - переопределив метод Hash у своего типа события, можно задать произвольный алгоритм хеширования (default: crc32 от строкового десятичного представления ID)
+	//
+	// Hasher и Sharder используются только для типов событий, поддерживающих EventIDBuilder (задающих ID события сами).
+	// Иначе будет использовано балансирование между шардами (даже если задать эти методы у себя).
+	Hasher interface {
+		Hash() uint64
+	}
+
+	// Sharder - переопределив метод Shard у своего типа события, можно задать произвольный алгоритм шардирования (default: остаток от деления)
+	Sharder interface {
+		Shard(hash uint64) uint
 	}
 
 	// DisableMarshaler - встраивание этого типа в структуру отключает сериализацию средствами iproto
@@ -102,19 +115,21 @@ func (queue *Queue) Queued() *queuedclient.QueuedClient {
 //
 // Если тип события поддерживает интерфейс IgnoreDuplicateItems, и метод IgnoreDuplicateItems возвращает true, дубли при
 // совпадении ID события игнорируются (также подавляется ошибка в логе queued флагом queuedproto.FlagIgnoreWrongItem).
-func (queue *Queue) Publish(ctx context.Context, data Handler) (eventID uint64, err error) {
-	queueID, eventID, eventData, err := queue.Encode(data)
+func (queue *Queue) Publish(ctx context.Context, event Handler) (eventID queuedproto.EventID, err error) {
+	eventData, err := queue.Encode(event)
 	if err != nil {
-		return 0, err
+		return queuedproto.EventID{}, err
 	}
 
 	flags := uint32(0)
 
-	if ign, ok := data.(IgnoreDuplicateItems); ok && ign.IgnoreDuplicateItems() {
+	if ign, ok := event.(IgnoreDuplicateItems); ok && ign.IgnoreDuplicateItems() {
 		flags |= queuedproto.FlagIgnoreWrongItem
 	}
 
-	return queue.client.Publish(ctx, queueID, eventID, flags, eventData)
+	ev := event.GetEvent() // кто будет отсюда копипастить )) для своего события получать Event методом GetEvent не надо, т.к. структура Event уже вложена в свой тип события. можно обращаться к ID() напрямую.
+
+	return queue.client.Publish(ctx, ev.QueueID(), ev.ID(), flags, eventData)
 }
 
 // TODO тут нужны высокоуровневые методы Delete и Defer, чтобы не приходилось собирать вручную айдишник и лезть в низкоуровневый QueuedClient
@@ -127,7 +142,7 @@ func (queue *Queue) GetActiveEvents(ctx context.Context, queueID QueueIDType, co
 }
 
 // GetEventsByIDs получает события в декодированном виде с указанными ID из очереди queueID
-func (queue *Queue) GetEventsByIDs(ctx context.Context, queueID QueueIDType, eventIDs []uint64) (*eventList, error) {
+func (queue *Queue) GetEventsByIDs(ctx context.Context, queueID QueueIDType, eventIDs []queuedproto.EventID) (*eventList, error) {
 	return queue.eventListFromItems(ctx, queueID, func() (queuedproto.ItemList, error) {
 		return queue.client.GetByIDs(ctx, queueID, eventIDs)
 	})
@@ -154,13 +169,13 @@ func (queue *Queue) eventListFromItems(ctx context.Context, queueID QueueIDType,
 	}
 
 	evl.events = make([]Handler, 0, len(items.Items))
-	unsupported := make([]uint64, 0, len(items.Items))
+	unsupported := make([]queuedproto.EventID, 0, len(items.Items))
 	prevHandler := make(map[VersionType]*Handler, MaxVersion)
 
 	for _, item := range items.Items {
 		if len(item.Data) == 0 {
-			zerolog.Ctx(ctx).Error().Uint16("queue_id", queueID).Uint64("event_id", item.ID).Msg("empty event received")
-			unsupported = append(unsupported, item.ID)
+			zerolog.Ctx(ctx).Error().Uint16("queue_id", queueID).Stringer("event_id", item).Msg("empty event received")
+			unsupported = append(unsupported, item.EventID)
 
 			continue
 		}
@@ -169,8 +184,8 @@ func (queue *Queue) eventListFromItems(ctx context.Context, queueID QueueIDType,
 		hinfo, ok := byVersion[version]
 
 		if !ok {
-			zerolog.Ctx(ctx).Error().Uint16("queue_id", queueID).Uint64("event_id", item.ID).Uint8("version", version).Msg("unsupported version")
-			unsupported = append(unsupported, item.ID)
+			zerolog.Ctx(ctx).Error().Uint16("queue_id", queueID).Stringer("event_id", item).Uint8("version", version).Msg("unsupported version")
+			unsupported = append(unsupported, item.EventID)
 
 			continue
 		}
@@ -187,14 +202,14 @@ func (queue *Queue) eventListFromItems(ctx context.Context, queueID QueueIDType,
 		}
 
 		if err := encodings.Decode(hinfo.format, item.Data, handler); err != nil {
-			zerolog.Ctx(ctx).Err(err).Uint16("queue_id", queueID).Uint64("event_id", item.ID).Uint8("version", version).Send()
-			unsupported = append(unsupported, item.ID)
+			zerolog.Ctx(ctx).Err(err).Uint16("queue_id", queueID).Stringer("event_id", item).Uint8("version", version).Send()
+			unsupported = append(unsupported, item.EventID)
 
 			continue
 		}
 
 		ev := handler.GetEvent()
-		ev.id = item.ID
+		ev.id = item.EventID
 		ev.list = evl
 
 		if prevPtr, ok := prevHandler[version]; ok {
@@ -208,7 +223,7 @@ func (queue *Queue) eventListFromItems(ctx context.Context, queueID QueueIDType,
 
 	if len(unsupported) != 0 {
 		if err := queue.client.Defer(ctx, queueID, 0, unsupported); err != nil {
-			zerolog.Ctx(ctx).Err(err).Uint16("queue_id", queueID).Uints64("event_ids", unsupported).Msg("failed to defer items")
+			zerolog.Ctx(ctx).Err(err).Uint16("queue_id", queueID).Interface("event_ids", unsupported).Msg("failed to defer items")
 		}
 	}
 

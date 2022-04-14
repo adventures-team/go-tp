@@ -2,7 +2,11 @@ package tp
 
 import (
 	"context"
+	"hash/crc32"
+	"strconv"
 	"time"
+
+	"gitlab.corp.mail.ru/mygo/queuedproto.git"
 )
 
 const (
@@ -21,10 +25,10 @@ type (
 	// TODO убрать nolint, когда пофиксят https://github.com/golangci/golangci-lint/issues/826
 	//nolint:structcheck
 	eventInternal struct {
-		id    uint64     // сделано приватным (с аксессором), чтобы не вводить юзера в заблуждение (что можно как-то хитро проставить это поле, и это на что-то повлияет при отправке)
-		list  *eventList // список всех событий, полученных одной пачкой (т.е. разные версии для той же очереди)
-		next  Handler    // следующее событие того же типа (т.е. той же версии для той же очереди)
-		flags uint8      // см. константы ev* выше
+		id    queuedproto.EventID // сделано приватным (с аксессором), чтобы не вводить юзера в заблуждение (что можно как-то хитро проставить это поле, и это на что-то повлияет при отправке)
+		list  *eventList          // список всех событий, полученных одной пачкой (т.е. разные версии для той же очереди)
+		next  Handler             // следующее событие того же типа (т.е. той же версии для той же очереди)
+		flags uint8               // см. константы ev* выше
 	}
 
 	// eventList - список событий, прилетающих из queued для одной очереди. В списке могут быть события разных версий.
@@ -35,19 +39,36 @@ type (
 	}
 )
 
+var (
+	_ Hasher  = &Event{}
+	_ Sharder = &Event{}
+)
+
 // GetEvent - доступ к кишкам события из юзерской структуры
 func (ev *Event) GetEvent() *Event {
 	return ev
 }
 
-// ID события
-func (ev *Event) ID() uint64 {
+// ID события, состоящий из собственно ID и номера шарда (Shard).
+//
+// Поддерживает интерфейс fmt.Stringer (для преобразования в строку можно воспользоваться методом queuedproto.EventID.String)
+func (ev *Event) ID() queuedproto.EventID {
 	return ev.id
 }
 
 // QueueID - ID очереди, из которой прилетело событие
 func (ev *Event) QueueID() QueueIDType {
 	return ev.list.queueID
+}
+
+// Hash - возвращает хэш от ID события, совместимый с перловыми очередями (crc32 от строкового десятичного представления ID)
+func (ev *Event) Hash() uint64 {
+	return uint64(crc32.ChecksumIEEE([]byte(strconv.FormatUint(ev.id.ID, 10))))
+}
+
+// Shard - распределяет событие по шардам в зависимости от хеша. Совместимая с перлом версия (остаток от деления).
+func (ev *Event) Shard(hash uint64) uint {
+	return uint(hash % uint64(ev.list.queue.client.ShardNum()))
 }
 
 // Done помечает событие обработанным.
@@ -63,7 +84,7 @@ func (ev *Event) Done() {
 // Время задержки устанавливается сразу же. По завершении цикла обработки событиям, для которых не был вызван метод Done
 // либо Defer, проставляется задержка по умолчанию.
 func (ev *Event) Defer(ctx context.Context, delay time.Duration) error {
-	if err := ev.list.queue.client.Defer(ctx, ev.list.queueID, delay, []uint64{ev.id}); err != nil {
+	if err := ev.list.queue.client.Defer(ctx, ev.list.queueID, delay, []queuedproto.EventID{ev.id}); err != nil {
 		return err
 	}
 
@@ -73,7 +94,7 @@ func (ev *Event) Defer(ctx context.Context, delay time.Duration) error {
 }
 
 // Publish - враппер к Queue.Publish (см. его доку для описания параметра и возвращаемого значения). Отправляет новое событие в очередь, указанную при регистрации для этого типа методом Queue.Register
-func (ev *Event) Publish(ctx context.Context, data Handler) (eventID uint64, err error) {
+func (ev *Event) Publish(ctx context.Context, data Handler) (eventID queuedproto.EventID, err error) {
 	return ev.list.queue.Publish(ctx, data)
 }
 
@@ -105,8 +126,8 @@ func (ev *Event) BatchLen() int {
 // commit удаляет события, для которых был вызван метод Done, а также проставляет дефолтный дефер (defer_time из конфига)
 // всем событиям из списка, которые не были удалены, и для которых не был вызван метод Defer с кастомным временем.
 func (evl *eventList) commit(ctx context.Context) error {
-	deleteEventIDs := make([]uint64, 0, len(evl.events))
-	deferEventIDs := make([]uint64, 0, len(evl.events))
+	deleteEventIDs := make([]queuedproto.EventID, 0, len(evl.events))
+	deferEventIDs := make([]queuedproto.EventID, 0, len(evl.events))
 
 	for _, handler := range evl.events {
 		if ev := handler.GetEvent(); ev.flags&evIsDeleted != 0 {

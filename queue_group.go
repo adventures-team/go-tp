@@ -6,14 +6,17 @@ import (
 
 	"gitlab.corp.mail.ru/mygo/queuedproto.git"
 	"gitlab.corp.mail.ru/mygo/tp.git/encodings"
+	"gitlab.corp.mail.ru/mygo/tp.git/queuedclient"
 )
 
 // MaxVersion - максимальная версия события (в верхних битах хранятся флаги)
 const MaxVersion = queuedproto.VersionMask
 
 type (
-	// QueueGroup - информация о всех зарегистрированных очередях. Мы сможем обрабатывать и посылать события для очередей, определённых тут.
-	QueueGroup struct {
+	// queueGroup - информация о всех зарегистрированных очередях. Мы сможем обрабатывать и посылать события для очередей, определённых тут.
+	// TODO убрать nolint, когда пофиксят https://github.com/golangci/golangci-lint/issues/826
+	//nolint:structcheck
+	queueGroup struct {
 		incoming incomingMap // мэп типов для входящих событий по id очереди и номеру версии
 		outgoing outgoingMap // мэп id очереди и номеров версий по типу события
 	}
@@ -67,7 +70,7 @@ type (
 // без обработчиков), следует передавать autofill = nil.
 //
 // TODO сделать ошибку про повторную регистрацию, либо написать в доке, что повторная регистрация отменяет предыдущую.
-func (qg *QueueGroup) Register(queueID QueueIDType, valueExample Handler, autofill marshalerDisabled) error {
+func (queue *Queue) Register(queueID QueueIDType, valueExample Handler, autofill marshalerDisabled) error {
 	version := valueExample.Version()
 
 	if version > MaxVersion {
@@ -92,29 +95,29 @@ func (qg *QueueGroup) Register(queueID QueueIDType, valueExample Handler, autofi
 	}
 
 	// проверяем, что всё кодируется правильно, + наполняем кеш перл.аддонов
-	if _, _, _, err := oi.encode(valueExample); err != nil {
+	if _, err := oi.encode(queue, valueExample); err != nil {
 		return err
 	}
 
-	if qg.outgoing == nil {
-		qg.outgoing = make(outgoingMap)
+	if queue.outgoing == nil {
+		queue.outgoing = make(outgoingMap)
 	}
 
-	qg.outgoing[evType] = oi
-	qg.outgoing[reflect.PtrTo(evType)] = oi
+	queue.outgoing[evType] = oi
+	queue.outgoing[reflect.PtrTo(evType)] = oi
 
 	if _, ok := valueExample.(noHandler); ok {
 		return nil
 	}
 
-	if qg.incoming == nil {
-		qg.incoming = make(incomingMap)
+	if queue.incoming == nil {
+		queue.incoming = make(incomingMap)
 	}
 
-	byVersion, ok := qg.incoming[queueID]
+	byVersion, ok := queue.incoming[queueID]
 	if !ok {
 		byVersion = make(versionsMap)
-		qg.incoming[queueID] = byVersion
+		queue.incoming[queueID] = byVersion
 	}
 
 	hinfo := handlerInfo{
@@ -135,42 +138,49 @@ func (qg *QueueGroup) Register(queueID QueueIDType, valueExample Handler, autofi
 //
 // Кодировщику безразлично, передаётся указатель или значение, но для вызова методов по указанным интерфейсам
 // нужно соблюдать правильный тип (тот, для которого объявлен метод - очевидно, для Builder нужен указатель).
-func (qg *QueueGroup) Encode(data Handler) (queueID QueueIDType, eventID uint64, eventData []byte, err error) {
+//
+// Номер очереди и ID события можно получить методами ID() и QueueID() (см. тип Event)
+func (queue *Queue) Encode(data Handler) (eventData []byte, err error) {
 	if data == nil {
-		return 0, 0, nil, fmt.Errorf("%w nil data", ErrUnknownType)
+		return nil, fmt.Errorf("%w nil data", ErrUnknownType)
 	}
 
 	typ := reflect.TypeOf(data)
-	oi, ok := qg.outgoing[typ]
+	oi, ok := queue.outgoing[typ]
 
 	if !ok {
-		return 0, 0, nil, fmt.Errorf("%w %v", ErrUnknownType, typ)
+		return nil, fmt.Errorf("%w %v", ErrUnknownType, typ)
 	}
 
-	return oi.encode(data)
+	return oi.encode(queue, data)
 }
 
-func (oi *outgoingInfo) encode(data Handler) (queueID QueueIDType, eventID uint64, eventData []byte, err error) {
+func (oi *outgoingInfo) encode(queue *Queue, data Handler) (eventData []byte, err error) {
 	if oi.autofillIdx != -1 {
 		reflect.Indirect(reflect.ValueOf(data)).Field(oi.autofillIdx).Set(oi.autofillVal)
 	}
 
+	ev := data.GetEvent()
+	ev.list = &eventList{
+		queueID: oi.queueID,
+		queue:   queue,
+	}
+
 	if builder, ok := data.(Builder); ok {
 		if err = builder.Build(); err != nil {
-			return 0, 0, nil, fmt.Errorf("%T: %w", data, err)
+			return nil, fmt.Errorf("%T: %w", data, err)
 		}
 	}
 
 	if getEvID, ok := data.(EventIDBuilder); ok {
-		eventID = getEvID.BuildEventID()
+		ev.id.ID = getEvID.BuildEventID()
+		ev.id.Shard = ev.Shard(ev.Hash())
+	} else {
+		ev.id.ID = 0
+		ev.id.Shard = queuedclient.BalanceShard
 	}
 
-	eventData, err = encodings.Encode(oi.format, oi.version, data)
-	if err != nil {
-		return 0, 0, nil, err
-	}
-
-	return oi.queueID, eventID, eventData, nil
+	return encodings.Encode(oi.format, oi.version, data)
 }
 
 func setAutofill(autofill marshalerDisabled, evType reflect.Type) (autofillIdx int, autofillVal reflect.Value, err error) {

@@ -5,6 +5,8 @@ import (
 
 	"github.com/rs/zerolog"
 	zLog "github.com/rs/zerolog/log"
+
+	"gitlab.corp.mail.ru/mygo/queuedproto.git"
 )
 
 type baseLogCtxKey struct{}
@@ -33,8 +35,8 @@ func logFromCtx(ctx context.Context) *zerolog.Logger {
 	return &zLog.Logger
 }
 
-func nextEventLogger(pctx *context.Context, eventID uint64) *zerolog.Logger {
-	logger := logFromCtx(*pctx).With().Uint64("event_id", eventID).Logger()
+func nextEventLogger(pctx *context.Context, eventID queuedproto.EventID) *zerolog.Logger {
+	logger := logFromCtx(*pctx).With().Stringer("event_id", eventID).Logger()
 	*pctx = logger.WithContext(*pctx)
 
 	return &logger

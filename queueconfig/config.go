@@ -113,7 +113,7 @@ func (c *Config) getDurationPerQueue(queueID uint16, confPath string) (time.Dura
 func (c *Config) getFloatPerInstance(confPath string) (float64, error) {
 	s, ok := c.getStringPerInstance(confPath)
 	if !ok {
-		return 1, nil // не ErrNotFound! переделать, если потребуется кроме GetSoftOOMDownscaleRate
+		return 0, fmt.Errorf("%s: %w", confPath, ErrNotFound)
 	}
 
 	ret, err := strconv.ParseFloat(s, 64)

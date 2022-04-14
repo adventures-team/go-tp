@@ -27,7 +27,7 @@ func (c *Config) OOMSoftDownscaleRate() (float64, error) {
 	rate, err := c.getFloatPerInstance("oom_soft_downscale_rate")
 
 	if rate < 0 {
-		err = fmt.Errorf("oom_soft_downscale_rate should be >= 0 (%f used)", rate)
+		err = fmt.Errorf("oom_soft_downscale_rate should be >= 0 (%g used)", rate)
 		rate = DefaultDownscaleRate
 	} else if rate == 0 {
 		rate = DefaultDownscaleRate

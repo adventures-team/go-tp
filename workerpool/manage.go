@@ -44,7 +44,7 @@ func (wp *WorkerPool) Manage() {
 				wp.onJobDone(jobs, jobID)
 
 			case <-wp.stopChan:
-				needStop = jobs.requestStop()
+				needStop = wp.onStop(jobs)
 
 			default:
 			}
@@ -62,7 +62,7 @@ func (wp *WorkerPool) Manage() {
 				wp.onJobDone(jobs, jobID)
 
 			case <-wp.stopChan:
-				needStop = jobs.requestStop()
+				needStop = wp.onStop(jobs)
 
 			case <-timer.C:
 			}
@@ -70,6 +70,8 @@ func (wp *WorkerPool) Manage() {
 			timer.Stop()
 		}
 	}
+
+	atomic.StoreInt32(&wp.isManaged, 0)
 }
 
 // scheduleJobs пытается запустить новых воркеров, если есть свободные слоты.
@@ -128,7 +130,7 @@ func (wp *WorkerPool) onHasJob(jobs jobMap, hasJob hasJobInfo) {
 	job, ok := jobs[hasJob.jobID]
 
 	if !ok {
-		wp.logger.Error().Uint16(wp.Poller.EntityIDName(), hasJob.jobID).Msg("unexpected job poll")
+		wp.logger.Error().Uint16(wp.Poller.EntityIDName(), hasJob.jobID).Msg("intenal error - unexpected job poll")
 		return
 	}
 
@@ -153,7 +155,7 @@ func (wp *WorkerPool) onJobDone(jobs jobMap, jobID JobTypeID) {
 	job, ok := jobs[jobID]
 
 	if !ok {
-		wp.logger.Error().Uint16(wp.Poller.EntityIDName(), jobID).Msg("unexpected job completion")
+		wp.logger.Error().Uint16(wp.Poller.EntityIDName(), jobID).Msg("intenal error - unexpected job completion")
 		return
 	}
 
@@ -170,10 +172,14 @@ func (wp *WorkerPool) onJobDone(jobs jobMap, jobID JobTypeID) {
 	jobs[jobID] = job
 }
 
-func (jobs jobMap) requestStop() bool {
+func (wp *WorkerPool) onStop(jobs jobMap) bool {
 	for jobID, job := range jobs {
 		job.requested = 0
 		jobs[jobID] = job
+	}
+
+	if stopper, ok := wp.Poller.(Stopper); ok {
+		stopper.Stop()
 	}
 
 	// события на выход воркерам не посылаем - зачем экономить какую-то память, если через неск. мсек процесс выйдет
