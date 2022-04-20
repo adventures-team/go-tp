@@ -46,7 +46,8 @@ format:
 test:
 	$(GO) test $(GOFLAGS) -v     \
 	    -timeout $(TEST_TIMEOUT) \
-	    -covermode count         \
+	    -race                    \
+	    -covermode atomic        \
 	    -coverprofile cover.out  \
 	    -coverpkg ./...          \
 	    ./...
@@ -56,7 +57,8 @@ test:
 test-integration:
 	$(GO) test $(GOFLAGS) -v                \
 	    -tags=integration                   \
-	    -covermode count                    \
+	    -race                               \
+	    -covermode atomic                   \
 	    -coverprofile cover.integration.out \
 	    -coverpkg ./...                     \
 	    ./tests

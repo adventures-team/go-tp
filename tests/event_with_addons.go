@@ -86,12 +86,12 @@ func (*eventWithAddonsV2) IgnoreDuplicateItems() bool {
 }
 
 func (ev *eventWithAddons) Handle(ctx context.Context) error {
-	zerolog.Ctx(ctx).Info().Int("batch_len", ev.BatchLen()).Interface("event", ev).Msgf("event_id=0x%016X", ev.ID())
+	zerolog.Ctx(ctx).Info().Int("batch_len", ev.BatchLen()).Interface("event", ev).Msgf("event_id=%v", ev.ID())
 	ev.Done()
 	ev.Counter.Done()
 
 	for nev := ev; tp.Next(&ctx, &nev); {
-		zerolog.Ctx(ctx).Info().Interface("event", nev).Msgf("Next: event_id=0x%016X", nev.ID())
+		zerolog.Ctx(ctx).Info().Interface("event", nev).Msgf("Next: event_id=%v", nev.ID())
 		nev.Done()
 		ev.Counter.Done()
 	}
@@ -101,12 +101,12 @@ func (ev *eventWithAddons) Handle(ctx context.Context) error {
 
 // не выпиливать ) тест на перемешанные события разных версий
 func (ev *eventWithAddonsV2) Handle(ctx context.Context) error {
-	zerolog.Ctx(ctx).Info().Int("batch_len", ev.BatchLen()).Interface("event", ev).Msgf("V2 event_id=0x%016X", ev.ID())
+	zerolog.Ctx(ctx).Info().Int("batch_len", ev.BatchLen()).Interface("event", ev).Msgf("V2 event_id=%v", ev.ID())
 	ev.Done()
 	ev.Counter.Done()
 
 	for nev := ev; tp.Next(&ctx, &nev); {
-		zerolog.Ctx(ctx).Info().Interface("event", nev).Msgf("V2 Next: event_id=0x%016X", nev.ID())
+		zerolog.Ctx(ctx).Info().Interface("event", nev).Msgf("V2 Next: event_id=%v", nev.ID())
 		nev.Done()
 		ev.Counter.Done()
 	}

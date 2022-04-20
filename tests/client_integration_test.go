@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/rs/zerolog"
+
 	"gitlab.corp.mail.ru/mygo/queuedproto.git"
 	"gitlab.corp.mail.ru/mygo/tp.git/queuedclient"
 )
@@ -49,7 +51,7 @@ func TestSingle(t *testing.T) {
 
 func TestBatch(t *testing.T) {
 	ctx, client := getTestClient(t)
-
+	zLog := zerolog.Ctx(ctx)
 	byID := eventDataMap{}
 
 	for i := 0; i < testBatchSize; i++ {
@@ -64,7 +66,7 @@ func TestBatch(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		t.Logf("eventID=%v published", eventID)
+		zLog.Info().Stringer("eventID", eventID).Msg("event published")
 
 		if rand.Intn(2) == 1 {
 			err = client.Defer(ctx, testRawQueueID, testDefer, []queuedproto.EventID{eventID})
@@ -72,7 +74,7 @@ func TestBatch(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			t.Logf("eventID=%v deferred for %v", eventID, testDefer)
+			zLog.Info().Stringer("eventID", eventID).Stringer("duration", testDefer).Msg("event deferred")
 		}
 
 		byID[eventID] = testData
@@ -80,6 +82,8 @@ func TestBatch(t *testing.T) {
 
 	started := time.Now()
 	iter := 1
+
+	zLog.Info().Float64("now", float64(time.Now().UnixMicro())/1_000_000).Send() // убедиться, что работает для разных вариантов округления
 
 	getItems(ctx, t, &iter, client, byID)
 
@@ -97,13 +101,13 @@ func TestBatch(t *testing.T) {
 
 		elapsed := time.Since(started)
 
-		if elapsed.Round(testPollDelay) > testDefer {
+		if elapsed.Truncate(testPollDelay) > testDefer+2*testPollDelay {
 			keys := make([]queuedproto.EventID, 0, len(byID))
 			for key := range byID {
 				keys = append(keys, key)
 			}
 
-			t.Fatalf("haven't received all deferred items %v in %v", keys, elapsed)
+			zLog.Fatal().Msgf("haven't received all deferred items %v in %v, %d iterations", keys, elapsed, iter)
 		}
 	}
 }
@@ -119,9 +123,11 @@ func getItems(ctx context.Context, t *testing.T, iter *int, client *queuedclient
 			t.Fatal(err)
 		}
 
+		zLog := zerolog.Ctx(ctx)
 		expected, ok := byID[event.EventID]
+
 		if !ok {
-			t.Logf("unexpected event received: iter=%v, eventID=%v", *iter, event.EventID)
+			zLog.Warn().Int("iter", *iter).Stringer("eventID", event.EventID).Msg("unexpected event received")
 			continue
 		}
 
@@ -129,7 +135,7 @@ func getItems(ctx context.Context, t *testing.T, iter *int, client *queuedclient
 			t.Fatalf("iter=%d, eventID=%v: got %v, expected %v", *iter, event.EventID, event.Data, expected)
 		}
 
-		t.Logf("iter=%d, eventID=%v received", *iter, event.EventID)
+		zLog.Info().Int("iter", *iter).Stringer("eventID", event.EventID).Msg("event received")
 		delete(byID, event.EventID)
 	}
 

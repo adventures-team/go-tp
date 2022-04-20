@@ -64,7 +64,7 @@ func TestQueueWorker(t *testing.T) {
 		t.Fatalf("Publish(%v) failed with IgnoreDuplicateItems set: %v", ev, err)
 	}
 
-	logger.Info().Msgf("event_id=0x%016X published", eventID)
+	logger.Info().Msgf("event_id=%v published", eventID)
 
 	for i := 0; i < 7; i++ {
 		ev.TrackID++
@@ -75,14 +75,14 @@ func TestQueueWorker(t *testing.T) {
 			t.Fatalf("Publish(%v) failed set: %v", ev, err)
 		}
 
-		logger.Info().Msgf("event_id=0x%016X published", eventID)
+		logger.Info().Msgf("event_id=%v published", eventID)
 
 		eventID, err = queue.Publish(ctx, evV2)
 		if err != nil {
 			t.Fatalf("Publish(%v) failed set: %v", ev, err)
 		}
 
-		logger.Info().Msgf("V2 event_id=0x%016X published", eventID)
+		logger.Info().Msgf("V2 event_id=%v published", eventID)
 
 		evV2.TrackID++
 		evV2.ExternalID++

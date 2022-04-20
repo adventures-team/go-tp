@@ -11,12 +11,33 @@ import (
 )
 
 const (
-	confPathServer  = "/queueds/main"
-	confPathTimeout = "/queueds/main/timeout"
+	// ConfServers - список шардов queued через запятую.
+	ConfServers = "/queueds/multi"
 
-	defaultTimeout        = 2                     // seconds TODO onlineconf.GetDuration
-	defaultRedialInterval = 10 * time.Millisecond // это дефолтное значение в iproto - но лучше задать явно, на случай, если там поменяют
-	defaultPingInterval   = 5 * time.Second
+	// ConfTimeout - таймаут в секундах. Поддерживается дробные значения, а также синтаксис time.ParseDuration, однако,
+	// для совместимости с перлом (которым используются те же пути), этого делать не рекомендуется.
+	ConfTimeout = "/queueds/multi/timeout"
+
+	// ConfRetryDelay - задержка между повторными попытками при ошибках.
+	ConfRetryDelay = "/queueds/multi/retry_delay"
+
+	// ConfRetryCount - количество повторных попыток при ошибках.
+	ConfRetryCount = "/queueds/multi/retry_count"
+
+	// DefaultTimeout - таймаут по умолчанию.
+	DefaultTimeout = 2 * time.Second
+
+	// DefaultRetryDelay - задержка между повторными попытками при ошибках по умолчанию (в перле - 1 секунда).
+	DefaultRetryDelay = 100 * time.Millisecond
+
+	// DefaultRetryCount - количество повторных попыток при ошибках по умолчанию.
+	DefaultRetryCount = 3
+
+	// DefaultRedialInterval - задержка при разрыве соединения. Это дефолтное значение в iproto - но лучше задать явно, на случай, если там поменяют
+	DefaultRedialInterval = 10 * time.Millisecond
+
+	// DefaultPingInterval - интервал пинга queued.
+	DefaultPingInterval = 5 * time.Second
 
 	// BalanceShard - распределять запросы по шардам. Только для unicast-режима. Сейчас используется round robin (может быть заменён на что-то другое, например, на вероятностное распределение).
 	BalanceShard = ^uint(0)
@@ -39,9 +60,12 @@ func Dial(ctx context.Context, conf *queueconfig.Config) (*QueuedClient, error) 
 		return nil, err
 	}
 
-	timeout := time.Duration(conf.GetInt(confPathTimeout, defaultTimeout)) * time.Second
-	servers := conf.GetString(confPathServer, "")
-	serverStrings := queueconfig.CSVRegex.Split(servers, -1)
+	timeout, err := conf.GetDuration(ConfTimeout, DefaultTimeout)
+	if err != nil {
+		return nil, err
+	}
+
+	serverStrings := queueconfig.CSVRegex.Split(conf.GetString(ConfServers, ""), -1)
 	shards := make([]*iproto.Pool, 0, len(serverStrings))
 
 	for _, server := range serverStrings {
@@ -53,14 +77,14 @@ func Dial(ctx context.Context, conf *queueconfig.Config) (*QueuedClient, error) 
 			Size:              1,
 			ConnectTimeout:    timeout,
 			DialTimeout:       timeout,
-			RedialInterval:    defaultRedialInterval,
-			MaxRedialInterval: defaultRedialInterval,
+			RedialInterval:    DefaultRedialInterval,
+			MaxRedialInterval: DefaultRedialInterval,
 			RedialForever:     true,
 			Logger:            IprotoLogger{},
 			ChannelConfig: &iproto.ChannelConfig{
 				WriteTimeout:   timeout,
 				RequestTimeout: timeout,
-				PingInterval:   defaultPingInterval,
+				PingInterval:   DefaultPingInterval,
 				Logger:         IprotoLogger{},
 			},
 		})
@@ -73,7 +97,7 @@ func Dial(ctx context.Context, conf *queueconfig.Config) (*QueuedClient, error) 
 	}
 
 	if len(shards) == 0 {
-		return nil, fmt.Errorf("%w: %s", ErrNoServers, confPathServer)
+		return nil, fmt.Errorf("%w: %s", ErrNoServers, ConfServers)
 	}
 
 	return &QueuedClient{

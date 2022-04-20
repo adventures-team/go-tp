@@ -36,7 +36,10 @@ func (ev *eventSleeper) Handle(ctx context.Context) error {
 	ev.Counter.Inc()
 	defer ev.Counter.Dec()
 
-	dur := ev.DurationMin + time.Duration(rand.Intn(int(ev.DurationMax-ev.DurationMin)))
+	dur := ev.DurationMin
+	if ev.DurationMin != ev.DurationMax {
+		dur += time.Duration(rand.Intn(int(ev.DurationMax - ev.DurationMin)))
+	}
 
 	zLog.Info().Msgf("eventSleeper: sleeping %v...", dur)
 	time.Sleep(dur)

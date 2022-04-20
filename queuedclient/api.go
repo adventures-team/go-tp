@@ -121,6 +121,9 @@ func (qc *QueuedClient) Delete(ctx context.Context, queueID uint16, eventIDs []q
 
 // Defer устанавливает задержку для указанных событий. Если задержка не указана (delay == 0), используется значение defer_time из конфига.
 //
+// События выполняются в порядке увеличения времени срабатывания, поэтому можно использовать отрицательную задержку в качестве
+// приоритета (чем больше по модулю отрицательное значение задержки, тем выше приоритет).
+//
 // Изменяется не более update_batch_size событий за раз.
 func (qc *QueuedClient) Defer(ctx context.Context, queueID uint16, delay time.Duration, eventIDs []queuedproto.EventID) error {
 	if delay == 0 {
@@ -132,7 +135,14 @@ func (qc *QueuedClient) Defer(ctx context.Context, queueID uint16, delay time.Du
 		}
 	}
 
-	when := uint32(time.Now().Add(delay).Unix())
+	timestampType := queuedproto.TimestampRelativePlus
+
+	if delay < 0 {
+		timestampType = queuedproto.TimestampRelativeMinus
+		delay = -delay
+	}
+
+	seconds := uint32(delay.Round(time.Second) / time.Second)
 
 	err := qc.MakeMulticastRequest(
 		ctx,
@@ -141,9 +151,9 @@ func (qc *QueuedClient) Defer(ctx context.Context, queueID uint16, delay time.Du
 		func(ids []uint64) queuedproto.Request {
 			return queuedproto.ReqUpdateItems{
 				StorageType:   queueID,
-				UnixTime:      when,
+				UnixTime:      seconds,
 				IDs:           ids,
-				TimestampType: queuedproto.TimestampAbsolute,
+				TimestampType: timestampType,
 			}
 		},
 		nil,
@@ -179,7 +189,11 @@ func (qc *QueuedClient) Publish(ctx context.Context, queueID uint16, eventID que
 	shard := qc.balanceShard(eventID.Shard)
 	respBytes, err := qc.MakeUnicastRequest(ctx, shard, req)
 
-	if err != nil && !(flags&queuedproto.FlagIgnoreWrongItem != 0 && errors.Is(err, queuedproto.ErrWrongItem) && eventID.ID != 0) { // вообще непонятно, как эта ошибка может возникнуть при eventID == 0 - поэтому, если такое случится, пусть падает
+	if err != nil {
+		if flags&queuedproto.FlagIgnoreWrongItem != 0 && errors.Is(err, queuedproto.ErrWrongItem) && eventID.ID != 0 { // вообще непонятно, как эта ошибка может возникнуть при eventID == 0 - поэтому, если такое случится, пусть падает
+			return eventID, nil
+		}
+
 		return queuedproto.EventID{}, fmt.Errorf("Publish: queue_id=%d: %w", queueID, err)
 	}
 

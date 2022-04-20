@@ -22,7 +22,14 @@ import (
 
 // тесты на управление пулом при помощи онлайнконфа (проще говоря - тест системы целиком)
 
-func testManaged(t *testing.T, doTest func(*tp.QueueManager, *counter)) *tp.QueueManager {
+func testManaged(t *testing.T, doTest func(*tp.QueueManager, *counter, <-chan struct{})) *tp.QueueManager {
+	doneChan := make(chan struct{})
+
+	defer func() {
+		close(doneChan)
+		resetConfig()
+	}()
+
 	conf := newMockConf(t, testQueueSleeperID)
 
 	qm := tp.Config{
@@ -30,6 +37,8 @@ func testManaged(t *testing.T, doTest func(*tp.QueueManager, *counter)) *tp.Queu
 		InstanceName: "test",
 		Logger:       mylog.InitTestZerolog(t),
 	}.InitProcessor()
+
+	zLog.Info().Int("pid", os.Getpid()).Send()
 
 	cnt := newCounter(0)
 
@@ -39,14 +48,26 @@ func testManaged(t *testing.T, doTest func(*tp.QueueManager, *counter)) *tp.Queu
 	}
 
 	go func() {
+		timer := time.NewTimer(time.Second)
+
 		for {
 			zLog.Info().Int32("*** workers_count ***", cnt.Get()).Send()
-			time.Sleep(1 * time.Second)
+
+			select {
+			case <-doneChan:
+				return
+
+			case <-timer.C:
+			}
 		}
 	}()
 
-	go doTest(qm, cnt)
+	go doTest(qm, cnt, doneChan)
 	qm.Manage()
+
+	if workersLeft := cnt.Get(); workersLeft != 0 {
+		t.Fatalf("%d workers are still working", workersLeft)
+	}
 
 	return qm
 }
@@ -63,7 +84,7 @@ func reloadConfig() {
 func TestDeferred(t *testing.T) {
 	ctx := context.Background()
 
-	testManaged(t, func(qm *tp.QueueManager, cnt *counter) {
+	testManaged(t, func(qm *tp.QueueManager, cnt *counter, _ <-chan struct{}) {
 		for i := 0; i < 10; i++ {
 			_, err := qm.Publish(ctx, &eventSleeper{
 				DurationMin: 3 * time.Second,
@@ -91,12 +112,12 @@ func TestOOM(t *testing.T) {
 	confLogLevel = "debug"
 	confFetchBatchSize = 1 // чтобы не выгребало пачками - а заняло все воркеры
 
-	qm := testManaged(t, func(qm *tp.QueueManager, cnt *counter) {
+	qm := testManaged(t, func(qm *tp.QueueManager, cnt *counter, doneChan <-chan struct{}) {
 		for i := 0; i < 50; i++ {
 			newEvents.Lock()
 			eventID, err := qm.Publish(ctx, &eventSleeper{
-				DurationMin: 5,
-				DurationMax: time.Duration(5.5 * float64(time.Second)),
+				DurationMin: 2 * time.Second,
+				DurationMax: 5 * time.Second,
 				Percentage:  10,
 			})
 
@@ -133,9 +154,12 @@ func TestOOM(t *testing.T) {
 		zLog.Warn().Msg("dropping the hard limit")
 		confOOMHardLimit.Store("10Kb")
 
-		time.Sleep(10 * time.Second) // если всё ок - не должны дождаться выхода этого слипа - выйдет основная горутина
+		select {
+		case <-time.NewTimer(10 * time.Second).C:
+			t.Fatal("must exit when the hard memory limit is reached")
 
-		t.Fatal("must exit when the hard memory limit is reached")
+		case <-doneChan:
+		}
 	})
 
 	newEvents.Lock() // стопим цикл отправки новых сообщений
@@ -150,16 +174,16 @@ func TestResize(t *testing.T) {
 	ctx := context.Background()
 	eventIDs := make([]queuedproto.EventID, 0, 50)
 	newEvents := sync.Mutex{}
-	confLogLevel = "debug"
+	confLogLevel = "trace"
 	confFetchBatchSize = 1 // чтобы не выгребало пачками - а заняло все воркеры
 
-	qm := testManaged(t, func(qm *tp.QueueManager, cnt *counter) {
+	qm := testManaged(t, func(qm *tp.QueueManager, cnt *counter, doneChan <-chan struct{}) {
 		newEvents.Lock()
 
 		for i := 0; i < 50; i++ {
 			eventID, err := qm.Publish(ctx, &eventSleeper{
-				DurationMin: 5,
-				DurationMax: time.Duration(5.5 * float64(time.Second)),
+				DurationMin: 2 * time.Second,
+				DurationMax: 5 * time.Second,
 				Percentage:  10,
 			})
 
@@ -200,8 +224,56 @@ func TestResize(t *testing.T) {
 		}
 
 		qm.Stop()
-		time.Sleep(10 * time.Second)
-		t.Fatal("should exit earlier")
+
+		select {
+		case <-time.NewTimer(10 * time.Second).C:
+			t.Fatal("should exit earlier")
+
+		case <-doneChan:
+		}
+	})
+
+	newEvents.Lock() // стопим цикл отправки новых сообщений
+	zLog.Info().Interface("event_ids", eventIDs).Msg("deleting events")
+
+	if err := qm.Queued().Delete(ctx, testQueueSleeperID, eventIDs); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// TestBatchDelete - тест на race condition при удалении (RcItemLocked)
+func TestBatchDelete(t *testing.T) {
+	ctx := context.Background()
+	eventIDs := make([]queuedproto.EventID, 0, 50)
+	newEvents := sync.Mutex{}
+	confLogLevel = "trace"
+	confFetchBatchSize = 1 // чтобы не выгребало пачками - а заняло все воркеры
+
+	qm := testManaged(t, func(qm *tp.QueueManager, cnt *counter, doneChan <-chan struct{}) {
+		newEvents.Lock()
+
+		for i := 0; i < 50; i++ {
+			eventID, err := qm.Publish(ctx, &eventSleeper{
+				DurationMin: time.Second,
+				DurationMax: time.Second,
+				Percentage:  0,
+			})
+
+			if err != nil {
+				t.Fatal("Publish:", err)
+			}
+
+			zLog.Info().Stringer("event_id", eventID).Msg("event published")
+
+			eventIDs = append(eventIDs, eventID)
+
+			cnt.Add(1)
+		}
+
+		newEvents.Unlock()
+
+		time.Sleep(500 * time.Millisecond)
+		qm.Stop()
 	})
 
 	newEvents.Lock() // стопим цикл отправки новых сообщений

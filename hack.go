@@ -11,6 +11,15 @@ import (
 	zLog "github.com/rs/zerolog/log"
 )
 
+// EnableUnsafeLogLevel - разрешить установку уровня логгирования при помощи unsafe.
+//
+// zerolog.SetGlobalLevel устанавливается независимо от этого флага.
+//
+// Отключить, если будет пугать race detector. go:norace не работает, т.к. из-за unsafe не может определить виновную горутину/функцию.
+//
+// TODO отрефакторить логгирование, чтобы не требовался этот костыль.
+var EnableUnsafeLogLevel = true
+
 // очень костыльная реализация. "идиоматичная" схема (zerolog.Logger.Level) не очень ложится в архитектуру,
 // а метод для inplace-установки они не предусмотрели. и зря:
 // 1. можно было сделать атомарно (т.к. идиоматика "копирование вместо шаринга" делается ради отказа от локов, а не чтобы напрягать разработчиков!)
@@ -34,8 +43,10 @@ var levelOffset = func() uintptr {
 func setLogLevel(logger *zerolog.Logger, newLevel zerolog.Level) {
 	zerolog.SetGlobalLevel(newLevel)
 
-	// unsafe.Add requires go1.17 or later
-	*(*zerolog.Level)(unsafe.Pointer(uintptr(unsafe.Pointer(logger)) + levelOffset)) = newLevel
+	if EnableUnsafeLogLevel {
+		// unsafe.Add requires go1.17 or later
+		*(*zerolog.Level)(unsafe.Pointer(uintptr(unsafe.Pointer(logger)) + levelOffset)) = newLevel
+	}
 }
 
 // проверка на интерфейс с типизированным nil (не является nil-интерфейсом).

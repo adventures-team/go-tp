@@ -179,7 +179,9 @@ func (qc *QueuedClient) reqMultiProcessShard(ctx context.Context, batchSize int,
 			continue
 		}
 
-		zerolog.Ctx(ctx).Trace().Uint("shard", shard).Uint32("cmd", req.Cmd()).Bytes("req", reqBytes).Msg("iproto.Call")
+		cmd := req.Cmd()
+
+		zerolog.Ctx(ctx).Trace().Uint("shard", shard).Uint32("cmd", cmd).Interface("req", req).Msg("iproto.Call")
 
 		respBytes, err := endpoint.Call(ctx, req.Cmd(), reqBytes)
 		if err != nil {
@@ -187,7 +189,7 @@ func (qc *QueuedClient) reqMultiProcessShard(ctx context.Context, batchSize int,
 			continue
 		}
 
-		zerolog.Ctx(ctx).Trace().Uint("shard", shard).Uint32("cmd", req.Cmd()).Bytes("resp", respBytes).Msg("iproto.Call")
+		zerolog.Ctx(ctx).Trace().Uint("shard", shard).Uint32("cmd", cmd).Bytes("resp", respBytes).Msg("iproto.Call")
 
 		if len(respBytes) == 0 {
 			errChan <- fmt.Errorf("shard #%d (%s), event_ids=%v: %w", shard, endpoint.RemoteAddr(), batch, ErrEmptyResponse)

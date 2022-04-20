@@ -13,6 +13,6 @@ const (
 	testQueueWithoutHandlerID = 65532
 	testQueueSleeperID        = 65531
 	testBatchSize             = 10
-	testDefer                 = 2 * time.Second
+	testDefer                 = 5 * time.Second
 	testPollDelay             = time.Second
 )

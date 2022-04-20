@@ -16,8 +16,10 @@ import (
 )
 
 const (
-	workersMaxDefault = 100
-	workersMaxLimit   = 5
+	workersDefault           = 30
+	workersMaxDefault        = 100
+	wokersMaxPerQueueDefault = 0
+	workersMaxLimit          = 5
 )
 
 var (
@@ -26,16 +28,23 @@ var (
 	confFetchBatchSize = 100
 
 	// читать/писать только атомарными операциями
-	confOOMSoftLimit       = atomic.Value{}
-	confOOMHardLimit       = atomic.Value{}
-	confWorkers            = int32(30)
-	confWorkersMax         = int32(workersMaxDefault)
-	confWorkersMaxPerQueue = int32(0)
+	confOOMSoftLimit       atomic.Value
+	confOOMHardLimit       atomic.Value
+	confWorkers            int32
+	confWorkersMax         int32
+	confWorkersMaxPerQueue int32
 )
 
-func init() {
+func resetConfig() {
 	confOOMSoftLimit.Store("100Gb")
 	confOOMHardLimit.Store("100Gb")
+	atomic.StoreInt32(&confWorkers, workersDefault)
+	atomic.StoreInt32(&confWorkersMax, workersMaxDefault)
+	atomic.StoreInt32(&confWorkersMaxPerQueue, wokersMaxPerQueueDefault)
+}
+
+func init() {
+	resetConfig()
 }
 
 func newMockConf(t *testing.T, queueID tp.QueueIDType) oconf.OnlineConf {
@@ -61,8 +70,8 @@ func newMockConf(t *testing.T, queueID tp.QueueIDType) oconf.OnlineConf {
 	conf.EXPECT().GetIntIfExists(iprefix + "workers_max_per_queue").AnyTimes().DoAndReturn(func(string) (int, bool) { return int(atomic.LoadInt32(&confWorkersMaxPerQueue)), true })
 
 	// per-queue
-	conf.EXPECT().GetStringIfExists(qprefix+"defer_time").AnyTimes().Return("1s", true)
-	conf.EXPECT().GetStringIfExists(qprefix+"defer_time_jitter").AnyTimes().Return("100ms", true)
+	conf.EXPECT().GetStringIfExists(qprefix+"defer_time").AnyTimes().Return("1", true)
+	conf.EXPECT().GetStringIfExists(qprefix+"defer_time_jitter").AnyTimes().Return("100ms", true) // TODO в протоколе секунды, какие 100мс )) после активного тестирования увеличить.
 	conf.EXPECT().GetStringIfExists(qprefix+"initial_delay").AnyTimes().Return("0s", true)
 	conf.EXPECT().GetIntIfExists(qprefix + "workers").AnyTimes().DoAndReturn(func(string) (int, bool) { return int(atomic.LoadInt32(&confWorkers)), true })
 	conf.EXPECT().GetIntIfExists(qprefix + "fetch_batch_size").AnyTimes().DoAndReturn(func(string) (int, bool) { return confFetchBatchSize, true })

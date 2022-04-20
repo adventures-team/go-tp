@@ -11,11 +11,15 @@ import (
 
 	"gitlab.corp.mail.ru/mygo/tp.git/queueconfig"
 	"gitlab.corp.mail.ru/mygo/tp.git/queuedclient"
+	"gitlab.corp.mail.ru/mygo/utils.git/mylog"
 	"gitlab.corp.mail.ru/mygo/utils.git/oconf"
 )
 
 func getTestClient(t *testing.T) (context.Context, *queuedclient.QueuedClient) {
-	ctx := context.Background()
+	ctx := mylog.InitTestZerolog(t).WithContext(context.Background())
+
+	//	zerolog.SetGlobalLevel(zerolog.DebugLevel)
+
 	conf := oconf.NewSubtree(onlineconf.GetModule("TREE"), testConfPrefix)
 	queueConf := queueconfig.New(conf, testInstanceName)
 	client, err := queuedclient.Dial(ctx, queueConf)

@@ -6,6 +6,7 @@ import (
 	"path"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	"kythe.io/kythe/go/util/datasize"
@@ -82,13 +83,42 @@ func (c *Config) getSizePerInstance(confPath string) (uint64, error) {
 	return uint64(size), nil
 }
 
+// ParseDuration парзит длительность при помощи time.ParseDuration. Если единицы измерения не указаны - считается, что указаны секунды.
+func ParseDuration(s string) (time.Duration, error) {
+	if strings.ContainsAny(s, "hms") { // доли секунды тоже содержат s
+		return time.ParseDuration(s)
+	}
+
+	return time.ParseDuration(s + "s")
+}
+
+// GetDuration получает длительность по указанному глобальному (не per-instance) пути.
+// Если путь не найден и указан дефолт - возвращается он, иначе - ошибка ErrNotFound.
+func (c *Config) GetDuration(confPath string, dfl ...time.Duration) (time.Duration, error) {
+	s, ok := c.GetStringIfExists(confPath)
+	if !ok {
+		if len(dfl) != 0 {
+			return dfl[0], nil
+		}
+
+		return time.Duration(0), fmt.Errorf("%s: %w", confPath, ErrNotFound)
+	}
+
+	d, err := ParseDuration(s)
+	if err != nil {
+		return 0, fmt.Errorf("%s: %s: %w", confPath, s, err)
+	}
+
+	return d, nil
+}
+
 func (c *Config) getDurationPerInstance(confPath string) (time.Duration, error) {
 	s, ok := c.getStringPerInstance(confPath)
 	if !ok {
 		return 0, fmt.Errorf("%s: %w", confPath, ErrNotFound)
 	}
 
-	d, err := time.ParseDuration(s)
+	d, err := ParseDuration(s)
 	if err != nil {
 		return 0, fmt.Errorf("%s: %s: %w", confPath, s, err)
 	}
@@ -102,7 +132,7 @@ func (c *Config) getDurationPerQueue(queueID uint16, confPath string) (time.Dura
 		return 0, fmt.Errorf("%d/%s: %w", queueID, confPath, ErrNotFound)
 	}
 
-	d, err := time.ParseDuration(s)
+	d, err := ParseDuration(s)
 	if err != nil {
 		return 0, fmt.Errorf("%d/%s: %s: %w", queueID, confPath, s, err)
 	}

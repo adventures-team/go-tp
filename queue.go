@@ -32,7 +32,9 @@ type (
 
 	// NoHandler - если для очереди (пока) не предусмотрена обработка (например, обработчик реализован на перле),
 	// надо встроить в структуру события этот тип
-	NoHandler struct{}
+	NoHandler struct {
+		Event
+	}
 
 	noHandler interface {
 		noHandler()
@@ -251,11 +253,6 @@ func (DisableMarshaler) marshalerDisabled() {}
 // Handle - не делает ничего
 func (NoHandler) Handle(context.Context) error {
 	return nil
-}
-
-// GetEvent возвращает пустое событие
-func (NoHandler) GetEvent() *Event {
-	return &Event{}
 }
 
 func (NoHandler) noHandler() {}
