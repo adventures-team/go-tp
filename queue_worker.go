@@ -62,13 +62,13 @@ func (qp *queuePoller) Poll(queueID QueueIDType) workerpool.Worker {
 
 	events, err := qp.GetActiveEvents(ctx, queueID, 0)
 	if err != nil {
-		if errors.Is(err, queuedproto.ErrUnknownQueueType) {
-			return nil // отсутствие очереди в queued - это не ошибка, просто ещё не было событий
+		if !errors.Is(err, queuedproto.ErrUnknownQueueType) { // отсутствие очереди в queued - это не ошибка, просто ещё не было событий
+			logger.Err(err).Msg("error getting active events")
 		}
 
-		logger.Err(err).Msg("error getting active events")
-
-		return nil
+		if events == nil { // если есть ошибка, но события тоже есть - работаем дальше
+			return nil
+		}
 	}
 
 	if len(events.events) == 0 {

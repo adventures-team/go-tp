@@ -30,12 +30,14 @@ deps:
 lint:
 	$(info #Running lint...)
 	golangci-lint run --new-from-rev=origin/$(shell (grep -s DEFAULT_BRANCH: .gitlab-ci.yml | cut -d: -f2 | sed 's/^\s*$$/master/' | tr -d ' \t'; echo master) | head -n1) ./...
+	golangci-lint run --build-tags=integration --new-from-rev=origin/$(shell (grep -s DEFAULT_BRANCH: .gitlab-ci.yml | cut -d: -f2 | sed 's/^\s*$$/master/' | tr -d ' \t'; echo master) | head -n1) ./...
 
 # Линт на весь код
 .PHONY: full-lint
 full-lint:
 	$(info #Running full lint...)
 	golangci-lint run ./...
+	golangci-lint run --build-tags=integration ./...
 
 # Форматирует код с помощью goimports
 .PHONY: format

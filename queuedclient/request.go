@@ -18,12 +18,12 @@ type (
 	ResultFunc  func(shard uint, result []byte) error
 )
 
-func (qc *QueuedClient) balanceShard(shard uint) uint {
-	if shard != BalanceShard {
-		return shard
+func (qc *QueuedClient) balanceShard(shard *uint) {
+	if *shard != BalanceShard {
+		return
 	}
 
-	return uint(atomic.AddUint32(&qc.roundRobin, 1)) % qc.ShardNum()
+	*shard = uint(atomic.AddUint32(&qc.roundRobin, 1)) % qc.ShardNum()
 }
 
 func (qc *QueuedClient) MakeUnicastRequest(ctx context.Context, shard uint, req queuedproto.Request) ([]byte, error) {
@@ -78,10 +78,14 @@ func (qc *QueuedClient) MakeBroadcastRequest(ctx context.Context, req queuedprot
 				}
 			}()
 
+			zerolog.Ctx(ctx).Trace().Uint("shard", shard).Uint32("cmd", cmd).Interface("req", req).Msg("iproto.Call")
+
 			respBytes, err := endpoint.Call(ctx, cmd, reqBytes)
 			if err != nil {
 				return
 			}
+
+			zerolog.Ctx(ctx).Trace().Uint("shard", shard).Uint32("cmd", cmd).Bytes("resp", respBytes).Msg("iproto.Call")
 
 			if len(respBytes) == 0 {
 				err = ErrEmptyResponse

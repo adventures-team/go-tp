@@ -29,7 +29,7 @@ func TestNoHandler(t *testing.T) {
 		t.Fatal("error initializing queue processor:", err)
 	}
 
-	if err = queue.Register(testQueueWithoutHandlerID, &eventPublishOnly{}, nil); err != nil {
+	if err = queue.Register(testNoHandlerQueueID, &eventPublishOnly{}, nil); err != nil {
 		t.Fatal("Register:", err)
 	}
 
@@ -40,7 +40,7 @@ func TestNoHandler(t *testing.T) {
 
 	logger.Info().Stringer("event_id", eventID).Msg("Publish OK, deleting event")
 
-	if err = queue.Queued().Delete(ctx, testQueueWithoutHandlerID, []queuedproto.EventID{eventID}); err != nil {
+	if err = queue.Queued().Delete(ctx, testNoHandlerQueueID, []queuedproto.EventID{eventID}); err != nil {
 		t.Fatal("Delete:", err)
 	}
 }

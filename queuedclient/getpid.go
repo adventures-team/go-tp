@@ -9,11 +9,14 @@ import (
 )
 
 const (
-	defaultMinPID  = 20
-	minPIDconfPath = "/queueds/main/min_pid" // расхардкодить при поддержки серверов кроме main
+	// ConfMinPID - минимальный pid, который считаем валидным (уникальным в рамках хоста). Если pid <= указанного, считаем, что работаем в контейнере.
+	//
+	// Подробнее - см. функцию GetPID.
+	ConfMinPID    = "/queueds/multi/min_pid"
+	DefaultMinPID = 20
 )
 
-// getPID - хак для получения ID, обеспечивающего уникальность в протоколе при добавлении событий.
+// GetPID - хак для получения ID, обеспечивающего уникальность в протоколе при добавлении событий.
 // Уникальность request_id обеспечивается в рамках client_ip + pid: queued/logic/queue.c:776
 // Однако, могут быть следующие пробемы:
 //         - NAT N:1 (уже один раз такое было)
@@ -22,9 +25,9 @@ const (
 //
 // Чтобы генерить рандомный "pid" всегда, можно задать в онлайнконфе /queueds/main/min_pid больше максимально
 // возможного pid для платформы (32768 для linux, 99999 для *bsd - поэтому лучше вписывать "совсем много", если планируется тестировать на макбуках без докера)
-func getPID(conf oconf.OnlineConf) (uint32, error) {
+func GetPID(conf oconf.OnlineConf) (uint32, error) {
 	pid := os.Getpid()
-	minPID := conf.GetInt(minPIDconfPath, defaultMinPID)
+	minPID := conf.GetInt(ConfMinPID, DefaultMinPID)
 
 	if pid >= minPID {
 		return uint32(pid), nil

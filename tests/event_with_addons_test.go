@@ -57,7 +57,7 @@ func (*eventWithAddonsV2) Version() uint8 {
 }
 
 func (ev *eventWithAddons) Build() error {
-	ev.CreationTime.Build()
+	_ = ev.CreationTime.Build()
 	return ev.Producer.Build()
 }
 
@@ -73,7 +73,7 @@ func (*eventWithAddons) IgnoreDuplicateItems() bool {
 // TODO см коммент у типа - выпилить
 
 func (ev *eventWithAddonsV2) Build() error {
-	ev.CreationTime.Build()
+	_ = ev.CreationTime.Build()
 	return ev.Producer.Build()
 }
 

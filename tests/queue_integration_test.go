@@ -30,19 +30,19 @@ func TestQueueWorker(t *testing.T) {
 
 	cnt := newCounter(1) // 1 - событие, посылаемое вне цикла
 
-	err = queue.Register(testQueueWithAddonsID, &eventWithAddons{}, cnt)
+	err = queue.Register(testAddonsQueueID, &eventWithAddons{}, cnt)
 	if err != nil {
 		t.Fatal("Register failed:", err)
 	}
 
-	err = queue.Register(testQueueWithAddonsID, &eventWithAddonsV2{}, cnt)
+	err = queue.Register(testAddonsQueueID, &eventWithAddonsV2{}, cnt)
 	if err != nil {
 		t.Fatal("Register failed:", err)
 	}
 
 	pool := workerpool.New(queue.NewPoller(logger), logger)
 
-	pool.SetWorkerCount(testQueueWithAddonsID, 5)
+	pool.SetWorkerCount(testAddonsQueueID, 5)
 
 	ev := &eventWithAddons{
 		TrackID: 1,
@@ -59,12 +59,14 @@ func TestQueueWorker(t *testing.T) {
 		t.Fatalf("Publish(%v) failed: %v", ev, err)
 	}
 
+	logger.Info().Msgf("event_id=%v published", eventID)
+
 	eventID, err = queue.Publish(ctx, ev)
 	if err != nil {
 		t.Fatalf("Publish(%v) failed with IgnoreDuplicateItems set: %v", ev, err)
 	}
 
-	logger.Info().Msgf("event_id=%v published", eventID)
+	logger.Info().Msgf("event_id=%v published (duplicate)", eventID)
 
 	for i := 0; i < 7; i++ {
 		ev.TrackID++

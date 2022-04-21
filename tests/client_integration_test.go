@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"math/rand"
+	"sort"
 	"testing"
 	"time"
 
@@ -16,7 +17,7 @@ import (
 	"gitlab.corp.mail.ru/mygo/tp.git/queuedclient"
 )
 
-// Тест только для queuedclient, безо всей высокоуровневой логики.
+// Тест только для queuedclient, безо всей высокоуровневой логики. Копипастить/изучать этот файл не надо (если не пишите какую-нибудь низкоуровневую тулзу для фиксов).
 // В любой непонятной ситуации - рестартим докер с тестовым куедом (т.е. чистим его).
 
 type eventDataMap map[queuedproto.EventID][]byte
@@ -40,7 +41,7 @@ func TestSingle(t *testing.T) {
 		t.Fatalf("strange number of items received: %#v", events)
 	}
 
-	if bytes.Compare(events.Items[0].Data, testData) != 0 {
+	if !bytes.Equal(events.Items[0].Data, testData) {
 		t.Fatalf("testData: got: %s, expected: %s", events.Items[0].Data, testData)
 	}
 
@@ -57,6 +58,7 @@ func TestBatch(t *testing.T) {
 	for i := 0; i < testBatchSize; i++ {
 		testData := make([]byte, 10)
 		_, err := rand.Read(testData)
+
 		if err != nil {
 			t.Fatalf("rand.Read: %v", err)
 		}
@@ -131,7 +133,7 @@ func getItems(ctx context.Context, t *testing.T, iter *int, client *queuedclient
 			continue
 		}
 
-		if bytes.Compare(event.Data, expected) != 0 {
+		if !bytes.Equal(event.Data, expected) {
 			t.Fatalf("iter=%d, eventID=%v: got %v, expected %v", *iter, event.EventID, event.Data, expected)
 		}
 
@@ -140,4 +142,75 @@ func getItems(ctx context.Context, t *testing.T, iter *int, client *queuedclient
 	}
 
 	*iter++
+}
+
+func TestSharding(t *testing.T) {
+	ctx, client := getTestClient(t)
+	zLog := zerolog.Ctx(ctx)
+
+	shardNum := client.ShardNum()
+	shardNums := make([]uint, shardNum)
+	eventIDs := make([]queuedproto.EventID, shardNum)
+	plainEventIDMap := make(map[uint64]uint, shardNum)
+	plainEventIDs := make([]uint64, 0, shardNum)
+
+	zLog.Info().Msgf("got %d shards", shardNum)
+
+	for i := uint(0); i < shardNum; i++ {
+		evID, err := client.Publish(ctx, testShardingQueueID, queuedproto.EventID{
+			Shard: queuedclient.BalanceShard,
+			ID:    uint64(i + 1),
+		}, queuedproto.FlagIgnoreWrongItem, []byte{})
+
+		if err != nil {
+			zLog.Fatal().Err(err).Send()
+		}
+
+		shardNums[i] = evID.Shard
+		eventIDs[i] = evID
+		plainEventIDMap[evID.ID] = evID.Shard
+
+		zLog.Info().Stringer("event_id", evID).Msg("event published")
+	}
+
+	// проверяем, что все номера шардов отличаются - сортируем и попарно сравниваем.
+	// номера шардов действительно могут совпадать, если часть шардов лежит - т.е. легла сразу после установки соединения,
+	// что в условиях этого теста крайне маловероятно.
+	sort.Slice(shardNums, func(i, j int) bool {
+		return shardNums[i] < shardNums[j]
+	})
+
+	for i, shard := range shardNums[1:] {
+		if shard == shardNums[i] {
+			zLog.Fatal().Uints("shard_nums", shardNums).Msg("duplicate shard numbers")
+		}
+	}
+
+	for id := range plainEventIDMap {
+		plainEventIDs = append(plainEventIDs, id)
+	}
+
+	items, err := client.GetByIDsBroadcast(ctx, testShardingQueueID, plainEventIDs)
+	if err != nil {
+		zLog.Fatal().Err(err).Uints64("event_ids", plainEventIDs).Msg("GetByIDsBroadcast")
+	}
+
+	if len(items.Items) != int(shardNum) {
+		zLog.Fatal().Msgf("got %d items, expected %d (shards count)", len(items.Items), shardNum)
+	}
+
+	for _, item := range items.Items {
+		shard, ok := plainEventIDMap[item.ID]
+		if !ok {
+			t.Errorf("got unexpected item %v", item.EventID)
+		}
+
+		if item.Shard != shard {
+			t.Fatalf("item %v: got shard %d, expected %d", item.EventID, item.Shard, shard)
+		}
+	}
+
+	if err := client.Delete(ctx, testShardingQueueID, eventIDs); err != nil {
+		zLog.Fatal().Err(err).Interface("event_ids", eventIDs).Msg("Delete failed")
+	}
 }

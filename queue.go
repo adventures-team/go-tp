@@ -30,16 +30,6 @@ type (
 		enforceDictatorship()         // Заставляем разработчиков юзать определённые тут типы Event и NoHandler, чтобы не намудрили. насилие во благо
 	}
 
-	// NoHandler - если для очереди (пока) не предусмотрена обработка (например, обработчик реализован на перле),
-	// надо встроить в структуру события этот тип
-	NoHandler struct {
-		Event
-	}
-
-	noHandler interface {
-		noHandler()
-	}
-
 	// Builder - при поддержке этого интерфейса типом события, метод Build вызывается при добавлении события в очередь.
 	// Можно использовать для автозаполнения часто используемых полей (время создания, etc).
 	// Аналог в перле - builder/default (для отдельных полей)
@@ -136,7 +126,10 @@ func (queue *Queue) Publish(ctx context.Context, event Handler) (eventID queuedp
 
 // TODO тут нужны высокоуровневые методы Delete и Defer, чтобы не приходилось собирать вручную айдишник и лезть в низкоуровневый QueuedClient
 
-// GetActiveEvents получает активные события (наступило время срабатывания) в декодированном виде из очереди queueID. Если count не задано (==0), используется значение из конфига (fetch_batch_size)
+// GetActiveEvents получает активные события (наступило время срабатывания) в декодированном виде из очереди queueID. Если count не задано (==0), используется значение из конфига (fetch_batch_size).
+//
+// Вместе с ошибкой может вернуться и валидный (не-nil) результат, этот кейс надо учитывать. Это означает, что ошибку вернули только некоторые
+// из шардов.
 func (queue *Queue) GetActiveEvents(ctx context.Context, queueID QueueIDType, count int) (*eventList, error) {
 	return queue.eventListFromItems(ctx, queueID, func() (queuedproto.ItemList, error) {
 		return queue.client.GetActive(ctx, queueID, count)
@@ -144,6 +137,9 @@ func (queue *Queue) GetActiveEvents(ctx context.Context, queueID QueueIDType, co
 }
 
 // GetEventsByIDs получает события в декодированном виде с указанными ID из очереди queueID
+//
+// Вместе с ошибкой может вернуться и валидный (не-nil) результат, этот кейс надо учитывать. Это означает, что ошибку вернули только некоторые
+// из шардов.
 func (queue *Queue) GetEventsByIDs(ctx context.Context, queueID QueueIDType, eventIDs []queuedproto.EventID) (*eventList, error) {
 	return queue.eventListFromItems(ctx, queueID, func() (queuedproto.ItemList, error) {
 		return queue.client.GetByIDs(ctx, queueID, eventIDs)
@@ -156,9 +152,9 @@ func (queue *Queue) eventListFromItems(ctx context.Context, queueID QueueIDType,
 		return nil, fmt.Errorf("%w %d", ErrUnknownQueue, queueID)
 	}
 
-	items, err := get()
-	if err != nil {
-		return nil, err
+	items, getErr := get()
+	if getErr != nil && len(items.Items) == 0 {
+		return nil, getErr
 	}
 
 	evl := &eventList{
@@ -229,7 +225,7 @@ func (queue *Queue) eventListFromItems(ctx context.Context, queueID QueueIDType,
 		}
 	}
 
-	return evl, nil
+	return evl, getErr
 }
 
 var (
@@ -249,42 +245,3 @@ func (DisableMarshaler) IprotoUnpack(*bytes.Reader, iproto.PackMode) error {
 }
 
 func (DisableMarshaler) marshalerDisabled() {}
-
-// Handle - не делает ничего
-func (NoHandler) Handle(context.Context) error {
-	return nil
-}
-
-func (NoHandler) noHandler() {}
-
-// IprotoPack - ломаем совместимость NoHandler с маршалерами, чтобы маршалер из вложенной структуры (например,
-// DisableMarshaler из структуры объектов API, вложенный в событие), не повлиял на маршалинг события.
-//
-// Почему бы не объявить приватный тип с запрещёнными маршалерами, и не встроить его в типы NoHandler и Event?
-// Зачем мозолить глаза разработчику, читающему доку?
-//
-// По правилам проброса встроенных полей в го: x.f denotes the field or method at the shallowest depth
-// in T where there is such an f. If there is not exactly one f with shallowest depth, the selector
-// expression is illegal.
-//
-// Т.е. если мы объявим "запрещающие" методы глубже (структура, вложенная в структуру Event/NoHandler) не перекроют
-// методы, объявленные непосредственно у вложенной структуры 1го уровня.
-//
-// Если же всё-таки зачем-то потребуется объявить маршалеры для типа события - это можно сделать, т.к. они перекроют
-// "наследуемые" методы (и с правильной, и с неправильной сигнатурой).
-func (NoHandler) IprotoPack(incompatible) {}
-
-// IprotoUnpack - см. описание NoHandler.IprotoPack
-func (NoHandler) IprotoUnpack(incompatible) {}
-
-// MarshalAddon - см. описание NoHandler.IprotoPack
-func (NoHandler) MarshalAddon(incompatible) {}
-
-// UnmarshalAddon - см. описание NoHandler.IprotoPack
-func (NoHandler) UnmarshalAddon(incompatible) {}
-
-// AddonID - см. описание NoHandler.IprotoPack
-func (NoHandler) AddonID(incompatible) {}
-
-func (NoHandler) marshalerDisabled(incompatible) {} //nolint:unused
-func (NoHandler) enforceDictatorship()           {}

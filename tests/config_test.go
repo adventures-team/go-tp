@@ -7,24 +7,20 @@ import (
 	"strconv"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
+	zLog "github.com/rs/zerolog/log"
 
 	"gitlab.corp.mail.ru/mygo/tp.git"
 	"gitlab.corp.mail.ru/mygo/tp.git/queueconfig"
+	"gitlab.corp.mail.ru/mygo/tp.git/queuedclient"
 	"gitlab.corp.mail.ru/mygo/utils.git/oconf"
-)
-
-const (
-	workersDefault           = 30
-	workersMaxDefault        = 100
-	wokersMaxPerQueueDefault = 0
-	workersMaxLimit          = 5
 )
 
 var (
 	// неатомарные - менять только перед вызовом Manage
-	confLogLevel       = "debug"
+	confLogLevel       = logLevelDebug
 	confFetchBatchSize = 100
 
 	// читать/писать только атомарными операциями
@@ -43,20 +39,44 @@ func resetConfig() {
 	atomic.StoreInt32(&confWorkersMaxPerQueue, wokersMaxPerQueueDefault)
 }
 
-func init() {
-	resetConfig()
+func setConfInt32(name string, conf *int32, val int32, delay time.Duration) {
+	zLog.Warn().Msgf("setting %s=%d", name, val)
+	atomic.StoreInt32(conf, val)
+	reloadConfig()
+	time.Sleep(delay)
+}
+
+func setWorkersMax(val int32, delay time.Duration) {
+	setConfInt32("workers_max", &confWorkersMax, val, delay)
+}
+
+func setWorkersMaxPerQueue(val int32, delay time.Duration) {
+	setConfInt32("workers_max_per_queue", &confWorkersMaxPerQueue, val, delay)
+}
+
+var confMissingStrings = []string{
+	queuedclient.ConfTimeout,
+	queuedclient.ConfRetryDelay,
+	queuedclient.ConfRedialInterval,
+	queuedclient.ConfPingInterval,
 }
 
 func newMockConf(t *testing.T, queueID tp.QueueIDType) oconf.OnlineConf {
+	resetConfig()
+
 	conf := NewMockOnlineConf(gomock.NewController(t))
 	qstr := strconv.Itoa(int(queueID))
 	iprefix := "/tp/go/" + testInstanceName + "/"
 	qprefix := iprefix + qstr + "/"
 
 	// queuedclient
-	conf.EXPECT().GetString("/queueds/main", "").AnyTimes().Return("127.0.0.1:20000")
-	conf.EXPECT().GetInt("/queueds/main/min_pid", 20).AnyTimes().Return(20)
-	conf.EXPECT().GetInt("/queueds/main/timeout", 2).AnyTimes().Return(2)
+	conf.EXPECT().GetInt(queuedclient.ConfMinPID, queuedclient.DefaultMinPID).AnyTimes().Return(queuedclient.DefaultMinPID)
+	conf.EXPECT().GetString(queuedclient.ConfServers, "").AnyTimes().Return("127.0.0.1:20000, 127.0.0.1:20500")
+	conf.EXPECT().GetInt(queuedclient.ConfRetryCount, queuedclient.DefaultRetryCount).AnyTimes().Return(queuedclient.DefaultRetryCount)
+
+	for _, confPath := range confMissingStrings {
+		conf.EXPECT().GetStringIfExists(confPath).AnyTimes().Return("", false)
+	}
 
 	// per-instance
 	conf.EXPECT().GetStringIfExists(iprefix+"queue_ids").AnyTimes().Return(qstr, true)

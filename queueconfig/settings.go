@@ -112,7 +112,7 @@ func (c *Config) WorkersCount(queueID uint16) (int, bool) {
 	}
 
 	maxCount, ok := c.getIntPerInstance("workers_max_per_queue")
-	if !ok || maxCount <= 0 {
+	if !ok || maxCount < 0 {
 		return count, true
 	}
 

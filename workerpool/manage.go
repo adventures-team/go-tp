@@ -4,6 +4,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	zLog "github.com/rs/zerolog/log"
+
 	"gitlab.corp.mail.ru/mygo/utils.git/myatomic"
 )
 
@@ -174,8 +176,14 @@ func (wp *WorkerPool) onJobDone(jobs jobMap, jobID JobTypeID) {
 
 func (wp *WorkerPool) onStop(jobs jobMap) bool {
 	for jobID, job := range jobs {
-		job.requested = 0
-		jobs[jobID] = job
+		if job.running == 0 {
+			delete(jobs, jobID)
+		} else {
+			job.requested = 0
+			jobs[jobID] = job
+		}
+
+		zLog.Trace().Uint16("job_id", jobID).Int("jobs_running", job.running).Msg("jobs pending on stop request")
 	}
 
 	if stopper, ok := wp.Poller.(Stopper); ok {

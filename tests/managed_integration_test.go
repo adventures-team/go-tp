@@ -30,7 +30,7 @@ func testManaged(t *testing.T, doTest func(*tp.QueueManager, *counter, <-chan st
 		resetConfig()
 	}()
 
-	conf := newMockConf(t, testQueueSleeperID)
+	conf := newMockConf(t, testSleeperQueueID)
 
 	qm := tp.Config{
 		Config:       conf,
@@ -42,9 +42,9 @@ func testManaged(t *testing.T, doTest func(*tp.QueueManager, *counter, <-chan st
 
 	cnt := newCounter(0)
 
-	err := qm.Register(testQueueSleeperID, &eventSleeper{}, cnt)
+	err := qm.Register(testSleeperQueueID, &eventSleeper{}, cnt)
 	if err != nil {
-		t.Fatal(err)
+		zLog.Fatal().Err(err).Msg("Queue.Register")
 	}
 
 	go func() {
@@ -66,14 +66,14 @@ func testManaged(t *testing.T, doTest func(*tp.QueueManager, *counter, <-chan st
 	qm.Manage()
 
 	if workersLeft := cnt.Get(); workersLeft != 0 {
-		t.Fatalf("%d workers are still working", workersLeft)
+		zLog.Fatal().Msgf("%d workers are still working", workersLeft)
 	}
 
 	return qm
 }
 
 func reloadConfig() {
-	time.Sleep(100 * time.Millisecond) // race condition с запуском менеджера (это не проблема - в проде посылать себе сигналы/закладываться на последовательность выполнения горутин мы точно не должны)
+	time.Sleep(100 * time.Millisecond) // race condition с запуском менеджера (это не проблема - в проде посылать себе сигналы/закладываться на последовательность выполнения горутин мы точно не будем)
 
 	if err := syscall.Kill(os.Getpid(), tp.SignalReload); err != nil {
 		zLog.Err(err).Msg("syscall.Kill")
@@ -83,21 +83,24 @@ func reloadConfig() {
 // TODO ускорить этот тест, либо скипнуть с комментарием
 func TestDeferred(t *testing.T) {
 	ctx := context.Background()
+	// confLogLevel = logLevelTrace
 
 	testManaged(t, func(qm *tp.QueueManager, cnt *counter, _ <-chan struct{}) {
 		for i := 0; i < 10; i++ {
-			_, err := qm.Publish(ctx, &eventSleeper{
-				DurationMin: 3 * time.Second,
-				DurationMax: 5 * time.Second,
-				Percentage:  40,
+			eventID, err := qm.Publish(ctx, &eventSleeper{
+				DurationMin: durationMin,
+				DurationMax: durationMax,
+				Percentage:  40, // ускорять тест тут )) поставить больше вероятность успешного окончания
 			})
 
 			if err != nil {
-				t.Fatal("Publish:", err)
+				zLog.Panic().Err(err).Msg("Publish")
 			}
 
+			zLog.Info().Stringer("event_id", eventID).Msg("published")
+
 			cnt.Add(1)
-			time.Sleep(500 * time.Millisecond)
+			time.Sleep(publishDelayLong)
 		}
 
 		cnt.Wait()
@@ -105,24 +108,29 @@ func TestDeferred(t *testing.T) {
 	})
 }
 
+func doPreTestDelay() {
+	zLog.Warn().Msgf("waiting %v", preTestDelay)
+	time.Sleep(preTestDelay)
+}
+
 func TestOOM(t *testing.T) {
 	ctx := context.Background()
 	eventIDs := make([]queuedproto.EventID, 0, 50)
 	newEvents := sync.Mutex{}
-	confLogLevel = "debug"
-	confFetchBatchSize = 1 // чтобы не выгребало пачками - а заняло все воркеры
+	confLogLevel = logLevelDebug
+	confFetchBatchSize = 1 // чтобы не выгребало пачками - а заняло все воркеры. не забываем, что это per-shard значение, и пачки будут по ShardNum штук
 
 	qm := testManaged(t, func(qm *tp.QueueManager, cnt *counter, doneChan <-chan struct{}) {
 		for i := 0; i < 50; i++ {
 			newEvents.Lock()
 			eventID, err := qm.Publish(ctx, &eventSleeper{
-				DurationMin: 2 * time.Second,
-				DurationMax: 5 * time.Second,
-				Percentage:  10,
+				DurationMin: durationMin,
+				DurationMax: durationMax,
+				Percentage:  5, // чтобы события успешно завершались (удалялись) с низкой вероятностью, и их осталось достаточно для теста на кол-во воркеров
 			})
 
 			if err != nil {
-				t.Fatal("Publish:", err)
+				zLog.Panic().Err(err).Msg("Publish")
 			}
 
 			zLog.Info().Stringer("event_id", eventID).Msg("event published")
@@ -131,32 +139,31 @@ func TestOOM(t *testing.T) {
 
 			cnt.Add(1)
 			newEvents.Unlock()
-			time.Sleep(100 * time.Millisecond)
+			time.Sleep(publishDelay)
 		}
 
-		zLog.Warn().Msg("waiting 10s")
-		time.Sleep(10 * time.Second)
+		doPreTestDelay()
 
 		zLog.Warn().Msg("dropping the soft limit")
 		confOOMSoftLimit.Store("10Kb")
 
-		time.Sleep(5 * time.Second)
+		time.Sleep(workerPoolSustainDelay)
 
 		workersGot := cnt.Get()
 		workersExpected := int32(float64(atomic.LoadInt32(&confWorkers)) * queueconfig.DefaultDownscaleRate)
 
 		if workersGot > workersExpected {
-			t.Fatalf("too many workers when the soft memory limit is reached: got %d, expected: no more than %d", workersGot, workersExpected)
+			zLog.Panic().Msgf("too many workers when the soft memory limit is reached: got %d, expected: no more than %d", workersGot, workersExpected)
 		}
 
-		time.Sleep(5 * time.Second)
+		time.Sleep(preTestDelay)
 
 		zLog.Warn().Msg("dropping the hard limit")
 		confOOMHardLimit.Store("10Kb")
 
 		select {
-		case <-time.NewTimer(10 * time.Second).C:
-			t.Fatal("must exit when the hard memory limit is reached")
+		case <-time.NewTimer(workerPoolSustainDelay).C:
+			panic("must exit when the hard memory limit is reached")
 
 		case <-doneChan:
 		}
@@ -165,8 +172,8 @@ func TestOOM(t *testing.T) {
 	newEvents.Lock() // стопим цикл отправки новых сообщений
 	zLog.Info().Interface("event_ids", eventIDs).Msg("deleting events")
 
-	if err := qm.Queued().Delete(ctx, testQueueSleeperID, eventIDs); err != nil {
-		t.Fatal(err)
+	if err := qm.Queued().Delete(ctx, testSleeperQueueID, eventIDs); err != nil {
+		zLog.Fatal().Err(err).Msg("Delete")
 	}
 }
 
@@ -174,7 +181,7 @@ func TestResize(t *testing.T) {
 	ctx := context.Background()
 	eventIDs := make([]queuedproto.EventID, 0, 50)
 	newEvents := sync.Mutex{}
-	confLogLevel = "trace"
+	confLogLevel = logLevelTrace
 	confFetchBatchSize = 1 // чтобы не выгребало пачками - а заняло все воркеры
 
 	qm := testManaged(t, func(qm *tp.QueueManager, cnt *counter, doneChan <-chan struct{}) {
@@ -182,13 +189,13 @@ func TestResize(t *testing.T) {
 
 		for i := 0; i < 50; i++ {
 			eventID, err := qm.Publish(ctx, &eventSleeper{
-				DurationMin: 2 * time.Second,
-				DurationMax: 5 * time.Second,
-				Percentage:  10,
+				DurationMin: durationMin,
+				DurationMax: durationMax,
+				Percentage:  5,
 			})
 
 			if err != nil {
-				t.Fatal("Publish:", err)
+				zLog.Err(err).Msg("Publish")
 			}
 
 			zLog.Info().Stringer("event_id", eventID).Msg("event published")
@@ -200,34 +207,40 @@ func TestResize(t *testing.T) {
 
 		newEvents.Unlock()
 
-		time.Sleep(10 * time.Second)
-		zLog.Warn().Msgf("setting workers_max=%d", workersMaxLimit)
-		atomic.StoreInt32(&confWorkersMax, workersMaxLimit)
-		reloadConfig()
-		time.Sleep(5 * time.Second)
+		doPreTestDelay()
+
+		setWorkersMax(workersMaxLimit, workerPoolSustainDelay)
 
 		if workersGot := cnt.Get(); workersGot > workersMaxLimit {
-			t.Fatalf("got %d workers when workers_max=%d is set", workersGot, workersMaxLimit)
+			zLog.Panic().Msgf("got %d workers when workers_max=%d is set", workersGot, workersMaxLimit)
 		}
 
-		zLog.Warn().Msgf("setting workers_max=%d", workersMaxDefault)
-		atomic.StoreInt32(&confWorkersMax, workersMaxDefault)
-		reloadConfig()
-		time.Sleep(5 * time.Second)
-		zLog.Warn().Msgf("setting workers_max_per_queue=%d", workersMaxLimit)
-		atomic.StoreInt32(&confWorkersMaxPerQueue, workersMaxLimit)
-		reloadConfig()
-		time.Sleep(5 * time.Second)
+		setWorkersMax(workersMaxDefault, preTestDelay)
+		setWorkersMaxPerQueue(workersMaxLimit, workerPoolSustainDelay)
 
 		if workersGot := cnt.Get(); workersGot > workersMaxLimit {
-			t.Fatalf("got %d workers when workers_max_per_queue=%d is set", workersGot, workersMaxLimit)
+			zLog.Panic().Msgf("got %d workers when workers_max_per_queue=%d is set", workersGot, workersMaxLimit)
+		}
+
+		setWorkersMaxPerQueue(wokersMaxPerQueueDefault, time.Duration(0))
+		setWorkersMax(0, workerPoolSustainDelay)
+
+		if workersGot := cnt.Get(); workersGot > 0 {
+			zLog.Panic().Msgf("got %d workers, expected 0", workersGot)
+		}
+
+		setWorkersMax(workersMaxDefault, preTestDelay)
+		setWorkersMaxPerQueue(0, workerPoolSustainDelay)
+
+		if workersGot := cnt.Get(); workersGot > 0 {
+			zLog.Panic().Msgf("got %d workers, expected 0", workersGot)
 		}
 
 		qm.Stop()
 
 		select {
-		case <-time.NewTimer(10 * time.Second).C:
-			t.Fatal("should exit earlier")
+		case <-time.NewTimer(workerPoolSustainDelay).C:
+			panic("should exit earlier") // другого способа выйти из теста из новой горутины нет (а если мы до сюда добрались - значит qm.Stop завис)
 
 		case <-doneChan:
 		}
@@ -236,17 +249,17 @@ func TestResize(t *testing.T) {
 	newEvents.Lock() // стопим цикл отправки новых сообщений
 	zLog.Info().Interface("event_ids", eventIDs).Msg("deleting events")
 
-	if err := qm.Queued().Delete(ctx, testQueueSleeperID, eventIDs); err != nil {
-		t.Fatal(err)
+	if err := qm.Queued().Delete(ctx, testSleeperQueueID, eventIDs); err != nil {
+		zLog.Fatal().Err(err).Msg("Delete")
 	}
 }
 
-// TestBatchDelete - тест на race condition при удалении (RcItemLocked)
-func TestBatchDelete(t *testing.T) {
+// TestUpdateDelete - тест на race condition при удалении (RcItemLocked), он же - тест на ретраи (не с 1 раза, конечно, крутить в цикле)
+func TestUpdateDelete(t *testing.T) {
 	ctx := context.Background()
 	eventIDs := make([]queuedproto.EventID, 0, 50)
 	newEvents := sync.Mutex{}
-	confLogLevel = "trace"
+	confLogLevel = logLevelTrace
 	confFetchBatchSize = 1 // чтобы не выгребало пачками - а заняло все воркеры
 
 	qm := testManaged(t, func(qm *tp.QueueManager, cnt *counter, doneChan <-chan struct{}) {
@@ -260,7 +273,7 @@ func TestBatchDelete(t *testing.T) {
 			})
 
 			if err != nil {
-				t.Fatal("Publish:", err)
+				zLog.Panic().Err(err).Msg("Publish")
 			}
 
 			zLog.Info().Stringer("event_id", eventID).Msg("event published")
@@ -272,14 +285,14 @@ func TestBatchDelete(t *testing.T) {
 
 		newEvents.Unlock()
 
-		time.Sleep(500 * time.Millisecond)
+		time.Sleep(publishDelayLong)
 		qm.Stop()
 	})
 
 	newEvents.Lock() // стопим цикл отправки новых сообщений
 	zLog.Info().Interface("event_ids", eventIDs).Msg("deleting events")
 
-	if err := qm.Queued().Delete(ctx, testQueueSleeperID, eventIDs); err != nil {
-		t.Fatal(err)
+	if err := qm.Queued().Delete(ctx, testSleeperQueueID, eventIDs); err != nil {
+		zLog.Fatal().Err(err).Msg("Delete")
 	}
 }

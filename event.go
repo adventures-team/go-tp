@@ -21,6 +21,16 @@ type (
 		eventInternal `iproto:"-" json:"-"`
 	}
 
+	// NoHandler - если для очереди (пока) не предусмотрена обработка (например, обработчик реализован на перле),
+	// надо встроить в структуру события этот тип
+	NoHandler struct {
+		Event
+	}
+
+	noHandler interface {
+		noHandler()
+	}
+
 	// next это слишком C-style, особенно вместе с костыльным логгированием. Кажется, более красиво это реализуется через канал в Queue.Work.
 	// TODO убрать nolint, когда пофиксят https://github.com/golangci/golangci-lint/issues/826
 	//nolint:structcheck
@@ -160,4 +170,42 @@ func (Event) UnmarshalAddon(incompatible) {}
 func (Event) AddonID(incompatible) {}
 
 func (Event) marshalerDisabled(incompatible) {} //nolint:unused
-func (Event) enforceDictatorship()           {}
+func (Event) enforceDictatorship()           {} //nolint:unused
+
+// Handle - не делает ничего
+func (NoHandler) Handle(context.Context) error {
+	return nil
+}
+
+func (NoHandler) noHandler() {}
+
+// IprotoPack - ломаем совместимость NoHandler с маршалерами, чтобы маршалер из вложенной структуры (например,
+// DisableMarshaler из структуры объектов API, вложенный в событие), не повлиял на маршалинг события.
+//
+// Почему бы не объявить приватный тип с запрещёнными маршалерами, и не встроить его в типы NoHandler и Event?
+// Зачем мозолить глаза разработчику, читающему доку?
+//
+// По правилам проброса встроенных полей в го: x.f denotes the field or method at the shallowest depth
+// in T where there is such an f. If there is not exactly one f with shallowest depth, the selector
+// expression is illegal.
+//
+// Т.е. если мы объявим "запрещающие" методы глубже (структура, вложенная в структуру Event/NoHandler) не перекроют
+// методы, объявленные непосредственно у вложенной структуры 1го уровня.
+//
+// Если же всё-таки зачем-то потребуется объявить маршалеры для типа события - это можно сделать, т.к. они перекроют
+// "наследуемые" методы (и с правильной, и с неправильной сигнатурой).
+func (NoHandler) IprotoPack(incompatible) {}
+
+// IprotoUnpack - см. описание NoHandler.IprotoPack
+func (NoHandler) IprotoUnpack(incompatible) {}
+
+// MarshalAddon - см. описание NoHandler.IprotoPack
+func (NoHandler) MarshalAddon(incompatible) {}
+
+// UnmarshalAddon - см. описание NoHandler.IprotoPack
+func (NoHandler) UnmarshalAddon(incompatible) {}
+
+// AddonID - см. описание NoHandler.IprotoPack
+func (NoHandler) AddonID(incompatible) {}
+
+func (NoHandler) marshalerDisabled(incompatible) {} //nolint:unused

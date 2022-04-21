@@ -31,10 +31,10 @@ func (qc *QueuedClient) GetActive(ctx context.Context, queueID uint16, count int
 	}, count)
 
 	if err != nil {
-		return queuedproto.ItemList{}, fmt.Errorf("GetActive: queue_id=%d, %w", queueID, err)
+		err = fmt.Errorf("GetActive: queue_id=%d, %w", queueID, err)
 	}
 
-	return result, nil
+	return result, err
 }
 
 // GetByIDsBroadcast запрашивает события из очереди queueID с указанными ID изо всех шардов одновременно.
@@ -47,40 +47,60 @@ func (qc *QueuedClient) GetByIDsBroadcast(ctx context.Context, queueID uint16, e
 	}, len(eventIDs))
 
 	if err != nil {
-		return queuedproto.ItemList{}, fmt.Errorf("GetByIDs: queue_id=%d, event_ids=%v: %w", queueID, eventIDs, err)
+		err = fmt.Errorf("GetByIDs: queue_id=%d, event_ids=%v: %w", queueID, eventIDs, err)
 	}
-
-	return result, nil
-}
-
-func (qc *QueuedClient) getBroadcast(ctx context.Context, req queuedproto.Request, count int) (queuedproto.ItemList, error) {
-	result := queuedproto.ItemList{Items: make([]queuedproto.QueueItem, 0, count*int(qc.ShardNum()))}
-	err := qc.MakeBroadcastRequest(ctx, req, itemListResultFunc(&result))
 
 	return result, err
 }
 
-func itemListResultFunc(result *queuedproto.ItemList) ResultFunc {
+func (qc *QueuedClient) getBroadcast(ctx context.Context, req queuedproto.Request, count int) (queuedproto.ItemList, error) {
+	resultFunc, getResult := qc.collectItemList(count)
+	err := qc.MakeBroadcastRequest(ctx, req, resultFunc)
+
+	return getResult(), err
+}
+
+// TODO нечитаемо )
+// порефакторить на объект с методами ResultFunc и Get, ResultFunc передавать как bound method функциям, посылающим запросы
+func (qc *QueuedClient) collectItemList(estimated int) (ResultFunc, func() queuedproto.ItemList) {
+	resultChan := make(chan queuedproto.ItemList)
+	doneChan := make(chan struct{})
+	multiResult := queuedproto.ItemList{Items: make([]queuedproto.QueueItem, 0, estimated*int(qc.ShardNum()))}
+
+	go func() {
+		for shardResult := range resultChan {
+			multiResult.Items = append(multiResult.Items, shardResult.Items...)
+		}
+
+		close(doneChan)
+	}()
+
 	return func(shard uint, data []byte) error {
-		var shardResult queuedproto.ItemList
+			var shardResult queuedproto.ItemList
 
-		if _, err := iproto.Unpack(data, &shardResult); err != nil {
-			return err
+			if _, err := iproto.Unpack(data, &shardResult); err != nil {
+				return err
+			}
+
+			for i := range shardResult.Items {
+				shardResult.Items[i].Shard = shard
+			}
+
+			resultChan <- shardResult
+
+			return nil
+		},
+		func() queuedproto.ItemList {
+			close(resultChan)
+			<-doneChan
+
+			return multiResult
 		}
-
-		for i := range shardResult.Items {
-			shardResult.Items[i].Shard = shard
-		}
-
-		result.Items = append(result.Items, shardResult.Items...)
-
-		return nil
-	}
 }
 
 // GetByIDs запрашивает события из очереди queueID с указанными ID из указанных шардов параллельно.
 func (qc *QueuedClient) GetByIDs(ctx context.Context, queueID uint16, eventIDs []queuedproto.EventID) (queuedproto.ItemList, error) {
-	result := queuedproto.ItemList{Items: make([]queuedproto.QueueItem, 0, len(eventIDs)*int(qc.ShardNum()))}
+	resultFunc, getResult := qc.collectItemList(len(eventIDs))
 
 	err := qc.MakeMulticastRequest(
 		ctx,
@@ -92,10 +112,10 @@ func (qc *QueuedClient) GetByIDs(ctx context.Context, queueID uint16, eventIDs [
 				IDs:         ids,
 			}
 		},
-		itemListResultFunc(&result),
+		resultFunc,
 	)
 
-	return result, err
+	return getResult(), err
 }
 
 func (qc *QueuedClient) Delete(ctx context.Context, queueID uint16, eventIDs []queuedproto.EventID) error {
@@ -186,8 +206,8 @@ func (qc *QueuedClient) Publish(ctx context.Context, queueID uint16, eventID que
 		Flags:       flags,
 	}
 
-	shard := qc.balanceShard(eventID.Shard)
-	respBytes, err := qc.MakeUnicastRequest(ctx, shard, req)
+	qc.balanceShard(&eventID.Shard)
+	respBytes, err := qc.MakeUnicastRequest(ctx, eventID.Shard, req)
 
 	if err != nil {
 		if flags&queuedproto.FlagIgnoreWrongItem != 0 && errors.Is(err, queuedproto.ErrWrongItem) && eventID.ID != 0 { // вообще непонятно, как эта ошибка может возникнуть при eventID == 0 - поэтому, если такое случится, пусть падает
@@ -200,8 +220,6 @@ func (qc *QueuedClient) Publish(ctx context.Context, queueID uint16, eventID que
 	if _, err = iproto.Unpack(respBytes, &eventID.ID); err != nil {
 		return queuedproto.EventID{}, fmt.Errorf("Publish: queue_id=%d: error reading response: %w", queueID, err)
 	}
-
-	eventID.Shard = shard
 
 	return eventID, nil
 }
