@@ -94,6 +94,9 @@ func ParseDuration(s string) (time.Duration, error) {
 
 // GetDuration получает длительность по указанному глобальному (не per-instance) пути.
 // Если путь не найден и указан дефолт - возвращается он, иначе - ошибка ErrNotFound.
+//
+// В случае других ошибок, если задан дефолт - возвращается и дефолт, и ошибка, для упрощения
+// реализации кейса, когда дефолт нужен всегда, а ошибка просто пишется в лог.
 func (c *Config) GetDuration(confPath string, dfl ...time.Duration) (time.Duration, error) {
 	s, ok := c.GetStringIfExists(confPath)
 	if !ok {
@@ -106,10 +109,15 @@ func (c *Config) GetDuration(confPath string, dfl ...time.Duration) (time.Durati
 
 	d, err := ParseDuration(s)
 	if err != nil {
-		return 0, fmt.Errorf("%s: %s: %w", confPath, s, err)
+		if len(dfl) != 0 {
+			d = dfl[0]
+			err = fmt.Errorf("%s: %s: %w, using default %v", confPath, s, err, d)
+		} else {
+			err = fmt.Errorf("%s: %s: %w", confPath, s, err)
+		}
 	}
 
-	return d, nil
+	return d, err
 }
 
 func (c *Config) getDurationPerInstance(confPath string) (time.Duration, error) {

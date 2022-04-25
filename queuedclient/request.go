@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/rs/zerolog"
 
@@ -14,42 +15,100 @@ import (
 )
 
 type (
+	// RequestFunc вызывается функцией MakeMulticastRequest для формирования запроса для указанных ID (относящихся к одному шарду)
 	RequestFunc func(eventIDs []uint64) queuedproto.Request
-	ResultFunc  func(shard uint, result []byte) error
+
+	// ResultFunc вызывается функциями MakeBroadcastRequest и MakeMulticastRequest для сохранения результата, полученного из указанного шарда.
+	// Результат надо сохранять либо через замыкание - либо передавать в качестве этой функции bound method объекта, куда сохраняются данные.
+	//
+	// Эта функция вызывается из разных горутин и должна быть thread-safe (не использовать прямой append/обычный map без лока! использовать каналы, sync.Map и т.д.)
+	ResultFunc func(shard uint, result []byte) error
 )
 
-func (qc *QueuedClient) balanceShard(shard *uint) {
-	if *shard != BalanceShard {
-		return
+func (qc *QueuedClient) balanceShard(shard uint) uint {
+	if shard != BalanceShard {
+		return shard
 	}
 
-	*shard = uint(atomic.AddUint32(&qc.roundRobin, 1)) % qc.ShardNum()
+	return uint(atomic.AddUint32(&qc.roundRobin, 1)) % qc.ShardNum()
 }
 
-func (qc *QueuedClient) MakeUnicastRequest(ctx context.Context, shard uint, req queuedproto.Request) ([]byte, error) {
+// MakeUnicastRequest посылает запрос req к указанному шарду.
+//
+// В случае получения не-логической ошибки (!queuedproto.IsSoftError(err)), производится ещё /queueds/multi/retry_count попыток
+// с задержкой /queueds/multi/retry_delay. Если после всех этих попыток ошибка повторяется - она возвращается.
+//
+// Если задан shard == BalanceShard, шард выбирается по round robin. В этом случае, каждый ретрай посылается в следующий шард.
+func (qc *QueuedClient) MakeUnicastRequest(ctx context.Context, shard uint, req queuedproto.Request) (usedShard uint, respBytes []byte, err error) {
+	if shard != BalanceShard && shard >= qc.ShardNum() {
+		return 0, nil, fmt.Errorf("%w %d", ErrInvalidShard, shard)
+	}
+
 	reqBytes, err := iproto.Pack(req)
+
 	if err != nil {
-		return nil, err
+		return 0, nil, err
 	}
 
-	if shard >= qc.ShardNum() {
-		return nil, fmt.Errorf("%w %d", ErrInvalidShard, shard)
-	}
+	cmd := req.Cmd()
+	retry := 0
 
-	respBytes, err := qc.shards[shard].Call(ctx, req.Cmd(), reqBytes)
-	if err != nil {
-		return nil, err
-	}
+	for {
+		usedShard = qc.balanceShard(shard)
+		endpoint := qc.shards[usedShard]
+		respBytes, err = endpoint.Call(ctx, cmd, reqBytes)
 
-	if len(respBytes) == 0 {
-		return nil, ErrEmptyResponse
-	}
+		if err == nil {
+			if len(respBytes) == 0 {
+				return usedShard, nil, ErrEmptyResponse
+			}
 
-	return respBytes[1:], queuedproto.ErrorByRetCode(respBytes[0])
+			if err = queuedproto.ErrorByRetCode(respBytes[0]); err == nil || queuedproto.IsSoftError(err) {
+				return usedShard, respBytes[1:], err
+			}
+		}
+
+		retry++
+
+		retryCount := qc.GetInt(ConfRetryCount, DefaultRetryCount)
+
+		zlEv := zerolog.Ctx(ctx).Err(err).
+			Uint("shard", usedShard).
+			Stringer("queued", endpoint.RemoteAddr()).
+			Int("retry", retry).
+			Int("retry_count", retryCount).
+			Uint32("cmd", cmd).
+			Interface("req", req)
+
+		if retry >= retryCount {
+			zlEv.Msg("retry count exceeded")
+			return usedShard, nil, err
+		}
+
+		zlEv.Msg("retry on error")
+
+		retryDelay, serr := qc.GetDuration(ConfRetryDelay, DefaultRetryDelay)
+		if serr != nil {
+			zerolog.Ctx(ctx).Warn().Err(serr).Msg("config error (ignored)")
+		}
+
+		time.Sleep(retryDelay)
+	}
 }
 
+// MakeBroadcastRequest посылает запрос req параллельно во все шарды. После получения ответа от каждого шарда,
+// вызывается resFunc.
+//
+// Возврат ошибки не говорит о том, что запрос не выполнен нигде - кол-во успешно
+// выполненных запросов (и полученных данных) следует осуществлять в resFunc.
+//
+// resFunc вызывается из разных горутин и должна быть thread-safe.
+//
+// Ретраи в случае ошибок не производятся, т.к. функция предназначена для get-запросов, текущая логика
+// которых (опрос событий) не ломается от разовых сбоев некоторых шардов.
+//
 // TODO раскопипастить broad/multicast запросы - когда полностью определимся с их логикой.
-
+// Возможно, использовать общее с box решение, после перевода его на easygo/iproto.
 func (qc *QueuedClient) MakeBroadcastRequest(ctx context.Context, req queuedproto.Request, resFunc ResultFunc) error {
 	reqBytes, err := iproto.Pack(req)
 	if err != nil {
@@ -115,6 +174,18 @@ func (qc *QueuedClient) MakeBroadcastRequest(ctx context.Context, req queuedprot
 	return errs.ToError()
 }
 
+// MakeMulticastRequest посылает запросы для указанных eventIDs в нужные шарды. Для формирования запроса по списку
+// ID вызывается reqFunc. После получения ответа от каждого шарда, вызывается resFunc.
+//
+// resFunc вызывается из разных горутин и должна быть thread-safe.
+//
+// В случае получения не-логической ошибки (!queuedproto.IsSoftError(err)), производится ещё /queueds/multi/retry_count попыток
+// с задержкой /queueds/multi/retry_delay. Если после всех этих попыток ошибка повторяется - она вносится в список ошибок шардов.
+//
+// Ошибки обработки результата в resFunc не приводят к ретраям, т.к., скорее всего, являются ошибками прикладного уровня.
+//
+// Возврат ошибки не говорит о том, что запрос не выполнен нигде - кол-во успешно
+// выполненных запросов (и полученных данных) следует осуществлять в resFunc.
 func (qc *QueuedClient) MakeMulticastRequest(ctx context.Context, batchSize int, eventIDs []queuedproto.EventID, reqFunc RequestFunc, resFunc ResultFunc) error {
 	shardMap := make(map[uint][]uint64, qc.ShardNum())
 
@@ -174,43 +245,85 @@ func (qc *QueuedClient) reqMultiProcessShard(ctx context.Context, batchSize int,
 
 		batch := ids[start:end]
 		req := reqFunc(batch)
-		reqBytes, err := iproto.Pack(req)
 
-		// TODO логгировать номера ивентов в том же формате, как и везде - будет ли админам польза от этого?
+		respBytes, op, err := qc.reqMultiRetryLoop(ctx, shard, endpoint, req)
 
 		if err != nil {
-			errChan <- fmt.Errorf("shard #%d (%s), event_ids=%v: Pack: %w", shard, endpoint.RemoteAddr(), batch, err)
+			// TODO логгировать номера ивентов в том же формате, как и везде - будет ли админам польза от этого?
+			errChan <- fmt.Errorf("shard #%d (%s), event_ids=%v: %s%w", shard, endpoint.RemoteAddr(), batch, op, err)
 			continue
 		}
 
-		cmd := req.Cmd()
-
-		zerolog.Ctx(ctx).Trace().Uint("shard", shard).Uint32("cmd", cmd).Interface("req", req).Msg("iproto.Call")
-
-		respBytes, err := endpoint.Call(ctx, req.Cmd(), reqBytes)
-		if err != nil {
-			errChan <- fmt.Errorf("shard #%d (%s), event_ids=%v: Call: %w", shard, endpoint.RemoteAddr(), batch, err)
+		if resFunc == nil || len(respBytes) == 0 {
 			continue
 		}
 
-		zerolog.Ctx(ctx).Trace().Uint("shard", shard).Uint32("cmd", cmd).Bytes("resp", respBytes).Msg("iproto.Call")
-
-		if len(respBytes) == 0 {
-			errChan <- fmt.Errorf("shard #%d (%s), event_ids=%v: %w", shard, endpoint.RemoteAddr(), batch, ErrEmptyResponse)
-			continue
-		}
-
-		if err = queuedproto.ErrorByRetCode(respBytes[0]); err != nil {
-			errChan <- fmt.Errorf("shard #%d (%s), event_ids=%v: %w", shard, endpoint.RemoteAddr(), batch, err)
-			continue
-		}
-
-		if resFunc == nil || len(respBytes) == 1 {
-			continue
-		}
-
-		if err = resFunc(shard, respBytes[1:]); err != nil {
+		if err = resFunc(shard, respBytes); err != nil {
 			errChan <- fmt.Errorf("shard #%d (%s), event_ids=%v: ResultFunc: %w", shard, endpoint.RemoteAddr(), batch, err)
 		}
+	}
+}
+
+func (qc *QueuedClient) reqMultiRetryLoop(ctx context.Context, shard uint, endpoint *iproto.Pool, req queuedproto.Request) (respBytes []byte, op string, err error) {
+	reqBytes, err := iproto.Pack(req)
+	if err != nil {
+		return nil, "Pack: ", err
+	}
+
+	zLog := zerolog.Ctx(ctx)
+	cmd := req.Cmd()
+	retry := 0
+	retryCount := qc.GetInt(ConfRetryCount, DefaultRetryCount)
+
+	for {
+		zLog.Trace().
+			Uint("shard", shard). // перфекционистам - ip шарда не логгирую, т.к. это не для админов, а для разработчиков
+			Int("retry", retry).
+			Int("retry_count", retryCount).
+			Uint32("cmd", cmd).
+			Interface("req", req).
+			Msg("iproto.Call")
+
+		respBytes, err = endpoint.Call(ctx, req.Cmd(), reqBytes)
+
+		if err == nil {
+			op = ""
+
+			zLog.Trace().Uint("shard", shard).Uint32("cmd", cmd).Bytes("resp", respBytes).Msg("iproto.Call")
+
+			if len(respBytes) == 0 {
+				return nil, "", ErrEmptyResponse
+			}
+
+			if err = queuedproto.ErrorByRetCode(respBytes[0]); err == nil || queuedproto.IsSoftError(err) {
+				return respBytes[1:], "", err
+			}
+		} else {
+			op = "Call: "
+		}
+
+		retry++
+
+		zlEv := zLog.Err(err).
+			Uint("shard", shard).
+			Stringer("queued", endpoint.RemoteAddr()).
+			Int("retry", retry).
+			Int("retry_count", retryCount).
+			Uint32("cmd", cmd).
+			Interface("req", req)
+
+		if retry >= retryCount {
+			zlEv.Msg("retry count exceeded")
+			return nil, op, err
+		}
+
+		zlEv.Msg("retry on error")
+
+		retryDelay, serr := qc.GetDuration(ConfRetryDelay, DefaultRetryDelay)
+		if serr != nil {
+			zLog.Warn().Err(serr).Msg("config error (ignored)")
+		}
+
+		time.Sleep(retryDelay)
 	}
 }

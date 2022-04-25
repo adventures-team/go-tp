@@ -25,13 +25,13 @@ const (
 	ConfRetryDelay = "/queueds/multi/retry_delay"
 
 	// DefaultRetryDelay - задержка между повторными попытками при ошибках по умолчанию (в перле - 1 секунда).
-	DefaultRetryDelay = 100 * time.Millisecond
+	DefaultRetryDelay = 300 * time.Millisecond
 
 	// ConfRetryCount - количество повторных попыток при ошибках.
 	ConfRetryCount = "/queueds/multi/retry_count"
 
-	// DefaultRetryCount - количество повторных попыток при ошибках по умолчанию.
-	DefaultRetryCount = 3
+	// DefaultRetryCount - количество повторных попыток при ошибках по умолчанию (в перле - 3 раза).
+	DefaultRetryCount = 6
 
 	// ConfRedialInterval - задержка при разрыве соединения.
 	ConfRedialInterval = "/queueds/multi/redial_interval"
@@ -44,6 +44,12 @@ const (
 
 	// DefaultPingInterval - интервал пинга queued по умолчанию.
 	DefaultPingInterval = 5 * time.Second
+
+	// ConfMinPID - минимальный pid, который считаем валидным (уникальным в рамках хоста). Если pid <= указанного, считаем, что работаем в контейнере.
+	//
+	// Подробнее - см. функцию GetPID.
+	ConfMinPID    = "/queueds/multi/min_pid"
+	DefaultMinPID = 20
 
 	// BalanceShard - распределять запросы по шардам. Только для unicast-режима. Сейчас используется round robin (может быть заменён на что-то другое, например, на вероятностное распределение).
 	BalanceShard = ^uint(0)
@@ -123,6 +129,7 @@ func Dial(ctx context.Context, conf *queueconfig.Config) (*QueuedClient, error) 
 	}, nil
 }
 
+// ShardNum возвращает количество шардов, указанных в /queueds/multi.
 func (qc *QueuedClient) ShardNum() uint {
 	return uint(len(qc.shards))
 }

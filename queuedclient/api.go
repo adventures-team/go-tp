@@ -20,6 +20,8 @@ import (
 //
 // В случае, если на некоторых шардах произошла ошибка, но с других данные успешно вернулись - возвращаются данные, ошибка не возвращается,
 // и о случившемся пишется в лог. Если ошибка произошла везде/данных нет - возвращается ошибка.
+//
+// Ретраи в случае ошибок не производятся.
 func (qc *QueuedClient) GetActive(ctx context.Context, queueID uint16, count int) (queuedproto.ItemList, error) {
 	if count <= 0 {
 		count = qc.FetchBatchSize(queueID)
@@ -40,6 +42,8 @@ func (qc *QueuedClient) GetActive(ctx context.Context, queueID uint16, count int
 // GetByIDsBroadcast запрашивает события из очереди queueID с указанными ID изо всех шардов одновременно.
 //
 // ID событий указываются без номера шарда, обычными uint64
+//
+// Ретраи в случае ошибок не производятся.
 func (qc *QueuedClient) GetByIDsBroadcast(ctx context.Context, queueID uint16, eventIDs []uint64) (queuedproto.ItemList, error) {
 	result, err := qc.getBroadcast(ctx, queuedproto.ReqGetItems{
 		StorageType: queueID,
@@ -99,6 +103,8 @@ func (qc *QueuedClient) collectItemList(estimated int) (ResultFunc, func() queue
 }
 
 // GetByIDs запрашивает события из очереди queueID с указанными ID из указанных шардов параллельно.
+//
+// Ретраи в случае ошибок не производятся.
 func (qc *QueuedClient) GetByIDs(ctx context.Context, queueID uint16, eventIDs []queuedproto.EventID) (queuedproto.ItemList, error) {
 	resultFunc, getResult := qc.collectItemList(len(eventIDs))
 
@@ -118,6 +124,7 @@ func (qc *QueuedClient) GetByIDs(ctx context.Context, queueID uint16, eventIDs [
 	return getResult(), err
 }
 
+// Delete удаляет указанные события параллельно изо всех необходимых шардов пачками по update_batch_size событий.
 func (qc *QueuedClient) Delete(ctx context.Context, queueID uint16, eventIDs []queuedproto.EventID) error {
 	err := qc.MakeMulticastRequest(
 		ctx,
@@ -144,7 +151,7 @@ func (qc *QueuedClient) Delete(ctx context.Context, queueID uint16, eventIDs []q
 // События выполняются в порядке увеличения времени срабатывания, поэтому можно использовать отрицательную задержку в качестве
 // приоритета (чем больше по модулю отрицательное значение задержки, тем выше приоритет).
 //
-// Изменяется не более update_batch_size событий за раз.
+// Обновления производятся пачками по update_batch_size событий.
 func (qc *QueuedClient) Defer(ctx context.Context, queueID uint16, delay time.Duration, eventIDs []queuedproto.EventID) error {
 	if delay == 0 {
 		var err error
@@ -187,9 +194,22 @@ func (qc *QueuedClient) Defer(ctx context.Context, queueID uint16, delay time.Du
 }
 
 // Publish отправляет событие в очередь. Если eventID.ID == 0, queued создаёт новый ID, который возвращается.
-// Если задан eventID.Shard == BalanceShard, шард выбирается по round robin (т.о. есть возможность автогенерации id и в явно заданном шарде).
+// Если задан eventID.Shard == BalanceShard, шард выбирается по round robin.
+// Если шард задан, а ID - нет, происходит автоинкремент ID в указанном шарде.
 //
 // Если в конфиге задано initial_delay, событие сработает с задержкой.
+//
+// В случае получения не-логической ошибки (!queuedproto.IsSoftError(err)), производится ещё /queueds/multi/retry_count попыток
+// с задержкой /queueds/multi/retry_delay. Если после всех этих попыток ошибка повторяется - она возвращается.
+//
+// Если задан eventID.Shard == BalanceShard, то каждый ретрай посылается в следующий шард.
+//
+// ID запроса (queuedproto.ReqAddItem.ReqID) для всех ретраев отправляется один и тот же, на случай,
+// если у нас шардов меньше, чем retry_count (например, 1), и 1й запрос ушёл, но ответ потерялся.
+//
+// Ошибки обработки результата (iproto.Unpack) не приводят к ретраям, т.к., скорее всего, являются ошибками прикладного уровня.
+//
+// TODO местные ошибки тоже не надо ретраить.
 func (qc *QueuedClient) Publish(ctx context.Context, queueID uint16, eventID queuedproto.EventID, flags uint32, eventData []byte) (queuedproto.EventID, error) {
 	initialDelay, err := qc.InitialDelay(queueID)
 	if err != nil {
@@ -206,8 +226,9 @@ func (qc *QueuedClient) Publish(ctx context.Context, queueID uint16, eventID que
 		Flags:       flags,
 	}
 
-	qc.balanceShard(&eventID.Shard)
-	respBytes, err := qc.MakeUnicastRequest(ctx, eventID.Shard, req)
+	var respBytes []byte
+
+	eventID.Shard, respBytes, err = qc.MakeUnicastRequest(ctx, eventID.Shard, req)
 
 	if err != nil {
 		if flags&queuedproto.FlagIgnoreWrongItem != 0 && errors.Is(err, queuedproto.ErrWrongItem) && eventID.ID != 0 { // вообще непонятно, как эта ошибка может возникнуть при eventID == 0 - поэтому, если такое случится, пусть падает
@@ -218,7 +239,7 @@ func (qc *QueuedClient) Publish(ctx context.Context, queueID uint16, eventID que
 	}
 
 	if _, err = iproto.Unpack(respBytes, &eventID.ID); err != nil {
-		return queuedproto.EventID{}, fmt.Errorf("Publish: queue_id=%d: error reading response: %w", queueID, err)
+		return queuedproto.EventID{}, fmt.Errorf("Publish: queue_id=%d: Unpack: %w", queueID, err)
 	}
 
 	return eventID, nil

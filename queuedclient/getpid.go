@@ -8,14 +8,6 @@ import (
 	"gitlab.corp.mail.ru/mygo/utils.git/oconf"
 )
 
-const (
-	// ConfMinPID - минимальный pid, который считаем валидным (уникальным в рамках хоста). Если pid <= указанного, считаем, что работаем в контейнере.
-	//
-	// Подробнее - см. функцию GetPID.
-	ConfMinPID    = "/queueds/multi/min_pid"
-	DefaultMinPID = 20
-)
-
 // GetPID - хак для получения ID, обеспечивающего уникальность в протоколе при добавлении событий.
 // Уникальность request_id обеспечивается в рамках client_ip + pid: queued/logic/queue.c:776
 // Однако, могут быть следующие пробемы:

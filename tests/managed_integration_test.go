@@ -23,6 +23,7 @@ import (
 // тесты на управление пулом при помощи онлайнконфа (проще говоря - тест системы целиком)
 
 func testManaged(t *testing.T, doTest func(*tp.QueueManager, *counter, <-chan struct{})) *tp.QueueManager {
+	mylog.TestTimeFormat = "15:04:05.000"
 	doneChan := make(chan struct{})
 
 	defer func() {
@@ -254,7 +255,7 @@ func TestResize(t *testing.T) {
 	}
 }
 
-// TestUpdateDelete - тест на race condition при удалении (RcItemLocked), он же - тест на ретраи (не с 1 раза, конечно, крутить в цикле)
+// TestUpdateDelete - тест на race condition при удалении (RcItemLocked), он же - тест на ретраи (запускать через TestUpdateDeleteLoop, убрав Skip)
 func TestUpdateDelete(t *testing.T) {
 	ctx := context.Background()
 	eventIDs := make([]queuedproto.EventID, 0, 50)
@@ -267,8 +268,8 @@ func TestUpdateDelete(t *testing.T) {
 
 		for i := 0; i < 50; i++ {
 			eventID, err := qm.Publish(ctx, &eventSleeper{
-				DurationMin: time.Second,
-				DurationMax: time.Second,
+				DurationMin: time.Duration(0),
+				DurationMax: 20 * time.Millisecond,
 				Percentage:  0,
 			})
 
@@ -294,5 +295,13 @@ func TestUpdateDelete(t *testing.T) {
 
 	if err := qm.Queued().Delete(ctx, testSleeperQueueID, eventIDs); err != nil {
 		zLog.Fatal().Err(err).Msg("Delete")
+	}
+}
+
+func TestUpdateDeleteLoop(t *testing.T) {
+	t.Skip()
+
+	for {
+		TestUpdateDelete(t)
 	}
 }

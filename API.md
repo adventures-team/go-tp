@@ -1000,7 +1000,7 @@ type Config struct {
 func New(conf oconf.OnlineConf, instanceName string) *Config
 ```
 
-### func \(\*Config\) [DeferTime](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/settings.go#L128>)
+### func \(\*Config\) [DeferTime](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/settings.go#L131>)
 
 ```go
 func (c *Config) DeferTime(queueID uint16) (time.Duration, error)
@@ -1008,7 +1008,7 @@ func (c *Config) DeferTime(queueID uint16) (time.Duration, error)
 
 DeferTime получает defer\_time для указанной очереди\. Dалидное значение возвращается всегда \(default: DefaultDeferTime\)\, ошибку надо просто напечатать в лог\. К времени добавляется рандомное значение\, максимум defer\_time\_jitter \(default: DefaultDeferTimeJitter\)
 
-### func \(\*Config\) [FetchBatchSize](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/settings.go#L169>)
+### func \(\*Config\) [FetchBatchSize](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/settings.go#L172>)
 
 ```go
 func (c *Config) FetchBatchSize(queueID uint16) int
@@ -1016,7 +1016,7 @@ func (c *Config) FetchBatchSize(queueID uint16) int
 
 FetchBatchSize получает fetch\_batch\_size для указанной очереди\. Если оно не задано\, возвращается DefaultFetchBatchSize
 
-### func \(\*Config\) [GetDuration](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/config.go#L97>)
+### func \(\*Config\) [GetDuration](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/config.go#L100>)
 
 ```go
 func (c *Config) GetDuration(confPath string, dfl ...time.Duration) (time.Duration, error)
@@ -1024,7 +1024,9 @@ func (c *Config) GetDuration(confPath string, dfl ...time.Duration) (time.Durati
 
 GetDuration получает длительность по указанному глобальному \(не per\-instance\) пути\. Если путь не найден и указан дефолт \- возвращается он\, иначе \- ошибка ErrNotFound\.
 
-### func \(\*Config\) [InitialDelay](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/settings.go#L155>)
+В случае других ошибок\, если задан дефолт \- возвращается и дефолт\, и ошибка\, для упрощения реализации кейса\, когда дефолт нужен всегда\, а ошибка просто пишется в лог\.
+
+### func \(\*Config\) [InitialDelay](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/settings.go#L158>)
 
 ```go
 func (c *Config) InitialDelay(queueID uint16) (time.Duration, error)
@@ -1032,7 +1034,7 @@ func (c *Config) InitialDelay(queueID uint16) (time.Duration, error)
 
 InitialDelay получает initial\_delay для указанной очереди\. Валидное значение возвращается всегда \(default: DefaultInitialDelay\)\, ошибку надо просто напечатать в лог
 
-### func \(\*Config\) [LogLevel](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/settings.go#L91>)
+### func \(\*Config\) [LogLevel](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/settings.go#L94>)
 
 ```go
 func (c *Config) LogLevel() (zerolog.Level, error)
@@ -1040,7 +1042,7 @@ func (c *Config) LogLevel() (zerolog.Level, error)
 
 LogLevel получает log\_level\. Валидное значение возвращается всегда \(default: DefaultLogLevel\)\, ошибку надо просто напечатать в лог
 
-### func \(\*Config\) [OOMCheckPeriod](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/settings.go#L40>)
+### func \(\*Config\) [OOMCheckPeriod](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/settings.go#L43>)
 
 ```go
 func (c *Config) OOMCheckPeriod() (time.Duration, error)
@@ -1048,7 +1050,7 @@ func (c *Config) OOMCheckPeriod() (time.Duration, error)
 
 OOMCheckPeriod получает oom\_check\_period\. Валидное значение возвращается всегда \(default: DefaultOOMCheckPeriod\)\, ошибку надо просто напечатать в лог
 
-### func \(\*Config\) [OOMHardLimit](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/settings.go#L21>)
+### func \(\*Config\) [OOMHardLimit](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/settings.go#L24>)
 
 ```go
 func (c *Config) OOMHardLimit() (uint64, error)
@@ -1056,7 +1058,7 @@ func (c *Config) OOMHardLimit() (uint64, error)
 
 OOMHardLimit получает oom\_hard\_limit
 
-### func \(\*Config\) [OOMSoftDownscaleRate](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/settings.go#L26>)
+### func \(\*Config\) [OOMSoftDownscaleRate](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/settings.go#L29>)
 
 ```go
 func (c *Config) OOMSoftDownscaleRate() (float64, error)
@@ -1064,7 +1066,7 @@ func (c *Config) OOMSoftDownscaleRate() (float64, error)
 
 OOMSoftDownscaleRate получает oom\_soft\_downscale\_rate\. Валидное значение возвращается всегда \(default: DefaultDownscaleRate\)\, ошибку надо просто напечатать в лог
 
-### func \(\*Config\) [OOMSoftLimit](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/settings.go#L16>)
+### func \(\*Config\) [OOMSoftLimit](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/settings.go#L19>)
 
 ```go
 func (c *Config) OOMSoftLimit() (uint64, error)
@@ -1072,7 +1074,7 @@ func (c *Config) OOMSoftLimit() (uint64, error)
 
 OOMSoftLimit получает oom\_soft\_limit
 
-### func \(\*Config\) [QueueIDs](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/settings.go#L65>)
+### func \(\*Config\) [QueueIDs](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/settings.go#L68>)
 
 ```go
 func (c *Config) QueueIDs() ([]uint16, error)
@@ -1080,7 +1082,7 @@ func (c *Config) QueueIDs() ([]uint16, error)
 
 QueueIDs получает queue\_ids\, который задаётся в виде разделённых через запятую интов \(см\. CSVRegex\)\. Если задан пустой список \(пустая строка\)\, ошибкой это не считается \(требуется холостой запуск\, либо остановка всех запущенных очередей\)
 
-### func \(\*Config\) [UpdateBatchSize](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/settings.go#L178>)
+### func \(\*Config\) [UpdateBatchSize](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/settings.go#L181>)
 
 ```go
 func (c *Config) UpdateBatchSize(queueID uint16) int
@@ -1088,7 +1090,7 @@ func (c *Config) UpdateBatchSize(queueID uint16) int
 
 UpdateBatchSize возвращает update\_batch\_size для указанной очереди\. Если оно не задано\, возвращается DefaultUpdateBatchSize
 
-### func \(\*Config\) [WorkersCount](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/settings.go#L108>)
+### func \(\*Config\) [WorkersCount](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/settings.go#L111>)
 
 ```go
 func (c *Config) WorkersCount(queueID uint16) (int, bool)
@@ -1096,7 +1098,7 @@ func (c *Config) WorkersCount(queueID uint16) (int, bool)
 
 WorkersCount получает workers для указанной очереди\, но не больше workers\_max\_per\_queue
 
-### func \(\*Config\) [WorkersMaxCount](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/settings.go#L54>)
+### func \(\*Config\) [WorkersMaxCount](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/settings.go#L57>)
 
 ```go
 func (c *Config) WorkersMaxCount() (int, bool)
@@ -1124,6 +1126,8 @@ Publish    tp.Queue.Publish, tp.Event.Publish
 
 Шардингом этот пакет НЕ занимается\! Какой шард передали \- такой и используется\. Для unicast\-режима поддерживается чередование шардов для распределения объёмов хранимых событий\, для его использования вместо номера шарда надо указать константу BalanceShard\.
 
+Multicast/broadcast методы отправляют запросы в указанные/все шарды параллельно\.
+
 ## Index
 
 - [Constants](<#constants>)
@@ -1145,7 +1149,7 @@ Publish    tp.Queue.Publish, tp.Event.Publish
   - [func (qc *QueuedClient) GetByIDsBroadcast(ctx context.Context, queueID uint16, eventIDs []uint64) (queuedproto.ItemList, error)](<#func-queuedclient-getbyidsbroadcast>)
   - [func (qc *QueuedClient) MakeBroadcastRequest(ctx context.Context, req queuedproto.Request, resFunc ResultFunc) error](<#func-queuedclient-makebroadcastrequest>)
   - [func (qc *QueuedClient) MakeMulticastRequest(ctx context.Context, batchSize int, eventIDs []queuedproto.EventID, reqFunc RequestFunc, resFunc ResultFunc) error](<#func-queuedclient-makemulticastrequest>)
-  - [func (qc *QueuedClient) MakeUnicastRequest(ctx context.Context, shard uint, req queuedproto.Request) ([]byte, error)](<#func-queuedclient-makeunicastrequest>)
+  - [func (qc *QueuedClient) MakeUnicastRequest(ctx context.Context, shard uint, req queuedproto.Request) (usedShard uint, respBytes []byte, err error)](<#func-queuedclient-makeunicastrequest>)
   - [func (qc *QueuedClient) Publish(ctx context.Context, queueID uint16, eventID queuedproto.EventID, flags uint32, eventData []byte) (queuedproto.EventID, error)](<#func-queuedclient-publish>)
   - [func (qc *QueuedClient) ShardNum() uint](<#func-queuedclient-shardnum>)
 - [type RequestFunc](<#type-requestfunc>)
@@ -1170,13 +1174,13 @@ const (
     ConfRetryDelay = "/queueds/multi/retry_delay"
 
     // DefaultRetryDelay - задержка между повторными попытками при ошибках по умолчанию (в перле - 1 секунда).
-    DefaultRetryDelay = 100 * time.Millisecond
+    DefaultRetryDelay = 300 * time.Millisecond
 
     // ConfRetryCount - количество повторных попыток при ошибках.
     ConfRetryCount = "/queueds/multi/retry_count"
 
-    // DefaultRetryCount - количество повторных попыток при ошибках по умолчанию.
-    DefaultRetryCount = 3
+    // DefaultRetryCount - количество повторных попыток при ошибках по умолчанию (в перле - 3 раза).
+    DefaultRetryCount = 6
 
     // ConfRedialInterval - задержка при разрыве соединения.
     ConfRedialInterval = "/queueds/multi/redial_interval"
@@ -1190,18 +1194,14 @@ const (
     // DefaultPingInterval - интервал пинга queued по умолчанию.
     DefaultPingInterval = 5 * time.Second
 
-    // BalanceShard - распределять запросы по шардам. Только для unicast-режима. Сейчас используется round robin (может быть заменён на что-то другое, например, на вероятностное распределение).
-    BalanceShard = ^uint(0)
-)
-```
-
-```go
-const (
     // ConfMinPID - минимальный pid, который считаем валидным (уникальным в рамках хоста). Если pid <= указанного, считаем, что работаем в контейнере.
     //
     // Подробнее - см. функцию GetPID.
     ConfMinPID    = "/queueds/multi/min_pid"
     DefaultMinPID = 20
+
+    // BalanceShard - распределять запросы по шардам. Только для unicast-режима. Сейчас используется round robin (может быть заменён на что-то другое, например, на вероятностное распределение).
+    BalanceShard = ^uint(0)
 )
 ```
 
@@ -1223,7 +1223,7 @@ var (
 )
 ```
 
-## func [GetPID](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/getpid.go#L28>)
+## func [GetPID](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/getpid.go#L20>)
 
 ```go
 func GetPID(conf oconf.OnlineConf) (uint32, error)
@@ -1287,7 +1287,7 @@ func (IprotoLogger) Debugf(ctx context.Context, fmt string, v ...interface{})
 func (IprotoLogger) Printf(ctx context.Context, fmt string, v ...interface{})
 ```
 
-## type [QueuedClient](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/client.go#L55-L60>)
+## type [QueuedClient](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/client.go#L61-L66>)
 
 QueuedClient \- низкоуровневый клиент queued
 
@@ -1298,7 +1298,7 @@ type QueuedClient struct {
 }
 ```
 
-### func [Dial](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/client.go#L63>)
+### func [Dial](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/client.go#L69>)
 
 ```go
 func Dial(ctx context.Context, conf *queueconfig.Config) (*QueuedClient, error)
@@ -1306,7 +1306,7 @@ func Dial(ctx context.Context, conf *queueconfig.Config) (*QueuedClient, error)
 
 Dial открывает соединения к серверам queued\, указанным в онлайнконфе
 
-### func \(\*QueuedClient\) [Defer](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/api.go#L148>)
+### func \(\*QueuedClient\) [Defer](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/api.go#L155>)
 
 ```go
 func (qc *QueuedClient) Defer(ctx context.Context, queueID uint16, delay time.Duration, eventIDs []queuedproto.EventID) error
@@ -1316,15 +1316,17 @@ Defer устанавливает задержку для указанных со
 
 События выполняются в порядке увеличения времени срабатывания\, поэтому можно использовать отрицательную задержку в качестве приоритета \(чем больше по модулю отрицательное значение задержки\, тем выше приоритет\)\.
 
-Изменяется не более update\_batch\_size событий за раз\.
+Обновления производятся пачками по update\_batch\_size событий\.
 
-### func \(\*QueuedClient\) [Delete](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/api.go#L121>)
+### func \(\*QueuedClient\) [Delete](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/api.go#L128>)
 
 ```go
 func (qc *QueuedClient) Delete(ctx context.Context, queueID uint16, eventIDs []queuedproto.EventID) error
 ```
 
-### func \(\*QueuedClient\) [GetActive](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/api.go#L23>)
+Delete удаляет указанные события параллельно изо всех необходимых шардов пачками по update\_batch\_size событий\.
+
+### func \(\*QueuedClient\) [GetActive](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/api.go#L25>)
 
 ```go
 func (qc *QueuedClient) GetActive(ctx context.Context, queueID uint16, count int) (queuedproto.ItemList, error)
@@ -1336,7 +1338,9 @@ GetActive получает активные события из очереди q
 
 В случае\, если на некоторых шардах произошла ошибка\, но с других данные успешно вернулись \- возвращаются данные\, ошибка не возвращается\, и о случившемся пишется в лог\. Если ошибка произошла везде/данных нет \- возвращается ошибка\.
 
-### func \(\*QueuedClient\) [GetByIDs](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/api.go#L102>)
+Ретраи в случае ошибок не производятся\.
+
+### func \(\*QueuedClient\) [GetByIDs](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/api.go#L108>)
 
 ```go
 func (qc *QueuedClient) GetByIDs(ctx context.Context, queueID uint16, eventIDs []queuedproto.EventID) (queuedproto.ItemList, error)
@@ -1344,7 +1348,9 @@ func (qc *QueuedClient) GetByIDs(ctx context.Context, queueID uint16, eventIDs [
 
 GetByIDs запрашивает события из очереди queueID с указанными ID из указанных шардов параллельно\.
 
-### func \(\*QueuedClient\) [GetByIDsBroadcast](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/api.go#L43>)
+Ретраи в случае ошибок не производятся\.
+
+### func \(\*QueuedClient\) [GetByIDsBroadcast](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/api.go#L47>)
 
 ```go
 func (qc *QueuedClient) GetByIDsBroadcast(ctx context.Context, queueID uint16, eventIDs []uint64) (queuedproto.ItemList, error)
@@ -1354,47 +1360,93 @@ GetByIDsBroadcast запрашивает события из очереди queu
 
 ID событий указываются без номера шарда\, обычными uint64
 
-### func \(\*QueuedClient\) [MakeBroadcastRequest](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/request.go#L53>)
+Ретраи в случае ошибок не производятся\.
+
+### func \(\*QueuedClient\) [MakeBroadcastRequest](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/request.go#L112>)
 
 ```go
 func (qc *QueuedClient) MakeBroadcastRequest(ctx context.Context, req queuedproto.Request, resFunc ResultFunc) error
 ```
 
-### func \(\*QueuedClient\) [MakeMulticastRequest](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/request.go#L118>)
+MakeBroadcastRequest посылает запрос req параллельно во все шарды\. После получения ответа от каждого шарда\, вызывается resFunc\.
+
+Возврат ошибки не говорит о том\, что запрос не выполнен нигде \- кол\-во успешно выполненных запросов \(и полученных данных\) следует осуществлять в resFunc\.
+
+resFunc вызывается из разных горутин и должна быть thread\-safe\.
+
+Ретраи в случае ошибок не производятся\, т\.к\. функция предназначена для get\-запросов\, текущая логика которых \(опрос событий\) не ломается от разовых сбоев некоторых шардов\.
+
+TODO раскопипастить broad/multicast запросы \- когда полностью определимся с их логикой\. Возможно\, использовать общее с box решение\, после перевода его на easygo/iproto\.
+
+### func \(\*QueuedClient\) [MakeMulticastRequest](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/request.go#L189>)
 
 ```go
 func (qc *QueuedClient) MakeMulticastRequest(ctx context.Context, batchSize int, eventIDs []queuedproto.EventID, reqFunc RequestFunc, resFunc ResultFunc) error
 ```
 
-### func \(\*QueuedClient\) [MakeUnicastRequest](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/request.go#L29>)
+MakeMulticastRequest посылает запросы для указанных eventIDs в нужные шарды\. Для формирования запроса по списку ID вызывается reqFunc\. После получения ответа от каждого шарда\, вызывается resFunc\.
+
+resFunc вызывается из разных горутин и должна быть thread\-safe\.
+
+В случае получения не\-логической ошибки \(\!queuedproto\.IsSoftError\(err\)\)\, производится ещё /queueds/multi/retry\_count попыток с задержкой /queueds/multi/retry\_delay\. Если после всех этих попыток ошибка повторяется \- она вносится в список ошибок шардов\.
+
+Ошибки обработки результата в resFunc не приводят к ретраям\, т\.к\.\, скорее всего\, являются ошибками прикладного уровня\.
+
+Возврат ошибки не говорит о том\, что запрос не выполнен нигде \- кол\-во успешно выполненных запросов \(и полученных данных\) следует осуществлять в resFunc\.
+
+### func \(\*QueuedClient\) [MakeUnicastRequest](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/request.go#L42>)
 
 ```go
-func (qc *QueuedClient) MakeUnicastRequest(ctx context.Context, shard uint, req queuedproto.Request) ([]byte, error)
+func (qc *QueuedClient) MakeUnicastRequest(ctx context.Context, shard uint, req queuedproto.Request) (usedShard uint, respBytes []byte, err error)
 ```
 
-### func \(\*QueuedClient\) [Publish](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/api.go#L193>)
+MakeUnicastRequest посылает запрос req к указанному шарду\.
+
+В случае получения не\-логической ошибки \(\!queuedproto\.IsSoftError\(err\)\)\, производится ещё /queueds/multi/retry\_count попыток с задержкой /queueds/multi/retry\_delay\. Если после всех этих попыток ошибка повторяется \- она возвращается\.
+
+Если задан shard == BalanceShard\, шард выбирается по round robin\. В этом случае\, каждый ретрай посылается в следующий шард\.
+
+### func \(\*QueuedClient\) [Publish](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/api.go#L213>)
 
 ```go
 func (qc *QueuedClient) Publish(ctx context.Context, queueID uint16, eventID queuedproto.EventID, flags uint32, eventData []byte) (queuedproto.EventID, error)
 ```
 
-Publish отправляет событие в очередь\. Если eventID\.ID == 0\, queued создаёт новый ID\, который возвращается\. Если задан eventID\.Shard == BalanceShard\, шард выбирается по round robin \(т\.о\. есть возможность автогенерации id и в явно заданном шарде\)\.
+Publish отправляет событие в очередь\. Если eventID\.ID == 0\, queued создаёт новый ID\, который возвращается\. Если задан eventID\.Shard == BalanceShard\, шард выбирается по round robin\. Если шард задан\, а ID \- нет\, происходит автоинкремент ID в указанном шарде\.
 
 Если в конфиге задано initial\_delay\, событие сработает с задержкой\.
 
-### func \(\*QueuedClient\) [ShardNum](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/client.go#L126>)
+В случае получения не\-логической ошибки \(\!queuedproto\.IsSoftError\(err\)\)\, производится ещё /queueds/multi/retry\_count попыток с задержкой /queueds/multi/retry\_delay\. Если после всех этих попыток ошибка повторяется \- она возвращается\.
+
+Если задан eventID\.Shard == BalanceShard\, то каждый ретрай посылается в следующий шард\.
+
+ID запроса \(queuedproto\.ReqAddItem\.ReqID\) для всех ретраев отправляется один и тот же\, на случай\, если у нас шардов меньше\, чем retry\_count \(например\, 1\)\, и 1й запрос ушёл\, но ответ потерялся\.
+
+Ошибки обработки результата \(iproto\.Unpack\) не приводят к ретраям\, т\.к\.\, скорее всего\, являются ошибками прикладного уровня\.
+
+TODO местные ошибки тоже не надо ретраить\.
+
+### func \(\*QueuedClient\) [ShardNum](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/client.go#L133>)
 
 ```go
 func (qc *QueuedClient) ShardNum() uint
 ```
 
-## type [RequestFunc](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/request.go#L17>)
+ShardNum возвращает количество шардов\, указанных в /queueds/multi\.
+
+## type [RequestFunc](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/request.go#L19>)
+
+RequestFunc вызывается функцией MakeMulticastRequest для формирования запроса для указанных ID \(относящихся к одному шарду\)
 
 ```go
 type RequestFunc func(eventIDs []uint64) queuedproto.Request
 ```
 
-## type [ResultFunc](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/request.go#L18>)
+## type [ResultFunc](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/request.go#L25>)
+
+ResultFunc вызывается функциями MakeBroadcastRequest и MakeMulticastRequest для сохранения результата\, полученного из указанного шарда\. Результат надо сохранять либо через замыкание \- либо передавать в качестве этой функции bound method объекта\, куда сохраняются данные\.
+
+Эта функция вызывается из разных горутин и должна быть thread\-safe \(не использовать прямой append/обычный map без лока\! использовать каналы\, sync\.Map и т\.д\.\)
 
 ```go
 type ResultFunc func(shard uint, result []byte) error

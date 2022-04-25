@@ -9,7 +9,7 @@ require (
 	github.com/stretchr/testify v1.7.0
 	gitlab.corp.mail.ru/e-mail-ru/easygo v0.0.0-20220407134138-1d7b80a0721f
 	gitlab.corp.mail.ru/mygo/queuedproto.git v0.0.2-0.20220420101106-69eca1057f2e
-	gitlab.corp.mail.ru/mygo/utils.git v0.0.5-0.20220415130755-00c013f245a6
+	gitlab.corp.mail.ru/mygo/utils.git v0.0.5-0.20220422121951-1da826a42e70
 	google.golang.org/protobuf v1.27.1
 	kythe.io v0.0.57
 )
