@@ -105,9 +105,9 @@ func (c *Config) getIntPerQueue(queueID uint16, confPath string) (int, error) {
 }
 
 func (c *Config) getSizePerInstance(confPath string) (uint64, error) {
-	s, cErr := c.getStringPerInstance(confPath)
-	if cErr != nil {
-		return 0, cErr
+	s, err := c.getStringPerInstance(confPath)
+	if err != nil {
+		return 0, err
 	}
 
 	size, err := datasize.Parse(s)
@@ -171,9 +171,9 @@ func (c *Config) GetDurationCtx(ctx context.Context, confPath string, dfl time.D
 }*/
 
 func (c *Config) getDurationPerInstance(confPath string) (time.Duration, error) {
-	s, cErr := c.getStringPerInstance(confPath)
-	if cErr != nil {
-		return 0, cErr
+	s, err := c.getStringPerInstance(confPath)
+	if err != nil {
+		return 0, err
 	}
 
 	d, err := ParseDuration(s)
@@ -189,9 +189,9 @@ func (c *Config) getDurationPerInstance(confPath string) (time.Duration, error) 
 }
 
 func (c *Config) getDurationPerQueue(queueID uint16, confPath string) (time.Duration, error) {
-	s, usedPath, cErr := c.getStringPerQueue(queueID, confPath)
-	if cErr != nil {
-		return 0, cErr
+	s, usedPath, err := c.getStringPerQueue(queueID, confPath)
+	if err != nil {
+		return 0, err
 	}
 
 	d, err := ParseDuration(s)
@@ -207,9 +207,9 @@ func (c *Config) getDurationPerQueue(queueID uint16, confPath string) (time.Dura
 }
 
 func (c *Config) getFloatPerInstance(confPath string) (float64, error) {
-	s, cErr := c.getStringPerInstance(confPath)
-	if cErr != nil {
-		return 0, cErr
+	s, err := c.getStringPerInstance(confPath)
+	if err != nil {
+		return 0, err
 	}
 
 	ret, err := strconv.ParseFloat(s, 64)
