@@ -84,7 +84,7 @@ func newMockConf(t *testing.T, queueID tp.QueueIDType) oconf.OnlineConf {
 	conf.EXPECT().GetStringIfExists(iprefix + "oom_soft_limit").AnyTimes().DoAndReturn(func(string) (string, bool) { return confOOMSoftLimit.Load().(string), true })
 	conf.EXPECT().GetStringIfExists(iprefix + "oom_hard_limit").AnyTimes().DoAndReturn(func(string) (string, bool) { return confOOMHardLimit.Load().(string), true })
 	conf.EXPECT().GetStringIfExists(iprefix+"oom_soft_downscale_rate").AnyTimes().Return("", false)
-	conf.EXPECT().GetStringIfExists("/tp/go/oom_soft_downscale_rate").AnyTimes().Return("", false)
+	conf.EXPECT().GetStringIfExists("/tp/go/oom_soft_downscale_rate").AnyTimes().Return("-666", true)
 	conf.EXPECT().GetStringIfExists(iprefix+"oom_check_period").AnyTimes().Return("2s", true)
 	conf.EXPECT().GetIntIfExists(iprefix + "workers_max").AnyTimes().DoAndReturn(func(string) (int, bool) { return int(atomic.LoadInt32(&confWorkersMax)), true })
 	conf.EXPECT().GetIntIfExists(iprefix + "workers_max_per_queue").AnyTimes().DoAndReturn(func(string) (int, bool) { return int(atomic.LoadInt32(&confWorkersMaxPerQueue)), true })

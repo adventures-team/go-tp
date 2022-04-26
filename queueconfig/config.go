@@ -1,12 +1,11 @@
 package queueconfig
 
 import (
-	"errors"
-	"fmt"
 	"path"
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"kythe.io/kythe/go/util/datasize"
@@ -16,10 +15,7 @@ import (
 
 const globalPath = "/tp/go"
 
-var (
-	ErrNotFound = errors.New("path not found")
-	CSVRegex    = regexp.MustCompile(`\s*,\s*`)
-)
+var CSVRegex = regexp.MustCompile(`\s*,\s*`)
 
 // Config - настройки обработчика очередей. Можно пользоваться, как обычным объектом с интерфейсом Onlineconf для получения настроек относительно корня проекта.
 // Также предусмотрены методы для получения настроек per-instance и pre-queue.
@@ -27,6 +23,7 @@ type Config struct {
 	oconf.OnlineConf                  // для работы с глобальными настройками уровня проекта - например, списком серверов очередей - можно пользоваться этим объектом, как обычным интерфейсом OnlineConf
 	global           oconf.OnlineConf // глобальные настройки очередей (/tp/go)
 	instance         oconf.OnlineConf // настройки инстанса (/tp/go/$InstanceName)
+	pathErrors       sync.Map         // сюда пишутся пути, про которые уже жаловались в лог. обращение к мэпу идёт только при ошибках.
 }
 
 func New(conf oconf.OnlineConf, instanceName string) *Config {
@@ -37,47 +34,89 @@ func New(conf oconf.OnlineConf, instanceName string) *Config {
 	}
 }
 
-func (c *Config) getStringPerInstance(confPath string) (string, bool) {
+func (c *Config) getStringPerInstance(confPath string) (string, error) {
 	if s, ok := c.instance.GetStringIfExists(confPath); ok {
-		return s, true
+		return s, nil
 	}
 
-	return c.global.GetStringIfExists(confPath)
-}
-
-func (c *Config) getStringPerQueue(queueID uint16, confPath string) (string, bool) {
-	if s, ok := c.instance.GetStringIfExists(path.Join(strconv.Itoa(int(queueID)), confPath)); ok {
-		return s, true
+	if s, ok := c.global.GetStringIfExists(confPath); ok {
+		return s, nil
 	}
 
-	return c.getStringPerInstance(confPath)
+	return "", errNotFound(confPath)
 }
 
-func (c *Config) getIntPerInstance(confPath string) (int, bool) {
+// в случае, если не найдено ничего, в ошибке возвращается путь про per-queue значение
+func (c *Config) getStringPerQueue(queueID uint16, confPath string) (str, usedPath string, err error) {
+	perQueuePath := path.Join(strconv.Itoa(int(queueID)), confPath)
+	if s, ok := c.instance.GetStringIfExists(perQueuePath); ok {
+		return s, perQueuePath, nil
+	}
+
+	s, err := c.getStringPerInstance(confPath)
+	/* см. ниже коммент в getIntPerQueue
+	if err == nil {
+		return s, confPath, nil
+	}
+
+	if err.isNotFound {
+		err.Path = perQueuePath
+	}
+
+	return "", perQueuePath, err
+	*/
+	return s, confPath, err
+}
+
+func (c *Config) getIntPerInstance(confPath string) (int, error) {
 	if i, ok := c.instance.GetIntIfExists(confPath); ok {
-		return i, true
+		return i, nil
 	}
 
-	return c.global.GetIntIfExists(confPath)
+	if i, ok := c.global.GetIntIfExists(confPath); ok {
+		return i, nil
+	}
+
+	return 0, errNotFound(confPath)
 }
 
-func (c *Config) getIntPerQueue(queueID uint16, confPath string) (int, bool) {
-	if i, ok := c.instance.GetIntIfExists(path.Join(strconv.Itoa(int(queueID)), confPath)); ok {
-		return i, true
+// в случае, если не найдено ничего, в ошибке возвращается путь про per-queue значение
+func (c *Config) getIntPerQueue(queueID uint16, confPath string) (int, error) {
+	perQueuePath := path.Join(strconv.Itoa(int(queueID)), confPath)
+	if i, ok := c.instance.GetIntIfExists(perQueuePath); ok {
+		return i, nil
 	}
 
-	return c.getIntPerInstance(confPath)
+	i, err := c.getIntPerInstance(confPath)
+	/* раскомментить, если вдруг понадобится инфа об очереди, для которой не нашли параметра. обычно это нужно
+	   при ошибках парзинга - а про не найденный параметр вроде как полезнее будет показать, что отсутствует дефолт.
+
+		if err == nil {
+			return i, nil
+		}
+
+		if err.isNotFound {
+			err.Path = perQueuePath
+		}
+
+		return 0, err
+	*/
+	return i, err
 }
 
 func (c *Config) getSizePerInstance(confPath string) (uint64, error) {
-	s, ok := c.getStringPerInstance(confPath)
-	if !ok {
-		return 0, fmt.Errorf("%s: %w", confPath, ErrNotFound)
+	s, cErr := c.getStringPerInstance(confPath)
+	if cErr != nil {
+		return 0, cErr
 	}
 
 	size, err := datasize.Parse(s)
 	if err != nil {
-		return 0, fmt.Errorf("%s: %s: %w", confPath, s, err)
+		return 0, &ConfError{
+			Path:  confPath,
+			Value: s,
+			Err:   err,
+		}
 	}
 
 	return uint64(size), nil
@@ -104,59 +143,82 @@ func (c *Config) GetDuration(confPath string, dfl ...time.Duration) (time.Durati
 			return dfl[0], nil
 		}
 
-		return time.Duration(0), fmt.Errorf("%s: %w", confPath, ErrNotFound)
+		return time.Duration(0), errNotFound(confPath)
 	}
 
 	d, err := ParseDuration(s)
 	if err != nil {
+		cErr := &ConfError{
+			Path:  confPath,
+			Value: s,
+			Err:   err,
+		}
+
 		if len(dfl) != 0 {
 			d = dfl[0]
-			err = fmt.Errorf("%s: %s: %w, using default %v", confPath, s, err, d)
-		} else {
-			err = fmt.Errorf("%s: %s: %w", confPath, s, err)
+			cErr.Default = d
 		}
+
+		err = cErr
 	}
 
 	return d, err
 }
 
+/*
+func (c *Config) GetDurationCtx(ctx context.Context, confPath string, dfl time.Duration) time.Duration {
+
+}*/
+
 func (c *Config) getDurationPerInstance(confPath string) (time.Duration, error) {
-	s, ok := c.getStringPerInstance(confPath)
-	if !ok {
-		return 0, fmt.Errorf("%s: %w", confPath, ErrNotFound)
+	s, cErr := c.getStringPerInstance(confPath)
+	if cErr != nil {
+		return 0, cErr
 	}
 
 	d, err := ParseDuration(s)
 	if err != nil {
-		return 0, fmt.Errorf("%s: %s: %w", confPath, s, err)
+		return 0, &ConfError{
+			Path:  confPath,
+			Value: s,
+			Err:   err,
+		}
 	}
 
 	return d, nil
 }
 
 func (c *Config) getDurationPerQueue(queueID uint16, confPath string) (time.Duration, error) {
-	s, ok := c.getStringPerQueue(queueID, confPath)
-	if !ok {
-		return 0, fmt.Errorf("%d/%s: %w", queueID, confPath, ErrNotFound)
+	s, usedPath, cErr := c.getStringPerQueue(queueID, confPath)
+	if cErr != nil {
+		return 0, cErr
 	}
 
 	d, err := ParseDuration(s)
 	if err != nil {
-		return 0, fmt.Errorf("%d/%s: %s: %w", queueID, confPath, s, err)
+		return 0, &ConfError{
+			Path:  usedPath,
+			Value: s,
+			Err:   err,
+		}
 	}
 
 	return d, nil
 }
 
 func (c *Config) getFloatPerInstance(confPath string) (float64, error) {
-	s, ok := c.getStringPerInstance(confPath)
-	if !ok {
-		return 0, fmt.Errorf("%s: %w", confPath, ErrNotFound)
+	s, cErr := c.getStringPerInstance(confPath)
+	if cErr != nil {
+		return 0, cErr
 	}
 
 	ret, err := strconv.ParseFloat(s, 64)
 	if err != nil {
-		return 0, fmt.Errorf("%s: %s: %w", confPath, s, err)
+		return 0, &ConfError{
+			Path:  confPath,
+			Value: s,
+			Err:   err,
+		}
 	}
 
 	return ret, nil

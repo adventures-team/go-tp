@@ -1,8 +1,7 @@
 package queueconfig
 
 import (
-	"errors"
-	"fmt"
+	"context"
 	"math/rand"
 	"strconv"
 	"time"
@@ -10,65 +9,88 @@ import (
 	"github.com/rs/zerolog"
 )
 
-// TODO возвращать ErrNotFound только для обязательных параметров, для параметров с дефолтами возвращать только ошибку парзинга.
-// А лучше, принимать контекст, и писать в лог тут, а не заставлять это делать юзера.
-
 // global/per instance
 
-// OOMSoftLimit получает oom_soft_limit
-func (c *Config) OOMSoftLimit() (uint64, error) {
-	return c.getSizePerInstance("oom_soft_limit")
+// OOMSoftLimit получает oom_soft_limit. По умолчанию - 0 (проверку нужно пропустить).
+func (c *Config) OOMSoftLimit(ctx context.Context) uint64 {
+	lim, err := c.getSizePerInstance("oom_soft_limit")
+	if err != nil {
+		c.logError(ctx, err, nil, "skipping soft memory limit check")
+	}
+
+	return lim
 }
 
-// OOMHardLimit получает oom_hard_limit
-func (c *Config) OOMHardLimit() (uint64, error) {
-	return c.getSizePerInstance("oom_hard_limit")
+// OOMHardLimit получает oom_hard_limit. По умолчанию - 0 (проверку нужно пропустить).
+func (c *Config) OOMHardLimit(ctx context.Context) uint64 {
+	lim, err := c.getSizePerInstance("oom_hard_limit")
+	if err != nil {
+		c.logError(ctx, err, nil, "skipping hard memory limit check")
+	}
+
+	return lim
 }
 
-// OOMSoftDownscaleRate получает oom_soft_downscale_rate. Валидное значение возвращается всегда (default: DefaultDownscaleRate), ошибку надо просто напечатать в лог
-func (c *Config) OOMSoftDownscaleRate() (float64, error) {
+// OOMSoftDownscaleRate получает oom_soft_downscale_rate. По умолчанию: DefaultDownscaleRate.
+func (c *Config) OOMSoftDownscaleRate(ctx context.Context) float64 {
 	rate, err := c.getFloatPerInstance("oom_soft_downscale_rate")
 
 	if rate < 0 {
-		err = fmt.Errorf("oom_soft_downscale_rate should be >= 0 (%g used)", rate)
+		err = &ConfError{
+			Path:    "oom_soft_downscale_rate",
+			Value:   strconv.FormatFloat(rate, 'g', -1, 64),
+			Err:     ErrOOMSoftDownscaleRate,
+			Default: DefaultDownscaleRate,
+		}
 		rate = DefaultDownscaleRate
 	} else if rate == 0 {
 		rate = DefaultDownscaleRate
 	}
 
-	return rate, err
+	if err != nil {
+		c.logError(ctx, err, DefaultDownscaleRate, "using the default")
+	}
+
+	return rate
 }
 
-// OOMCheckPeriod получает oom_check_period. Валидное значение возвращается всегда (default: DefaultOOMCheckPeriod), ошибку надо просто напечатать в лог
-func (c *Config) OOMCheckPeriod() (time.Duration, error) {
+// OOMCheckPeriod получает oom_check_period. По умолчанию: DefaultOOMCheckPeriod.
+func (c *Config) OOMCheckPeriod(ctx context.Context) time.Duration {
 	d, err := c.getDurationPerInstance("oom_check_period")
 	if err == nil {
-		return d, nil
+		return d
 	}
 
-	if errors.Is(err, ErrNotFound) {
-		return DefaultOOMCheckPeriod, nil
-	}
+	c.logError(ctx, err, DefaultOOMCheckPeriod, "using the default")
 
-	return DefaultOOMCheckPeriod, err
+	return DefaultOOMCheckPeriod
 }
 
 // WorkersMaxCount получает workers_max
-func (c *Config) WorkersMaxCount() (int, bool) {
-	count, ok := c.getIntPerInstance("workers_max")
-	if !ok || count < 0 {
-		return 0, false
+func (c *Config) WorkersMaxCount(ctx context.Context) (int, error) {
+	count, err := c.getIntPerInstance("workers_max")
+	if count < 0 {
+		err = &ConfError{
+			Path:  "workers_max",
+			Value: strconv.Itoa(count),
+			Err:   ErrWorkersCount,
+		}
+		count = 0
 	}
 
-	return count, true
+	if err != nil {
+		c.logError(ctx, err, nil, "workers_max is mandatory")
+	}
+
+	return count, err
 }
 
 // QueueIDs получает queue_ids, который задаётся в виде разделённых через запятую интов (см. CSVRegex).
 // Если задан пустой список (пустая строка), ошибкой это не считается (требуется холостой запуск, либо остановка всех запущенных очередей)
 func (c *Config) QueueIDs() ([]uint16, error) {
-	str, ok := c.getStringPerInstance("queue_ids")
-	if !ok {
-		return nil, fmt.Errorf("queue_ids: %w", ErrNotFound)
+	str, err := c.getStringPerInstance("queue_ids")
+	if err != nil {
+		return nil, err
 	}
 
 	strIDs := CSVRegex.Split(str, -1)
@@ -81,7 +103,11 @@ func (c *Config) QueueIDs() ([]uint16, error) {
 
 		id, err := strconv.ParseUint(strID, 10, 16)
 		if err != nil {
-			return nil, fmt.Errorf("queue_ids: %s: %w", strID, err)
+			return nil, &ConfError{
+				Path:  "queue_ids",
+				Value: strID,
+				Err:   err,
+			}
 		}
 
 		queueIDs = append(queueIDs, uint16(id))
@@ -90,98 +116,108 @@ func (c *Config) QueueIDs() ([]uint16, error) {
 	return queueIDs, nil // пустой список - не ошибка (значит надо остановить все запущенные очереди)
 }
 
-// LogLevel получает log_level. Валидное значение возвращается всегда (default: DefaultLogLevel), ошибку надо просто напечатать в лог
-func (c *Config) LogLevel() (zerolog.Level, error) {
-	str, ok := c.getStringPerInstance("log_level")
-	if !ok {
-		return DefaultLogLevel, nil
+// LogLevel получает log_level. По умолчанию: DefaultLogLevel.
+func (c *Config) LogLevel(ctx context.Context) zerolog.Level {
+	str, err := c.getStringPerInstance("log_level")
+	if err != nil {
+		c.logError(ctx, err, DefaultLogLevel, "using the default")
+
+		return DefaultLogLevel
 	}
 
 	level, err := zerolog.ParseLevel(str)
 	if err != nil {
-		return DefaultLogLevel, fmt.Errorf("log_level: %s: %w", str, err)
+		level = DefaultLogLevel
+		err = &ConfError{
+			Path:    "log_level",
+			Value:   str,
+			Err:     err,
+			Default: DefaultLogLevel,
+		}
+
+		c.logError(ctx, err, nil, "using the default")
 	}
 
-	return level, nil
+	return level
 }
 
 // per queue
 
 // WorkersCount получает workers для указанной очереди, но не больше workers_max_per_queue
-func (c *Config) WorkersCount(queueID uint16) (int, bool) {
-	count, ok := c.getIntPerQueue(queueID, "workers")
-	if !ok {
-		return 0, false
+func (c *Config) WorkersCount(ctx context.Context, queueID uint16) (int, error) {
+	count, err := c.getIntPerQueue(queueID, "workers")
+	if err != nil {
+		c.logError(ctx, err, nil, "workers parameter is mandatory")
+		return 0, err
 	}
 
-	maxCount, ok := c.getIntPerInstance("workers_max_per_queue")
-	if !ok || maxCount < 0 {
-		return count, true
+	maxCount, err := c.getIntPerInstance("workers_max_per_queue")
+	if err != nil {
+		c.logError(ctx, err, -1, "ignoring invalid workers_max_per_queue")
+		return count, nil
+	}
+
+	if maxCount < 0 {
+		return count, nil
 	}
 
 	if count > maxCount {
-		return maxCount, true
+		return maxCount, nil
 	}
 
-	return count, true
+	return count, nil
 }
 
 // DeferTime получает defer_time для указанной очереди. Dалидное значение возвращается всегда (default: DefaultDeferTime), ошибку надо просто напечатать в лог.
 // К времени добавляется рандомное значение, максимум defer_time_jitter (default: DefaultDeferTimeJitter)
-func (c *Config) DeferTime(queueID uint16) (time.Duration, error) {
+func (c *Config) DeferTime(ctx context.Context, queueID uint16) time.Duration {
 	deferTime, err := c.getDurationPerQueue(queueID, "defer_time")
 	if err != nil {
 		deferTime = DefaultDeferTime
-
-		if errors.Is(err, ErrNotFound) {
-			err = nil
-		}
+		c.logError(ctx, err, DefaultDeferTime, "using the default")
 	}
 
-	jitter, errj := c.getDurationPerQueue(queueID, "defer_time_jitter")
-	if errj != nil {
+	jitter, err := c.getDurationPerQueue(queueID, "defer_time_jitter")
+	if err != nil {
 		jitter = DefaultDeferTimeJitter
-
-		if errors.Is(err, ErrNotFound) {
-			errj = nil
-		}
+		c.logError(ctx, err, DefaultDeferTimeJitter, "using the default")
 	}
 
-	if err == nil {
-		err = errj
-	}
-
-	return deferTime + time.Duration(rand.Intn(int(jitter))), err //nolint:gosec
+	return deferTime + time.Duration(rand.Int63n(int64(jitter))) //nolint:gosec
 }
 
-// InitialDelay получает initial_delay для указанной очереди. Валидное значение возвращается всегда (default: DefaultInitialDelay), ошибку надо просто напечатать в лог
-func (c *Config) InitialDelay(queueID uint16) (time.Duration, error) {
+// InitialDelay получает initial_delay для указанной очереди. По умолчанию: DefaultInitialDelay.
+func (c *Config) InitialDelay(ctx context.Context, queueID uint16) time.Duration {
 	d, err := c.getDurationPerQueue(queueID, "initial_delay")
 	if err == nil {
-		return d, nil
+		return d
 	}
 
-	if errors.Is(err, ErrNotFound) {
-		return DefaultInitialDelay, nil
-	}
+	c.logError(ctx, err, DefaultInitialDelay, "using the default")
 
-	return DefaultInitialDelay, err
+	return DefaultInitialDelay
 }
 
 // FetchBatchSize получает fetch_batch_size для указанной очереди. Если оно не задано, возвращается DefaultFetchBatchSize
-func (c *Config) FetchBatchSize(queueID uint16) int {
-	if bsize, ok := c.getIntPerQueue(queueID, "fetch_batch_size"); ok {
+func (c *Config) FetchBatchSize(ctx context.Context, queueID uint16) int {
+	bsize, err := c.getIntPerQueue(queueID, "fetch_batch_size")
+	if err == nil {
 		return bsize
 	}
+
+	c.logError(ctx, err, DefaultFetchBatchSize, "using the default")
 
 	return DefaultFetchBatchSize
 }
 
 // UpdateBatchSize возвращает update_batch_size для указанной очереди. Если оно не задано, возвращается DefaultUpdateBatchSize
-func (c *Config) UpdateBatchSize(queueID uint16) int {
-	if bsize, ok := c.getIntPerQueue(queueID, "update_batch_size"); ok {
+func (c *Config) UpdateBatchSize(ctx context.Context, queueID uint16) int {
+	bsize, err := c.getIntPerQueue(queueID, "update_batch_size")
+	if err == nil {
 		return bsize
 	}
+
+	c.logError(ctx, err, DefaultUpdateBatchSize, "using the default")
 
 	return DefaultUpdateBatchSize
 }

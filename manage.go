@@ -1,6 +1,7 @@
 package tp
 
 import (
+	"context"
 	"errors"
 	"os"
 	"os/signal"
@@ -54,6 +55,7 @@ func NewQueueManager(queue *Queue, pool *workerpool.WorkerPool, logger *zerolog.
 
 func (qm *QueueManager) forceReload() {
 	qm.oldScale = -1
+	qm.client.ClearErrCache()
 }
 
 // applyConfig применяет настройки из конфига к пулу очередей.
@@ -61,18 +63,14 @@ func (qm *QueueManager) forceReload() {
 // Для остановки всех запущенных очередей надо задать пустой параметр.
 // Если workers_max меньше кол-ва заданных очередей в queue_ids, то запускается по 1 обработчику на очередь, и выдаётся ошибка в лог (приоритета важности очереди у нас нет, параметр нужен для экстренного тушения аварий, поэтому овердизайнить тут не стоит).
 // Параллельно вызывать applyConfig не надо (особенно с одним и тем же queuesRunning).
-func (qm *QueueManager) applyConfig() error {
-	logLevel, err := qm.client.LogLevel()
-	if err != nil {
-		qm.logger.Err(err).Stringer("log_level", logLevel).Msg("using the default log level")
-	}
-
+func (qm *QueueManager) applyConfig(ctx context.Context) error {
+	logLevel := qm.client.LogLevel(ctx)
 	if qm.oldLogLevel != logLevel {
 		qm.oldLogLevel = logLevel
 		setLogLevel(qm.logger, logLevel)
 	}
 
-	scale, err := qm.applyMemLimits()
+	scale, err := qm.applyMemLimits(ctx)
 	if err != nil {
 		return err
 	}
@@ -86,9 +84,9 @@ func (qm *QueueManager) applyConfig() error {
 		return err
 	}
 
-	qm.oldScale = scale
 	workersTotal := 0
-	workersMax, hasWorkersMax := qm.client.WorkersMaxCount()
+	workersMax, err := qm.client.WorkersMaxCount(ctx)
+	hasWorkersMax := err == nil
 	queueWorkers := make([]queueIDWorkers, 0, len(confQueueIDs))
 
 	for _, queueID := range confQueueIDs {
@@ -97,7 +95,11 @@ func (qm *QueueManager) applyConfig() error {
 			continue
 		}
 
-		workers, _ := qm.client.WorkersCount(queueID) // TODO выпилить ok, если зайдёт так
+		workers, err := qm.client.WorkersCount(ctx, queueID)
+		if err != nil {
+			return err // параметр обязательный, не стартуем, если не указано глобально (т.к. если не указано для конкретно этой очереди - должно использоваться глобальное значение)
+		}
+
 		if workers <= 0 {
 			continue
 		}
@@ -113,6 +115,8 @@ func (qm *QueueManager) applyConfig() error {
 
 		workersTotal += workers
 	}
+
+	qm.oldScale = scale
 
 	if hasWorkersMax {
 		if workersMax == 0 {
@@ -147,18 +151,11 @@ func (qm *QueueManager) applyConfig() error {
 	return nil
 }
 
-func (qm *QueueManager) applyMemLimits() (float64, error) {
+func (qm *QueueManager) applyMemLimits(ctx context.Context) (float64, error) {
 	scale := float64(1)
 
-	softLimit, err := qm.client.OOMSoftLimit()
-	if err != nil {
-		qm.logger.Err(err).Msg("skipping soft memory limit check")
-	}
-
-	hardLimit, err := qm.client.OOMHardLimit()
-	if err != nil {
-		qm.logger.Err(err).Msg("skipping hard memory limit check")
-	}
+	softLimit := qm.client.OOMSoftLimit(ctx)
+	hardLimit := qm.client.OOMHardLimit(ctx)
 
 	if softLimit != 0 && hardLimit != 0 {
 		if softLimit > hardLimit {
@@ -175,12 +172,8 @@ func (qm *QueueManager) applyMemLimits() (float64, error) {
 		}
 
 		if softLimit != 0 && memstats.Sys > softLimit {
-			scale, err = qm.client.OOMSoftDownscaleRate()
+			scale = qm.client.OOMSoftDownscaleRate(ctx)
 			if qm.oldScale != scale {
-				if err != nil {
-					qm.logger.Err(err).Msgf("using the default scale %g", scale)
-				}
-
 				qm.logger.Warn().Uint64("mem_usage", memstats.Sys).Uint64("oom_soft_limit", softLimit).Float64("scale", scale).Msg("memory usage is over the soft limit, downscaling worker count")
 			}
 		}
@@ -243,25 +236,27 @@ func (qm *QueueManager) startStop(queueWorkers []queueIDWorkers) {
 // Для обычных ошибок - пишется ошибка в лог, и остаётся старый конфиг.
 // Вызывать из main, при возврате - выходить.
 func (qm *QueueManager) Manage() {
-	err := qm.applyConfig()
+	ctx := qm.logger.WithContext(context.Background())
+
+	err := qm.applyConfig(ctx)
 	if err != nil {
 		qm.pool.Stop()
-		qm.logger.Err(err).Send()
+		qm.logger.Err(err).Msg("config error, exiting")
 
 		return
 	}
 
-	go qm.manage()   // менеджер конфига запускается асинхронно, т.к. просто посылает команды пулу
-	qm.pool.Manage() // пул должен запускаться синхронно, чтобы выход из Manage происходил после окончания всей обработки
+	go qm.manage(ctx) // менеджер конфига запускается асинхронно, т.к. просто посылает команды пулу
+	qm.pool.Manage()  // пул должен запускаться синхронно, чтобы выход из Manage происходил после окончания всей обработки
 }
 
-func (qm *QueueManager) manage() {
+func (qm *QueueManager) manage(ctx context.Context) {
 	defer func() {
 		if reason := recover(); reason != nil {
 			mylog.LogPanic(qm.logger.Error(), reason).Msg("panic in QueueManager.manage")
 			time.Sleep(workerpool.InternalPanicDelay)
 
-			go qm.manage()
+			go qm.manage(ctx)
 		}
 	}()
 
@@ -277,12 +272,7 @@ func (qm *QueueManager) manage() {
 	}
 
 	for {
-		period, err := qm.client.OOMCheckPeriod()
-		if err != nil {
-			qm.logger.Err(err).Send()
-		}
-
-		timer := time.NewTimer(period)
+		timer := time.NewTimer(qm.client.OOMCheckPeriod(ctx))
 
 		select {
 		case <-updateChan:
@@ -304,7 +294,7 @@ func (qm *QueueManager) manage() {
 
 		timer.Stop()
 
-		err = qm.applyConfig()
+		err := qm.applyConfig(ctx)
 		if err != nil {
 			if errors.Is(err, ErrHardMemoryLimit) {
 				qm.pool.Stop()

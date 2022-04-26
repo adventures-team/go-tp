@@ -675,7 +675,7 @@ QueueIDType \- тип id очереди\. Используем type alias \- п�
 type QueueIDType = uint16
 ```
 
-## type [QueueManager](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/manage.go#L34-L41>)
+## type [QueueManager](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/manage.go#L35-L42>)
 
 QueueManager \- управление пулом обработчиков очередей при помощи onlineconf\. Поддерживает все методы типа Queue\.
 
@@ -688,13 +688,13 @@ type QueueManager struct {
 }
 ```
 
-### func [NewQueueManager](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/manage.go#L44>)
+### func [NewQueueManager](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/manage.go#L45>)
 
 ```go
 func NewQueueManager(queue *Queue, pool *workerpool.WorkerPool, logger *zerolog.Logger) *QueueManager
 ```
 
-### func \(\*QueueManager\) [Manage](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/manage.go#L245>)
+### func \(\*QueueManager\) [Manage](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/manage.go#L238>)
 
 ```go
 func (qm *QueueManager) Manage()
@@ -702,7 +702,7 @@ func (qm *QueueManager) Manage()
 
 Manage \- для обработчиков очередей\. Запуск управления пулом воркеров из конфига\. Применяет конфиг сразу при вызове\, а также при изменении конфига\, и по сигналу SIGHUP\. Если в конфиге при первом запуске обнаружены ошибки \- пул воркеров останавливается\, и функция возвращается\. При изменении конфига/по сигналу выход/остановка происходят только при ошибке достижения oom\_hard\_limit\. Для обычных ошибок \- пишется ошибка в лог\, и остаётся старый конфиг\. Вызывать из main\, при возврате \- выходить\.
 
-### func \(\*QueueManager\) [Stop](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/manage.go#L321>)
+### func \(\*QueueManager\) [Stop](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/manage.go#L311>)
 
 ```go
 func (qm *QueueManager) Stop()
@@ -934,21 +934,26 @@ update_batch_size              UpdateBatchSize strconv.ParseInt
 - [Constants](<#constants>)
 - [Variables](<#variables>)
 - [func ParseDuration(s string) (time.Duration, error)](<#func-parseduration>)
+- [type ConfError](<#type-conferror>)
+  - [func (ce *ConfError) Error() string](<#func-conferror-error>)
+  - [func (ce *ConfError) MarshalZerologObject(ev *zerolog.Event)](<#func-conferror-marshalzerologobject>)
+  - [func (ce *ConfError) Unwrap() error](<#func-conferror-unwrap>)
 - [type Config](<#type-config>)
   - [func New(conf oconf.OnlineConf, instanceName string) *Config](<#func-new>)
-  - [func (c *Config) DeferTime(queueID uint16) (time.Duration, error)](<#func-config-defertime>)
-  - [func (c *Config) FetchBatchSize(queueID uint16) int](<#func-config-fetchbatchsize>)
+  - [func (c *Config) ClearErrCache()](<#func-config-clearerrcache>)
+  - [func (c *Config) DeferTime(ctx context.Context, queueID uint16) time.Duration](<#func-config-defertime>)
+  - [func (c *Config) FetchBatchSize(ctx context.Context, queueID uint16) int](<#func-config-fetchbatchsize>)
   - [func (c *Config) GetDuration(confPath string, dfl ...time.Duration) (time.Duration, error)](<#func-config-getduration>)
-  - [func (c *Config) InitialDelay(queueID uint16) (time.Duration, error)](<#func-config-initialdelay>)
-  - [func (c *Config) LogLevel() (zerolog.Level, error)](<#func-config-loglevel>)
-  - [func (c *Config) OOMCheckPeriod() (time.Duration, error)](<#func-config-oomcheckperiod>)
-  - [func (c *Config) OOMHardLimit() (uint64, error)](<#func-config-oomhardlimit>)
-  - [func (c *Config) OOMSoftDownscaleRate() (float64, error)](<#func-config-oomsoftdownscalerate>)
-  - [func (c *Config) OOMSoftLimit() (uint64, error)](<#func-config-oomsoftlimit>)
+  - [func (c *Config) InitialDelay(ctx context.Context, queueID uint16) time.Duration](<#func-config-initialdelay>)
+  - [func (c *Config) LogLevel(ctx context.Context) zerolog.Level](<#func-config-loglevel>)
+  - [func (c *Config) OOMCheckPeriod(ctx context.Context) time.Duration](<#func-config-oomcheckperiod>)
+  - [func (c *Config) OOMHardLimit(ctx context.Context) uint64](<#func-config-oomhardlimit>)
+  - [func (c *Config) OOMSoftDownscaleRate(ctx context.Context) float64](<#func-config-oomsoftdownscalerate>)
+  - [func (c *Config) OOMSoftLimit(ctx context.Context) uint64](<#func-config-oomsoftlimit>)
   - [func (c *Config) QueueIDs() ([]uint16, error)](<#func-config-queueids>)
-  - [func (c *Config) UpdateBatchSize(queueID uint16) int](<#func-config-updatebatchsize>)
-  - [func (c *Config) WorkersCount(queueID uint16) (int, bool)](<#func-config-workerscount>)
-  - [func (c *Config) WorkersMaxCount() (int, bool)](<#func-config-workersmaxcount>)
+  - [func (c *Config) UpdateBatchSize(ctx context.Context, queueID uint16) int](<#func-config-updatebatchsize>)
+  - [func (c *Config) WorkersCount(ctx context.Context, queueID uint16) (int, error)](<#func-config-workerscount>)
+  - [func (c *Config) WorkersMaxCount(ctx context.Context) (int, error)](<#func-config-workersmaxcount>)
 
 
 ## Constants
@@ -970,12 +975,17 @@ const (
 
 ```go
 var (
-    ErrNotFound = errors.New("path not found")
-    CSVRegex    = regexp.MustCompile(`\s*,\s*`)
+    ErrNotFound             = errors.New("path not found")
+    ErrOOMSoftDownscaleRate = errors.New("oom_soft_downscale_rate should be >= 0")
+    ErrWorkersCount         = errors.New("workers count should be >=0")
 )
 ```
 
-## func [ParseDuration](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/config.go#L87>)
+```go
+var CSVRegex = regexp.MustCompile(`\s*,\s*`)
+```
+
+## func [ParseDuration](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/config.go#L126>)
 
 ```go
 func ParseDuration(s string) (time.Duration, error)
@@ -983,7 +993,49 @@ func ParseDuration(s string) (time.Duration, error)
 
 ParseDuration парзит длительность при помощи time\.ParseDuration\. Если единицы измерения не указаны \- считается\, что указаны секунды\.
 
-## type [Config](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/config.go#L26-L30>)
+## type [ConfError](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/error.go#L20-L26>)
+
+ConfError \- тип для ошибок\, который можно как вернуть юзеру \- так и эффективно записать в лог\. Преобразование в строку делается\, только если это потребовано явно \(вызовом метода Error\)\, а не по факту возврата ошибки \(как это обычно принято\)\.
+
+При выводе в zerolog методом Err\, поля будут напечатаны отдельно \(без преобразование в одну строку методом Error\)\.
+
+```go
+type ConfError struct {
+    Path    string      // Путь к неправильному значению
+    Value   string      // Ошибочное значение. Если параметр не найден - пустое
+    Err     error       // Ошибка парзинга, либо ErrNotFound для ненайденных значений
+    Default interface{} // Значение по умолчанию
+    // contains filtered or unexported fields
+}
+```
+
+### func \(\*ConfError\) [Error](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/error.go#L48>)
+
+```go
+func (ce *ConfError) Error() string
+```
+
+Error преобразует ошибку в строку\. Value пишется\, если ошибка \- не ErrNotFound\, даже если значение пустое \(чтобы сообщить о том\, что пустое значение для данного параметра не является валидным\)\.
+
+### func \(\*ConfError\) [MarshalZerologObject](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/error.go#L69>)
+
+```go
+func (ce *ConfError) MarshalZerologObject(ev *zerolog.Event)
+```
+
+MarshalZerologObject печатает ошибку в лог\. Используется при печати ошибки методами zerolog\.Event\.Object и zerolog\.Event\.Err\.
+
+Поля: conf\_path: путь в онлайнконфе err\_value: если путь найден \- ошибочное значение err:       ошибка \("path not found"\, если путь не найден\, либо ошибка парзинга\) default:   если есть значение по умолчанию
+
+### func \(\*ConfError\) [Unwrap](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/error.go#L42>)
+
+```go
+func (ce *ConfError) Unwrap() error
+```
+
+Unwrap возвращает Err для работы с errors\.Is и т\.д\.
+
+## type [Config](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/config.go#L22-L27>)
 
 Config \- настройки обработчика очередей\. Можно пользоваться\, как обычным объектом с интерфейсом Onlineconf для получения настроек относительно корня проекта\. Также предусмотрены методы для получения настроек per\-instance и pre\-queue\.
 
@@ -994,29 +1046,37 @@ type Config struct {
 }
 ```
 
-### func [New](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/config.go#L32>)
+### func [New](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/config.go#L29>)
 
 ```go
 func New(conf oconf.OnlineConf, instanceName string) *Config
 ```
 
-### func \(\*Config\) [DeferTime](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/settings.go#L131>)
+### func \(\*Config\) [ClearErrCache](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/log.go#L10>)
 
 ```go
-func (c *Config) DeferTime(queueID uint16) (time.Duration, error)
+func (c *Config) ClearErrCache()
+```
+
+ClearErrCache очищает кеш ошибочных путей\. Вызывать при перезагрузке конфига\.
+
+### func \(\*Config\) [DeferTime](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/settings.go#L173>)
+
+```go
+func (c *Config) DeferTime(ctx context.Context, queueID uint16) time.Duration
 ```
 
 DeferTime получает defer\_time для указанной очереди\. Dалидное значение возвращается всегда \(default: DefaultDeferTime\)\, ошибку надо просто напечатать в лог\. К времени добавляется рандомное значение\, максимум defer\_time\_jitter \(default: DefaultDeferTimeJitter\)
 
-### func \(\*Config\) [FetchBatchSize](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/settings.go#L172>)
+### func \(\*Config\) [FetchBatchSize](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/settings.go#L202>)
 
 ```go
-func (c *Config) FetchBatchSize(queueID uint16) int
+func (c *Config) FetchBatchSize(ctx context.Context, queueID uint16) int
 ```
 
 FetchBatchSize получает fetch\_batch\_size для указанной очереди\. Если оно не задано\, возвращается DefaultFetchBatchSize
 
-### func \(\*Config\) [GetDuration](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/config.go#L100>)
+### func \(\*Config\) [GetDuration](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/config.go#L139>)
 
 ```go
 func (c *Config) GetDuration(confPath string, dfl ...time.Duration) (time.Duration, error)
@@ -1026,55 +1086,55 @@ GetDuration получает длительность по указанному 
 
 В случае других ошибок\, если задан дефолт \- возвращается и дефолт\, и ошибка\, для упрощения реализации кейса\, когда дефолт нужен всегда\, а ошибка просто пишется в лог\.
 
-### func \(\*Config\) [InitialDelay](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/settings.go#L158>)
+### func \(\*Config\) [InitialDelay](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/settings.go#L190>)
 
 ```go
-func (c *Config) InitialDelay(queueID uint16) (time.Duration, error)
+func (c *Config) InitialDelay(ctx context.Context, queueID uint16) time.Duration
 ```
 
-InitialDelay получает initial\_delay для указанной очереди\. Валидное значение возвращается всегда \(default: DefaultInitialDelay\)\, ошибку надо просто напечатать в лог
+InitialDelay получает initial\_delay для указанной очереди\. По умолчанию: DefaultInitialDelay\.
 
-### func \(\*Config\) [LogLevel](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/settings.go#L94>)
+### func \(\*Config\) [LogLevel](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/settings.go#L120>)
 
 ```go
-func (c *Config) LogLevel() (zerolog.Level, error)
+func (c *Config) LogLevel(ctx context.Context) zerolog.Level
 ```
 
-LogLevel получает log\_level\. Валидное значение возвращается всегда \(default: DefaultLogLevel\)\, ошибку надо просто напечатать в лог
+LogLevel получает log\_level\. По умолчанию: DefaultLogLevel\.
 
-### func \(\*Config\) [OOMCheckPeriod](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/settings.go#L43>)
+### func \(\*Config\) [OOMCheckPeriod](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/settings.go#L58>)
 
 ```go
-func (c *Config) OOMCheckPeriod() (time.Duration, error)
+func (c *Config) OOMCheckPeriod(ctx context.Context) time.Duration
 ```
 
-OOMCheckPeriod получает oom\_check\_period\. Валидное значение возвращается всегда \(default: DefaultOOMCheckPeriod\)\, ошибку надо просто напечатать в лог
+OOMCheckPeriod получает oom\_check\_period\. По умолчанию: DefaultOOMCheckPeriod\.
 
-### func \(\*Config\) [OOMHardLimit](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/settings.go#L24>)
+### func \(\*Config\) [OOMHardLimit](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/settings.go#L25>)
 
 ```go
-func (c *Config) OOMHardLimit() (uint64, error)
+func (c *Config) OOMHardLimit(ctx context.Context) uint64
 ```
 
-OOMHardLimit получает oom\_hard\_limit
+OOMHardLimit получает oom\_hard\_limit\. По умолчанию \- 0 \(проверку нужно пропустить\)\.
 
-### func \(\*Config\) [OOMSoftDownscaleRate](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/settings.go#L29>)
+### func \(\*Config\) [OOMSoftDownscaleRate](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/settings.go#L35>)
 
 ```go
-func (c *Config) OOMSoftDownscaleRate() (float64, error)
+func (c *Config) OOMSoftDownscaleRate(ctx context.Context) float64
 ```
 
-OOMSoftDownscaleRate получает oom\_soft\_downscale\_rate\. Валидное значение возвращается всегда \(default: DefaultDownscaleRate\)\, ошибку надо просто напечатать в лог
+OOMSoftDownscaleRate получает oom\_soft\_downscale\_rate\. По умолчанию: DefaultDownscaleRate\.
 
-### func \(\*Config\) [OOMSoftLimit](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/settings.go#L19>)
+### func \(\*Config\) [OOMSoftLimit](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/settings.go#L15>)
 
 ```go
-func (c *Config) OOMSoftLimit() (uint64, error)
+func (c *Config) OOMSoftLimit(ctx context.Context) uint64
 ```
 
-OOMSoftLimit получает oom\_soft\_limit
+OOMSoftLimit получает oom\_soft\_limit\. По умолчанию \- 0 \(проверку нужно пропустить\)\.
 
-### func \(\*Config\) [QueueIDs](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/settings.go#L68>)
+### func \(\*Config\) [QueueIDs](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/settings.go#L90>)
 
 ```go
 func (c *Config) QueueIDs() ([]uint16, error)
@@ -1082,26 +1142,26 @@ func (c *Config) QueueIDs() ([]uint16, error)
 
 QueueIDs получает queue\_ids\, который задаётся в виде разделённых через запятую интов \(см\. CSVRegex\)\. Если задан пустой список \(пустая строка\)\, ошибкой это не считается \(требуется холостой запуск\, либо остановка всех запущенных очередей\)
 
-### func \(\*Config\) [UpdateBatchSize](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/settings.go#L181>)
+### func \(\*Config\) [UpdateBatchSize](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/settings.go#L214>)
 
 ```go
-func (c *Config) UpdateBatchSize(queueID uint16) int
+func (c *Config) UpdateBatchSize(ctx context.Context, queueID uint16) int
 ```
 
 UpdateBatchSize возвращает update\_batch\_size для указанной очереди\. Если оно не задано\, возвращается DefaultUpdateBatchSize
 
-### func \(\*Config\) [WorkersCount](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/settings.go#L111>)
+### func \(\*Config\) [WorkersCount](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/settings.go#L147>)
 
 ```go
-func (c *Config) WorkersCount(queueID uint16) (int, bool)
+func (c *Config) WorkersCount(ctx context.Context, queueID uint16) (int, error)
 ```
 
 WorkersCount получает workers для указанной очереди\, но не больше workers\_max\_per\_queue
 
-### func \(\*Config\) [WorkersMaxCount](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/settings.go#L57>)
+### func \(\*Config\) [WorkersMaxCount](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/settings.go#L70>)
 
 ```go
-func (c *Config) WorkersMaxCount() (int, bool)
+func (c *Config) WorkersMaxCount(ctx context.Context) (int, error)
 ```
 
 WorkersMaxCount получает workers\_max
@@ -1306,7 +1366,7 @@ func Dial(ctx context.Context, conf *queueconfig.Config) (*QueuedClient, error)
 
 Dial открывает соединения к серверам queued\, указанным в онлайнконфе
 
-### func \(\*QueuedClient\) [Defer](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/api.go#L155>)
+### func \(\*QueuedClient\) [Defer](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/api.go#L153>)
 
 ```go
 func (qc *QueuedClient) Defer(ctx context.Context, queueID uint16, delay time.Duration, eventIDs []queuedproto.EventID) error
@@ -1318,7 +1378,7 @@ Defer устанавливает задержку для указанных со
 
 Обновления производятся пачками по update\_batch\_size событий\.
 
-### func \(\*QueuedClient\) [Delete](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/api.go#L128>)
+### func \(\*QueuedClient\) [Delete](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/api.go#L126>)
 
 ```go
 func (qc *QueuedClient) Delete(ctx context.Context, queueID uint16, eventIDs []queuedproto.EventID) error
@@ -1326,7 +1386,7 @@ func (qc *QueuedClient) Delete(ctx context.Context, queueID uint16, eventIDs []q
 
 Delete удаляет указанные события параллельно изо всех необходимых шардов пачками по update\_batch\_size событий\.
 
-### func \(\*QueuedClient\) [GetActive](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/api.go#L25>)
+### func \(\*QueuedClient\) [GetActive](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/api.go#L23>)
 
 ```go
 func (qc *QueuedClient) GetActive(ctx context.Context, queueID uint16, count int) (queuedproto.ItemList, error)
@@ -1340,7 +1400,7 @@ GetActive получает активные события из очереди q
 
 Ретраи в случае ошибок не производятся\.
 
-### func \(\*QueuedClient\) [GetByIDs](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/api.go#L108>)
+### func \(\*QueuedClient\) [GetByIDs](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/api.go#L106>)
 
 ```go
 func (qc *QueuedClient) GetByIDs(ctx context.Context, queueID uint16, eventIDs []queuedproto.EventID) (queuedproto.ItemList, error)
@@ -1350,7 +1410,7 @@ GetByIDs запрашивает события из очереди queueID с у
 
 Ретраи в случае ошибок не производятся\.
 
-### func \(\*QueuedClient\) [GetByIDsBroadcast](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/api.go#L47>)
+### func \(\*QueuedClient\) [GetByIDsBroadcast](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/api.go#L45>)
 
 ```go
 func (qc *QueuedClient) GetByIDsBroadcast(ctx context.Context, queueID uint16, eventIDs []uint64) (queuedproto.ItemList, error)
@@ -1406,7 +1466,7 @@ MakeUnicastRequest посылает запрос req к указанному ш�
 
 Если задан shard == BalanceShard\, шард выбирается по round robin\. В этом случае\, каждый ретрай посылается в следующий шард\.
 
-### func \(\*QueuedClient\) [Publish](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/api.go#L213>)
+### func \(\*QueuedClient\) [Publish](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/api.go#L204>)
 
 ```go
 func (qc *QueuedClient) Publish(ctx context.Context, queueID uint16, eventID queuedproto.EventID, flags uint32, eventData []byte) (queuedproto.EventID, error)
@@ -1423,8 +1483,6 @@ Publish отправляет событие в очередь\. Если eventID
 ID запроса \(queuedproto\.ReqAddItem\.ReqID\) для всех ретраев отправляется один и тот же\, на случай\, если у нас шардов меньше\, чем retry\_count \(например\, 1\)\, и 1й запрос ушёл\, но ответ потерялся\.
 
 Ошибки обработки результата \(iproto\.Unpack\) не приводят к ретраям\, т\.к\.\, скорее всего\, являются ошибками прикладного уровня\.
-
-TODO местные ошибки тоже не надо ретраить\.
 
 ### func \(\*QueuedClient\) [ShardNum](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/client.go#L133>)
 
