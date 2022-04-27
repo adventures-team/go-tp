@@ -1,6 +1,7 @@
 package queueconfig
 
 import (
+	"context"
 	"path"
 	"regexp"
 	"strconv"
@@ -132,43 +133,29 @@ func ParseDuration(s string) (time.Duration, error) {
 }
 
 // GetDuration получает длительность по указанному глобальному (не per-instance) пути.
-// Если путь не найден и указан дефолт - возвращается он, иначе - ошибка ErrNotFound.
-//
-// В случае других ошибок, если задан дефолт - возвращается и дефолт, и ошибка, для упрощения
-// реализации кейса, когда дефолт нужен всегда, а ошибка просто пишется в лог.
-func (c *Config) GetDuration(confPath string, dfl ...time.Duration) (time.Duration, error) {
+// Если путь не найден - возвращается дефолт. В случае ошибки парзинга - в лог пишется об этом, и возвращается дефолт.
+func (c *Config) GetDuration(ctx context.Context, confPath string, dfl time.Duration) time.Duration {
 	s, ok := c.GetStringIfExists(confPath)
 	if !ok {
-		if len(dfl) != 0 {
-			return dfl[0], nil
-		}
-
-		return time.Duration(0), errNotFound(confPath)
+		return dfl
 	}
 
 	d, err := ParseDuration(s)
-	if err != nil {
-		cErr := &ConfError{
-			Path:  confPath,
-			Value: s,
-			Err:   err,
-		}
-
-		if len(dfl) != 0 {
-			d = dfl[0]
-			cErr.Default = d
-		}
-
-		err = cErr
+	if err == nil {
+		return d
 	}
 
-	return d, err
+	err = &ConfError{
+		Path:    confPath,
+		Value:   s,
+		Err:     err,
+		Default: dfl,
+	}
+
+	c.logError(ctx, err, nil, "using the default")
+
+	return dfl
 }
-
-/*
-func (c *Config) GetDurationCtx(ctx context.Context, confPath string, dfl time.Duration) time.Duration {
-
-}*/
 
 func (c *Config) getDurationPerInstance(confPath string) (time.Duration, error) {
 	s, err := c.getStringPerInstance(confPath)

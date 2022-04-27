@@ -949,7 +949,7 @@ update_batch_size              UpdateBatchSize strconv.ParseInt
   - [func (c *Config) ClearErrCache()](<#func-config-clearerrcache>)
   - [func (c *Config) DeferTime(ctx context.Context, queueID uint16) time.Duration](<#func-config-defertime>)
   - [func (c *Config) FetchBatchSize(ctx context.Context, queueID uint16) int](<#func-config-fetchbatchsize>)
-  - [func (c *Config) GetDuration(confPath string, dfl ...time.Duration) (time.Duration, error)](<#func-config-getduration>)
+  - [func (c *Config) GetDuration(ctx context.Context, confPath string, dfl time.Duration) time.Duration](<#func-config-getduration>)
   - [func (c *Config) InitialDelay(ctx context.Context, queueID uint16) time.Duration](<#func-config-initialdelay>)
   - [func (c *Config) LogLevel(ctx context.Context) zerolog.Level](<#func-config-loglevel>)
   - [func (c *Config) OOMCheckPeriod(ctx context.Context) time.Duration](<#func-config-oomcheckperiod>)
@@ -991,7 +991,7 @@ var (
 var CSVRegex = regexp.MustCompile(`\s*,\s*`)
 ```
 
-## func [ParseDuration](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/config.go#L126>)
+## func [ParseDuration](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/config.go#L127>)
 
 ```go
 func ParseDuration(s string) (time.Duration, error)
@@ -1041,7 +1041,7 @@ func (ce *ConfError) Unwrap() error
 
 Unwrap возвращает Err для работы с errors\.Is и т\.д\.
 
-## type [Config](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/config.go#L22-L27>)
+## type [Config](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/config.go#L23-L28>)
 
 Config \- настройки обработчика очередей\. Можно пользоваться\, как обычным объектом с интерфейсом Onlineconf для получения настроек относительно корня проекта\. Также предусмотрены методы для получения настроек per\-instance и pre\-queue\.
 
@@ -1052,7 +1052,7 @@ type Config struct {
 }
 ```
 
-### func [New](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/config.go#L29>)
+### func [New](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/config.go#L30>)
 
 ```go
 func New(conf oconf.OnlineConf, instanceName string) *Config
@@ -1082,15 +1082,13 @@ func (c *Config) FetchBatchSize(ctx context.Context, queueID uint16) int
 
 FetchBatchSize получает fetch\_batch\_size для указанной очереди\. Если оно не задано\, возвращается DefaultFetchBatchSize
 
-### func \(\*Config\) [GetDuration](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/config.go#L139>)
+### func \(\*Config\) [GetDuration](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/config.go#L137>)
 
 ```go
-func (c *Config) GetDuration(confPath string, dfl ...time.Duration) (time.Duration, error)
+func (c *Config) GetDuration(ctx context.Context, confPath string, dfl time.Duration) time.Duration
 ```
 
-GetDuration получает длительность по указанному глобальному \(не per\-instance\) пути\. Если путь не найден и указан дефолт \- возвращается он\, иначе \- ошибка ErrNotFound\.
-
-В случае других ошибок\, если задан дефолт \- возвращается и дефолт\, и ошибка\, для упрощения реализации кейса\, когда дефолт нужен всегда\, а ошибка просто пишется в лог\.
+GetDuration получает длительность по указанному глобальному \(не per\-instance\) пути\. Если путь не найден \- возвращается дефолт\. В случае ошибки парзинга \- в лог пишется об этом\, и возвращается дефолт\.
 
 ### func \(\*Config\) [InitialDelay](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/settings.go#L190>)
 
@@ -1428,7 +1426,7 @@ ID событий указываются без номера шарда\, обы
 
 Ретраи в случае ошибок не производятся\.
 
-### func \(\*QueuedClient\) [MakeBroadcastRequest](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/request.go#L112>)
+### func \(\*QueuedClient\) [MakeBroadcastRequest](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/request.go#L108>)
 
 ```go
 func (qc *QueuedClient) MakeBroadcastRequest(ctx context.Context, req queuedproto.Request, resFunc ResultFunc) error
@@ -1444,7 +1442,7 @@ resFunc вызывается из разных горутин и должна б
 
 TODO раскопипастить broad/multicast запросы \- когда полностью определимся с их логикой\. Возможно\, использовать общее с box решение\, после перевода его на easygo/iproto\.
 
-### func \(\*QueuedClient\) [MakeMulticastRequest](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/request.go#L189>)
+### func \(\*QueuedClient\) [MakeMulticastRequest](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/request.go#L185>)
 
 ```go
 func (qc *QueuedClient) MakeMulticastRequest(ctx context.Context, batchSize int, eventIDs []queuedproto.EventID, reqFunc RequestFunc, resFunc ResultFunc) error
@@ -1490,7 +1488,7 @@ ID запроса \(queuedproto\.ReqAddItem\.ReqID\) для всех ретра�
 
 Ошибки обработки результата \(iproto\.Unpack\) не приводят к ретраям\, т\.к\.\, скорее всего\, являются ошибками прикладного уровня\.
 
-### func \(\*QueuedClient\) [ShardNum](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/client.go#L133>)
+### func \(\*QueuedClient\) [ShardNum](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/client.go#L122>)
 
 ```go
 func (qc *QueuedClient) ShardNum() uint
