@@ -1359,7 +1359,7 @@ QueuedClient \- низкоуровневый клиент queued
 
 ```go
 type QueuedClient struct {
-    *queueconfig.Config
+    Config *queueconfig.Config
     // contains filtered or unexported fields
 }
 ```

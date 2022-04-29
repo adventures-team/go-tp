@@ -59,7 +59,7 @@ var reqID uint32 // per process! не per-QueuedClient. в случае ранд
 
 // QueuedClient - низкоуровневый клиент queued
 type QueuedClient struct {
-	*queueconfig.Config
+	Config     *queueconfig.Config
 	shards     []*iproto.Pool
 	roundRobin uint32
 	pid        uint32

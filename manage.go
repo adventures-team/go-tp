@@ -55,7 +55,7 @@ func NewQueueManager(queue *Queue, pool *workerpool.WorkerPool, logger *zerolog.
 
 func (qm *QueueManager) forceReload() {
 	qm.oldScale = -1
-	qm.client.ClearErrCache()
+	qm.client.Config.ClearErrCache()
 }
 
 // applyConfig применяет настройки из конфига к пулу очередей.
@@ -64,7 +64,7 @@ func (qm *QueueManager) forceReload() {
 // Если workers_max меньше кол-ва заданных очередей в queue_ids, то запускается по 1 обработчику на очередь, и выдаётся ошибка в лог (приоритета важности очереди у нас нет, параметр нужен для экстренного тушения аварий, поэтому овердизайнить тут не стоит).
 // Параллельно вызывать applyConfig не надо (особенно с одним и тем же queuesRunning).
 func (qm *QueueManager) applyConfig(ctx context.Context) error {
-	logLevel := qm.client.LogLevel(ctx)
+	logLevel := qm.client.Config.LogLevel(ctx)
 	if qm.oldLogLevel != logLevel {
 		qm.oldLogLevel = logLevel
 		setLogLevel(qm.logger, logLevel)
@@ -79,13 +79,13 @@ func (qm *QueueManager) applyConfig(ctx context.Context) error {
 		return nil
 	}
 
-	confQueueIDs, err := qm.client.QueueIDs()
+	confQueueIDs, err := qm.client.Config.QueueIDs()
 	if err != nil {
 		return err
 	}
 
 	workersTotal := 0
-	workersMax, err := qm.client.WorkersMaxCount(ctx)
+	workersMax, err := qm.client.Config.WorkersMaxCount(ctx)
 	hasWorkersMax := err == nil
 	queueWorkers := make([]queueIDWorkers, 0, len(confQueueIDs))
 
@@ -95,7 +95,7 @@ func (qm *QueueManager) applyConfig(ctx context.Context) error {
 			continue
 		}
 
-		workers, err := qm.client.WorkersCount(ctx, queueID)
+		workers, err := qm.client.Config.WorkersCount(ctx, queueID)
 		if err != nil {
 			return err // параметр обязательный, не стартуем, если не указано глобально (т.к. если не указано для конкретно этой очереди - должно использоваться глобальное значение)
 		}
@@ -154,8 +154,8 @@ func (qm *QueueManager) applyConfig(ctx context.Context) error {
 func (qm *QueueManager) applyMemLimits(ctx context.Context) (float64, error) {
 	scale := float64(1)
 
-	softLimit := qm.client.OOMSoftLimit(ctx)
-	hardLimit := qm.client.OOMHardLimit(ctx)
+	softLimit := qm.client.Config.OOMSoftLimit(ctx)
+	hardLimit := qm.client.Config.OOMHardLimit(ctx)
 
 	if softLimit != 0 && hardLimit != 0 {
 		if softLimit > hardLimit {
@@ -172,7 +172,7 @@ func (qm *QueueManager) applyMemLimits(ctx context.Context) (float64, error) {
 		}
 
 		if softLimit != 0 && memstats.Sys > softLimit {
-			scale = qm.client.OOMSoftDownscaleRate(ctx)
+			scale = qm.client.Config.OOMSoftDownscaleRate(ctx)
 			if qm.oldScale != scale {
 				qm.logger.Warn().Uint64("mem_usage", memstats.Sys).Uint64("oom_soft_limit", softLimit).Float64("scale", scale).Msg("memory usage is over the soft limit, downscaling worker count")
 			}
@@ -272,7 +272,7 @@ func (qm *QueueManager) manage(ctx context.Context) {
 	}
 
 	for {
-		timer := time.NewTimer(qm.client.OOMCheckPeriod(ctx))
+		timer := time.NewTimer(qm.client.Config.OOMCheckPeriod(ctx))
 
 		select {
 		case <-updateChan:
