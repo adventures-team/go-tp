@@ -4,11 +4,15 @@
 package tptest
 
 import (
-	"fmt"
 	"math/rand"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/rs/zerolog"
+	zLog "github.com/rs/zerolog/log"
+
+	"gitlab.corp.mail.ru/mygo/queuedproto.git"
 )
 
 const (
@@ -18,17 +22,22 @@ const (
 
 func TestIProtoStress(t *testing.T) {
 	var prev, current uint64
-	client := getTestClient(t)
+	ctx, client := getTestClient(t)
 
-	ids := make([]uint64, idsCount)
-	for i := 0; i < idsCount; i++ {
-		ids[i] = rand.Uint64()
+	zerolog.SetGlobalLevel(zerolog.DebugLevel)
+
+	ids := make([]queuedproto.EventID, idsCount)
+	for i := uint(0); i < idsCount; i++ {
+		ids[i] = queuedproto.EventID{
+			ID:    rand.Uint64(),
+			Shard: i % client.ShardNum(),
+		}
 	}
 
 	for i := 0; i < goroutines; i++ {
 		go func() {
 			for {
-				client.GetByIDs(testRawQueueID, ids)
+				client.GetByIDs(ctx, testRawQueueID, ids)
 				atomic.AddUint64(&current, 1)
 			}
 		}()
@@ -37,7 +46,7 @@ func TestIProtoStress(t *testing.T) {
 	for {
 		time.Sleep(time.Second)
 		cur := atomic.LoadUint64(&current)
-		fmt.Println(cur-prev, "req/s")
+		zLog.Info().Uint64("rps", cur-prev).Send()
 		prev = cur
 	}
 }

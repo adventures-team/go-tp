@@ -7,8 +7,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/rs/zerolog"
-
 	"gitlab.corp.mail.ru/e-mail-ru/easygo/iproto"
 	"gitlab.corp.mail.ru/mygo/queuedproto.git"
 )
@@ -24,7 +22,7 @@ import (
 // Ретраи в случае ошибок не производятся.
 func (qc *QueuedClient) GetActive(ctx context.Context, queueID uint16, count int) (queuedproto.ItemList, error) {
 	if count <= 0 {
-		count = qc.FetchBatchSize(queueID)
+		count = qc.Config.FetchBatchSize(ctx, queueID)
 	}
 
 	result, err := qc.getBroadcast(ctx, queuedproto.ReqGetActive{
@@ -110,7 +108,7 @@ func (qc *QueuedClient) GetByIDs(ctx context.Context, queueID uint16, eventIDs [
 
 	err := qc.MakeMulticastRequest(
 		ctx,
-		qc.FetchBatchSize(queueID),
+		qc.Config.FetchBatchSize(ctx, queueID),
 		eventIDs,
 		func(ids []uint64) queuedproto.Request {
 			return queuedproto.ReqGetItems{
@@ -128,7 +126,7 @@ func (qc *QueuedClient) GetByIDs(ctx context.Context, queueID uint16, eventIDs [
 func (qc *QueuedClient) Delete(ctx context.Context, queueID uint16, eventIDs []queuedproto.EventID) error {
 	err := qc.MakeMulticastRequest(
 		ctx,
-		qc.UpdateBatchSize(queueID),
+		qc.Config.UpdateBatchSize(ctx, queueID),
 		eventIDs,
 		func(ids []uint64) queuedproto.Request {
 			return queuedproto.ReqDeleteItems{
@@ -154,12 +152,7 @@ func (qc *QueuedClient) Delete(ctx context.Context, queueID uint16, eventIDs []q
 // Обновления производятся пачками по update_batch_size событий.
 func (qc *QueuedClient) Defer(ctx context.Context, queueID uint16, delay time.Duration, eventIDs []queuedproto.EventID) error {
 	if delay == 0 {
-		var err error
-		delay, err = qc.DeferTime(queueID)
-
-		if err != nil {
-			zerolog.Ctx(ctx).Warn().Err(err).Msg("config error (default is used)")
-		}
+		delay = qc.Config.DeferTime(ctx, queueID)
 	}
 
 	timestampType := queuedproto.TimestampRelativePlus
@@ -173,7 +166,7 @@ func (qc *QueuedClient) Defer(ctx context.Context, queueID uint16, delay time.Du
 
 	err := qc.MakeMulticastRequest(
 		ctx,
-		qc.UpdateBatchSize(queueID),
+		qc.Config.UpdateBatchSize(ctx, queueID),
 		eventIDs,
 		func(ids []uint64) queuedproto.Request {
 			return queuedproto.ReqUpdateItems{
@@ -208,13 +201,8 @@ func (qc *QueuedClient) Defer(ctx context.Context, queueID uint16, delay time.Du
 // если у нас шардов меньше, чем retry_count (например, 1), и 1й запрос ушёл, но ответ потерялся.
 //
 // Ошибки обработки результата (iproto.Unpack) не приводят к ретраям, т.к., скорее всего, являются ошибками прикладного уровня.
-//
-// TODO местные ошибки тоже не надо ретраить.
 func (qc *QueuedClient) Publish(ctx context.Context, queueID uint16, eventID queuedproto.EventID, flags uint32, eventData []byte) (queuedproto.EventID, error) {
-	initialDelay, err := qc.InitialDelay(queueID)
-	if err != nil {
-		zerolog.Ctx(ctx).Warn().Err(err).Msg("config error (default is used)")
-	}
+	initialDelay := qc.Config.InitialDelay(ctx, queueID)
 
 	req := queuedproto.ReqAddItem{
 		Pid:         qc.pid,
@@ -226,9 +214,8 @@ func (qc *QueuedClient) Publish(ctx context.Context, queueID uint16, eventID que
 		Flags:       flags,
 	}
 
-	var respBytes []byte
-
-	eventID.Shard, respBytes, err = qc.MakeUnicastRequest(ctx, eventID.Shard, req)
+	shard, respBytes, err := qc.MakeUnicastRequest(ctx, eventID.Shard, req)
+	eventID.Shard = shard
 
 	if err != nil {
 		if flags&queuedproto.FlagIgnoreWrongItem != 0 && errors.Is(err, queuedproto.ErrWrongItem) && eventID.ID != 0 { // вообще непонятно, как эта ошибка может возникнуть при eventID == 0 - поэтому, если такое случится, пусть падает

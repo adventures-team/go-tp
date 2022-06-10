@@ -59,7 +59,7 @@ var reqID uint32 // per process! не per-QueuedClient. в случае ранд
 
 // QueuedClient - низкоуровневый клиент queued
 type QueuedClient struct {
-	*queueconfig.Config
+	Config     *queueconfig.Config
 	shards     []*iproto.Pool
 	roundRobin uint32
 	pid        uint32
@@ -72,20 +72,9 @@ func Dial(ctx context.Context, conf *queueconfig.Config) (*QueuedClient, error) 
 		return nil, err
 	}
 
-	timeout, err := conf.GetDuration(ConfTimeout, DefaultTimeout)
-	if err != nil {
-		return nil, err
-	}
-
-	redialInterval, err := conf.GetDuration(ConfRedialInterval, DefaultRedialInterval)
-	if err != nil {
-		return nil, err
-	}
-
-	pingInterval, err := conf.GetDuration(ConfPingInterval, DefaultPingInterval)
-	if err != nil {
-		return nil, err
-	}
+	timeout := conf.GetDuration(ctx, ConfTimeout, DefaultTimeout)
+	redialInterval := conf.GetDuration(ctx, ConfRedialInterval, DefaultRedialInterval)
+	pingInterval := conf.GetDuration(ctx, ConfPingInterval, DefaultPingInterval)
 
 	serverStrings := queueconfig.CSVRegex.Split(conf.GetString(ConfServers, ""), -1)
 	shards := make([]*iproto.Pool, 0, len(serverStrings))

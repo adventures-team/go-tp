@@ -93,12 +93,14 @@ func (ev *Event) Done() {
 //
 // Время задержки устанавливается сразу же. По завершении цикла обработки событиям, для которых не был вызван метод Done
 // либо Defer, проставляется задержка по умолчанию.
+//
+// Если событие было помечено как выполненное при помощи Done, а потом был вызван Defer, пометка на удаление снимается.
 func (ev *Event) Defer(ctx context.Context, delay time.Duration) error {
 	if err := ev.list.queue.client.Defer(ctx, ev.list.queueID, delay, []queuedproto.EventID{ev.id}); err != nil {
 		return err
 	}
 
-	ev.flags = ev.flags&^evIsDeleted | evHasCustomDefer // TODO убрать, либо документировать снятие флага удаления
+	ev.flags = ev.flags&^evIsDeleted | evHasCustomDefer
 
 	return nil
 }

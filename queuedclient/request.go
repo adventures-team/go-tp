@@ -70,7 +70,7 @@ func (qc *QueuedClient) MakeUnicastRequest(ctx context.Context, shard uint, req 
 
 		retry++
 
-		retryCount := qc.GetInt(ConfRetryCount, DefaultRetryCount)
+		retryCount := qc.Config.GetInt(ConfRetryCount, DefaultRetryCount)
 
 		zlEv := zerolog.Ctx(ctx).Err(err).
 			Uint("shard", usedShard).
@@ -85,13 +85,9 @@ func (qc *QueuedClient) MakeUnicastRequest(ctx context.Context, shard uint, req 
 			return usedShard, nil, err
 		}
 
-		zlEv.Msg("retry on error")
+		retryDelay := qc.Config.GetDuration(ctx, ConfRetryDelay, DefaultRetryDelay)
 
-		retryDelay, serr := qc.GetDuration(ConfRetryDelay, DefaultRetryDelay)
-		if serr != nil {
-			zerolog.Ctx(ctx).Warn().Err(serr).Msg("config error (ignored)")
-		}
-
+		zlEv.Dur("retry_delay", retryDelay).Msg("retry on error")
 		time.Sleep(retryDelay)
 	}
 }
@@ -273,7 +269,7 @@ func (qc *QueuedClient) reqMultiRetryLoop(ctx context.Context, shard uint, endpo
 	zLog := zerolog.Ctx(ctx)
 	cmd := req.Cmd()
 	retry := 0
-	retryCount := qc.GetInt(ConfRetryCount, DefaultRetryCount)
+	retryCount := qc.Config.GetInt(ConfRetryCount, DefaultRetryCount)
 
 	for {
 		zLog.Trace().
@@ -317,13 +313,9 @@ func (qc *QueuedClient) reqMultiRetryLoop(ctx context.Context, shard uint, endpo
 			return nil, op, err
 		}
 
-		zlEv.Msg("retry on error")
+		retryDelay := qc.Config.GetDuration(ctx, ConfRetryDelay, DefaultRetryDelay)
 
-		retryDelay, serr := qc.GetDuration(ConfRetryDelay, DefaultRetryDelay)
-		if serr != nil {
-			zLog.Warn().Err(serr).Msg("config error (ignored)")
-		}
-
+		zlEv.Dur("retry_delay", retryDelay).Msg("retry on error")
 		time.Sleep(retryDelay)
 	}
 }

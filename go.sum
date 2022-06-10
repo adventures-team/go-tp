@@ -491,8 +491,8 @@ gitlab.corp.mail.ru/e-mail-ru/easygo v0.0.0-20220407134138-1d7b80a0721f h1:ukCwp
 gitlab.corp.mail.ru/e-mail-ru/easygo v0.0.0-20220407134138-1d7b80a0721f/go.mod h1:Tthzl5QY1jBCBhOKFACHFSJx0O+fQfTcHLrKmYVlS7M=
 gitlab.corp.mail.ru/mygo/queuedproto.git v0.0.2-0.20220420101106-69eca1057f2e h1:+Wxm/BUJoIRnBDxNlkaKhwLeYlXu3FQz6Z2nI70tM6U=
 gitlab.corp.mail.ru/mygo/queuedproto.git v0.0.2-0.20220420101106-69eca1057f2e/go.mod h1:4mQvQlgVT3OpZIH2DxO+QHliIqEecg0ikKxicvHrpu4=
-gitlab.corp.mail.ru/mygo/utils.git v0.0.5-0.20220422121951-1da826a42e70 h1:pjjvZUYW2F8pYDM/1wqYFNt9+ZV2hMV3yJEBUBx9eGc=
-gitlab.corp.mail.ru/mygo/utils.git v0.0.5-0.20220422121951-1da826a42e70/go.mod h1:7StfmMtkw/mQMvDVvY5ZVSM3MegYMFuqvVJliWAZD1k=
+gitlab.corp.mail.ru/mygo/utils.git v0.0.5-0.20220425162211-f57c3c72c5db h1:ROPjM+5MIsJh6tCdKlQctjbFkymDZ8PavCYFlXpp0q0=
+gitlab.corp.mail.ru/mygo/utils.git v0.0.5-0.20220425162211-f57c3c72c5db/go.mod h1:7StfmMtkw/mQMvDVvY5ZVSM3MegYMFuqvVJliWAZD1k=
 go.etcd.io/bbolt v1.3.3/go.mod h1:IbVyRI1SCnLcuJnV2u8VeU0CEYM7e686BmAb1XKL+uU=
 go.etcd.io/etcd v0.0.0-20191023171146-3cf2f69b5738/go.mod h1:dnLIgRNXwCJa5e+c6mIZCrds/GIG4ncV9HhK5PX7jPg=
 go.opencensus.io v0.20.1/go.mod h1:6WKK9ahsWS3RSO+PY9ZHZUfv2irvY6gN279GOPZjmmk=
