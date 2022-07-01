@@ -6,6 +6,7 @@ import (
 	"github.com/rs/zerolog"
 )
 
+// Дефолты для некоторых значений. Используются, если значение не задано в конфиге нигде (ни для очереди, ни для инстанса, ни глобально).
 const (
 	DefaultLogLevel        = zerolog.TraceLevel // default for log_level
 	DefaultDownscaleRate   = 0.5                // default for oom_soft_downscale_rate

@@ -5,18 +5,22 @@ import (
 	"path"
 	"regexp"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
 	"kythe.io/kythe/go/util/datasize"
 
+	"gitlab.corp.mail.ru/mygo/utils.git/mytime"
 	"gitlab.corp.mail.ru/mygo/utils.git/oconf"
 )
 
 const globalPath = "/tp/go"
 
+// CSVRegex - значения в конфиге через запятую, с опциональными пробелами.
 var CSVRegex = regexp.MustCompile(`\s*,\s*`)
+
+// TODO чтобы не писать доку (а без доки всё равно юзеру это имя покажут) таким внутренним вещам, которые нужны в неск.
+// пакетах, их надо перенести в internal/. Как их поднакопится - надо сделать.
 
 // Config - настройки обработчика очередей. Можно пользоваться, как обычным объектом с интерфейсом Onlineconf для получения настроек относительно корня проекта.
 // Также предусмотрены методы для получения настроек per-instance и pre-queue.
@@ -27,6 +31,7 @@ type Config struct {
 	pathErrors       sync.Map         // сюда пишутся пути, про которые уже жаловались в лог. обращение к мэпу идёт только при ошибках.
 }
 
+// New возвращает новый объект конфига. oconf - корень проекта (не обязательно TREE).
 func New(conf oconf.OnlineConf, instanceName string) *Config {
 	return &Config{
 		OnlineConf: conf,
@@ -123,15 +128,6 @@ func (c *Config) getSizePerInstance(confPath string) (uint64, error) {
 	return uint64(size), nil
 }
 
-// ParseDuration парзит длительность при помощи time.ParseDuration. Если единицы измерения не указаны - считается, что указаны секунды.
-func ParseDuration(s string) (time.Duration, error) {
-	if strings.ContainsAny(s, "hms") { // доли секунды тоже содержат s
-		return time.ParseDuration(s)
-	}
-
-	return time.ParseDuration(s + "s")
-}
-
 // GetDuration получает длительность по указанному глобальному (не per-instance) пути.
 // Если путь не найден - возвращается дефолт. В случае ошибки парзинга - в лог пишется об этом, и возвращается дефолт.
 func (c *Config) GetDuration(ctx context.Context, confPath string, dfl time.Duration) time.Duration {
@@ -140,7 +136,7 @@ func (c *Config) GetDuration(ctx context.Context, confPath string, dfl time.Dura
 		return dfl
 	}
 
-	d, err := ParseDuration(s)
+	d, err := mytime.ParseDuration(s)
 	if err == nil {
 		return d
 	}
@@ -163,7 +159,7 @@ func (c *Config) getDurationPerInstance(confPath string) (time.Duration, error) 
 		return 0, err
 	}
 
-	d, err := ParseDuration(s)
+	d, err := mytime.ParseDuration(s)
 	if err != nil {
 		return 0, &ConfError{
 			Path:  confPath,
@@ -181,7 +177,7 @@ func (c *Config) getDurationPerQueue(queueID uint16, confPath string) (time.Dura
 		return 0, err
 	}
 
-	d, err := ParseDuration(s)
+	d, err := mytime.ParseDuration(s)
 	if err != nil {
 		return 0, &ConfError{
 			Path:  usedPath,

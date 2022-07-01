@@ -8,6 +8,7 @@ import (
 	"github.com/rs/zerolog"
 
 	"gitlab.corp.mail.ru/mygo/queuedproto.git"
+	"gitlab.corp.mail.ru/mygo/tp.git/queuedclient"
 	"gitlab.corp.mail.ru/mygo/tp.git/workerpool"
 )
 
@@ -20,7 +21,7 @@ type (
 
 	queueWorker struct {
 		*Queue
-		events    *eventList
+		events    *EventList
 		ctx       context.Context
 		isStopped *int32
 	}
@@ -62,7 +63,15 @@ func (qp *queuePoller) Poll(queueID QueueIDType) workerpool.Worker {
 
 	events, err := qp.GetActiveEvents(ctx, queueID, 0)
 	if err != nil {
-		if !errors.Is(err, queuedproto.ErrUnknownQueueType) { // отсутствие очереди в queued - это не ошибка, просто ещё не было событий
+		var errMulti queuedclient.ErrMulti
+
+		if errors.As(err, &errMulti) {
+			for _, errSingle := range errMulti {
+				if !errors.Is(errSingle, queuedproto.ErrUnknownQueueType) { // отсутствие очереди в queued - это не ошибка, просто ещё не было событий
+					logger.Err(errSingle).Msg("error getting active events")
+				}
+			}
+		} else {
 			logger.Err(err).Msg("error getting active events")
 		}
 
@@ -100,7 +109,7 @@ func (qw queueWorker) Work() {
 	if logger.GetLevel() <= zerolog.DebugLevel {
 		eventIDs := make([]string, len(qw.events.events))
 		for i, handler := range qw.events.events {
-			eventIDs[i] = handler.GetEvent().id.String()
+			eventIDs[i] = handler.GetEvent().EventID.String()
 		}
 
 		logger.Debug().Int("events_count", len(qw.events.events)).Strs("event_ids", eventIDs).Msg("queue poll status")
@@ -117,7 +126,7 @@ func (qw queueWorker) Work() {
 			continue
 		}
 
-		evLog := logger.With().Stringer("event_id", event.id).Logger()
+		evLog := logger.With().Stringer("event_id", event.EventID).Logger()
 		evCtx := evLog.WithContext(qw.ctx) // TODO cancel? timeouts?
 		// TODO handle panics, cancel context
 

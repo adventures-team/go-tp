@@ -14,7 +14,7 @@ TODO дока по архитектуре
 
 - [Constants](<#constants>)
 - [Variables](<#variables>)
-- [func Next(ctxPtr *context.Context, evPtr interface{}) bool](<#func-next>)
+- [func Next[T Handler](ctxPtr *context.Context, evPtr *T) bool](<#func-next>)
 - [type Builder](<#type-builder>)
 - [type Config](<#type-config>)
   - [func (conf Config) InitProcessor() *QueueManager](<#func-config-initprocessor>)
@@ -29,7 +29,6 @@ TODO дока по архитектуре
   - [func (ev *Event) Done()](<#func-event-done>)
   - [func (ev *Event) GetEvent() *Event](<#func-event-getevent>)
   - [func (ev *Event) Hash() uint64](<#func-event-hash>)
-  - [func (ev *Event) ID() queuedproto.EventID](<#func-event-id>)
   - [func (Event) IprotoPack(incompatible)](<#func-event-iprotopack>)
   - [func (Event) IprotoUnpack(incompatible)](<#func-event-iprotounpack>)
   - [func (Event) MarshalAddon(incompatible)](<#func-event-marshaladdon>)
@@ -38,6 +37,7 @@ TODO дока по архитектуре
   - [func (ev *Event) Shard(hash uint64) uint](<#func-event-shard>)
   - [func (Event) UnmarshalAddon(incompatible)](<#func-event-unmarshaladdon>)
 - [type EventIDBuilder](<#type-eventidbuilder>)
+- [type EventList](<#type-eventlist>)
 - [type Handler](<#type-handler>)
 - [type Hasher](<#type-hasher>)
 - [type IgnoreDuplicateItems](<#type-ignoreduplicateitems>)
@@ -51,8 +51,8 @@ TODO дока по архитектуре
 - [type Queue](<#type-queue>)
   - [func Init(ctx context.Context, conf *queueconfig.Config) (*Queue, error)](<#func-init>)
   - [func (queue *Queue) Encode(data Handler) (eventData []byte, err error)](<#func-queue-encode>)
-  - [func (queue *Queue) GetActiveEvents(ctx context.Context, queueID QueueIDType, count int) (*eventList, error)](<#func-queue-getactiveevents>)
-  - [func (queue *Queue) GetEventsByIDs(ctx context.Context, queueID QueueIDType, eventIDs []queuedproto.EventID) (*eventList, error)](<#func-queue-geteventsbyids>)
+  - [func (queue *Queue) GetActiveEvents(ctx context.Context, queueID QueueIDType, count int) (*EventList, error)](<#func-queue-getactiveevents>)
+  - [func (queue *Queue) GetEventsByIDs(ctx context.Context, queueID QueueIDType, eventIDs []queuedproto.EventID) (*EventList, error)](<#func-queue-geteventsbyids>)
   - [func (q *Queue) NewPoller(logger *zerolog.Logger) workerpool.Poller](<#func-queue-newpoller>)
   - [func (queue *Queue) Publish(ctx context.Context, event Handler) (eventID queuedproto.EventID, err error)](<#func-queue-publish>)
   - [func (queue *Queue) Queued() *queuedclient.QueuedClient](<#func-queue-queued>)
@@ -63,6 +63,7 @@ TODO дока по архитектуре
   - [func (qm *QueueManager) Manage()](<#func-queuemanager-manage>)
   - [func (qm *QueueManager) Stop()](<#func-queuemanager-stop>)
 - [type Sharder](<#type-sharder>)
+- [type Unpacker](<#type-unpacker>)
 - [type VersionType](<#type-versiontype>)
 
 
@@ -144,10 +145,10 @@ SignalsExit \- graceful exit \(дожидается завершения обр�
 var SignalsExit = [...]os.Signal{syscall.SIGTERM, syscall.SIGINT}
 ```
 
-## func [Next](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/event_iter_reflect.go#L66>)
+## func [Next](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/event_iter_generics.go#L48>)
 
 ```go
-func Next(ctxPtr *context.Context, evPtr interface{}) bool
+func Next[T Handler](ctxPtr *context.Context, evPtr *T) bool
 ```
 
 Next \- итерация по событиям одной версии\, полученной в одной пачке\.
@@ -180,21 +181,11 @@ func (ev *MyEvent) Handler(ctx context.Context) ... {
 }
 ```
 
-Вызывать метод Done для событий\, полученных при помощи Next\, обязательно\. Чтобы обеспечить более однообразный подход и исключить путаницу\, возможно\, выпилю неявный Done при возврате без ошибки из Handler \(для первого события из пачки\)\.
-
-Передавать надо указатель на receiver метода Handler\, проверки при компиляции нет \(в go\.18\+ будет\)\.
+Вызывать метод Done для событий\, полученных при помощи Next\, обязательно\.
 
 Логгировать надо через явное получение логгера из контекста при каждой итерации цикла\. Можно было бы заставить юзера вручную логгировать event\_id\, но это чревато очепятками \(строки же не проверяются ничем\)\, что может затруднить автоматическую обработку логов\.
 
-При передаче неправильного значения \(указатель на объект события\, вместо указателя на указатель\, и т\.п\.\) произойдёт паника\. При передаче правильного значения функция всегда отработает успешно\, поэтому паники здесь не нарушают идиоматики языка\, т\.к\. используются при ошибках проектирования\, а не для обработки runtime\-ошибок \(эмуляции исключений\)\.
-
-Все приводящие к паникам ситуации обрабатываются\, и выдаётся понятное описание паники \(а не общие описания от пакета reflect\): ErrPointerRequired\, ErrEventTypesDiffer\, ErrMisconstructedEvent\.
-
-Для go1\.18\+ есть версия функции на дженериках\, в которой вместо паник проблемы с неправильным вызовом определяются в момент компиляции/редактирования в IDE\.
-
-Design notes \- почему отдельная функция\, а не метод Event?
-
-Для рефлективной версии пришлось бы возвращать Handler\, и кастить к своему типу вручную\. Для версии на дженериках для этого потребуется сделать тип Event шаблонным\, чего делать не хотелось бы \(как для совместимости с рефлективной версией\, так и по другим соображениям\)\. Возвращать же тип\-параметр для "нешаблонного" ресивера невозможно из\-за текущих \(1\.18\) ограничений дженериков\.
+Версия функции для go1\.18\+ не кидает паники \- ErrPointerRequired невозможна \(возникнет ошибка при компиляции\)\, ErrEventTypesDiffer и ErrMisconstructedEvent менее вероятны\, чем в рефлективной версии\, но всё\-таки возможны при внутренних ошибках в tp\. Если эти две паники не возникнут ни разу за время эксплуатации рефлективной версии \- можно их тут не обрабатывать\.
 
 ## type [Builder](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queue.go#L36-L38>)
 
@@ -291,7 +282,7 @@ func (svc *Service) PostUserDataHandler(...) {
 
 В случае ошибки инициализации происходит выход \(zerolog\.Logger\.Fatal\)\. Предполагается вызов из функции main\.
 
-## type [DisableMarshaler](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queue.go#L67>)
+## type [DisableMarshaler](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queue.go#L73>)
 
 DisableMarshaler \- встраивание этого типа в структуру отключает сериализацию средствами iproto
 
@@ -299,7 +290,7 @@ DisableMarshaler \- встраивание этого типа в структу
 type DisableMarshaler struct{}
 ```
 
-### func \(DisableMarshaler\) [IprotoPack](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queue.go#L238>)
+### func \(DisableMarshaler\) [IprotoPack](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queue.go#L254>)
 
 ```go
 func (DisableMarshaler) IprotoPack(w []byte, _ iproto.PackMode) ([]byte, error)
@@ -307,7 +298,7 @@ func (DisableMarshaler) IprotoPack(w []byte, _ iproto.PackMode) ([]byte, error)
 
 IprotoPack \- не делает ничего
 
-### func \(DisableMarshaler\) [IprotoUnpack](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queue.go#L243>)
+### func \(DisableMarshaler\) [IprotoUnpack](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queue.go#L259>)
 
 ```go
 func (DisableMarshaler) IprotoUnpack(*bytes.Reader, iproto.PackMode) error
@@ -325,7 +316,7 @@ type Event struct {
 }
 ```
 
-### func \(Event\) [AddonID](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/event.go#L172>)
+### func \(Event\) [AddonID](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/event.go#L165>)
 
 ```go
 func (Event) AddonID(incompatible)
@@ -333,7 +324,7 @@ func (Event) AddonID(incompatible)
 
 AddonID \- см\. описание NoHandler\.IprotoPack
 
-### func \(\*Event\) [BatchLen](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/event.go#L124>)
+### func \(\*Event\) [BatchLen](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/event.go#L117>)
 
 ```go
 func (ev *Event) BatchLen() int
@@ -352,7 +343,7 @@ for {
 }
 ```
 
-### func \(\*Event\) [Defer](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/event.go#L98>)
+### func \(\*Event\) [Defer](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/event.go#L91>)
 
 ```go
 func (ev *Event) Defer(ctx context.Context, delay time.Duration) error
@@ -364,7 +355,7 @@ Defer устанавливает задержку события\.
 
 Если событие было помечено как выполненное при помощи Done\, а потом был вызван Defer\, пометка на удаление снимается\.
 
-### func \(\*Event\) [Done](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/event.go#L88>)
+### func \(\*Event\) [Done](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/event.go#L81>)
 
 ```go
 func (ev *Event) Done()
@@ -382,7 +373,7 @@ func (ev *Event) GetEvent() *Event
 
 GetEvent \- доступ к кишкам события из юзерской структуры
 
-### func \(\*Event\) [Hash](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/event.go#L75>)
+### func \(\*Event\) [Hash](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/event.go#L68>)
 
 ```go
 func (ev *Event) Hash() uint64
@@ -390,17 +381,7 @@ func (ev *Event) Hash() uint64
 
 Hash \- возвращает хэш от ID события\, совместимый с перловыми очередями \(crc32 от строкового десятичного представления ID\)
 
-### func \(\*Event\) [ID](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/event.go#L65>)
-
-```go
-func (ev *Event) ID() queuedproto.EventID
-```
-
-ID события\, состоящий из собственно ID и номера шарда \(Shard\)\.
-
-Поддерживает интерфейс fmt\.Stringer \(для преобразования в строку можно воспользоваться методом queuedproto\.EventID\.String\)
-
-### func \(Event\) [IprotoPack](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/event.go#L160>)
+### func \(Event\) [IprotoPack](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/event.go#L153>)
 
 ```go
 func (Event) IprotoPack(incompatible)
@@ -408,7 +389,7 @@ func (Event) IprotoPack(incompatible)
 
 IprotoPack \- см\. описание NoHandler\.IprotoPack
 
-### func \(Event\) [IprotoUnpack](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/event.go#L163>)
+### func \(Event\) [IprotoUnpack](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/event.go#L156>)
 
 ```go
 func (Event) IprotoUnpack(incompatible)
@@ -416,7 +397,7 @@ func (Event) IprotoUnpack(incompatible)
 
 IprotoUnpack \- см\. описание NoHandler\.IprotoPack
 
-### func \(Event\) [MarshalAddon](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/event.go#L166>)
+### func \(Event\) [MarshalAddon](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/event.go#L159>)
 
 ```go
 func (Event) MarshalAddon(incompatible)
@@ -424,7 +405,7 @@ func (Event) MarshalAddon(incompatible)
 
 MarshalAddon \- см\. описание NoHandler\.IprotoPack
 
-### func \(\*Event\) [Publish](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/event.go#L109>)
+### func \(\*Event\) [Publish](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/event.go#L102>)
 
 ```go
 func (ev *Event) Publish(ctx context.Context, data Handler) (eventID queuedproto.EventID, err error)
@@ -432,7 +413,7 @@ func (ev *Event) Publish(ctx context.Context, data Handler) (eventID queuedproto
 
 Publish \- враппер к Queue\.Publish \(см\. его доку для описания параметра и возвращаемого значения\)\. Отправляет новое событие в очередь\, указанную при регистрации для этого типа методом Queue\.Register
 
-### func \(\*Event\) [QueueID](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/event.go#L70>)
+### func \(\*Event\) [QueueID](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/event.go#L63>)
 
 ```go
 func (ev *Event) QueueID() QueueIDType
@@ -440,7 +421,7 @@ func (ev *Event) QueueID() QueueIDType
 
 QueueID \- ID очереди\, из которой прилетело событие
 
-### func \(\*Event\) [Shard](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/event.go#L80>)
+### func \(\*Event\) [Shard](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/event.go#L73>)
 
 ```go
 func (ev *Event) Shard(hash uint64) uint
@@ -448,7 +429,7 @@ func (ev *Event) Shard(hash uint64) uint
 
 Shard \- распределяет событие по шардам в зависимости от хеша\. Совместимая с перлом версия \(остаток от деления\)\.
 
-### func \(Event\) [UnmarshalAddon](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/event.go#L169>)
+### func \(Event\) [UnmarshalAddon](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/event.go#L162>)
 
 ```go
 func (Event) UnmarshalAddon(incompatible)
@@ -466,6 +447,16 @@ type EventIDBuilder interface {
 }
 ```
 
+## type [EventList](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/event.go#L45-L49>)
+
+EventList \- список событий\, прилетающих из queued для одной очереди\. В списке могут быть события разных версий\.
+
+```go
+type EventList struct {
+    // contains filtered or unexported fields
+}
+```
+
 ## type [Handler](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queue.go#L26-L31>)
 
 Handler \- интерфейс обработчика очереди\. Структура обработчика должна включать в себя тип Event
@@ -479,7 +470,7 @@ type Handler interface {
 }
 ```
 
-## type [Hasher](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queue.go#L57-L59>)
+## type [Hasher](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queue.go#L63-L65>)
 
 Hasher \- переопределив метод Hash у своего типа события\, можно задать произвольный алгоритм хеширования \(default: crc32 от строкового десятичного представления ID\)
 
@@ -491,7 +482,7 @@ type Hasher interface {
 }
 ```
 
-## type [IgnoreDuplicateItems](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queue.go#L49-L51>)
+## type [IgnoreDuplicateItems](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queue.go#L55-L57>)
 
 IgnoreDuplicateItems \- для событий\, вернувших true\, игнорируются дубли по ID сообщения \(выставляется флаг FlagIgnoreWrongItem\)\. Следует использовать вместе с EventIDBuilder\, если нужна идемпотентность ID\. Перловый аналог называется так же\.
 
@@ -511,7 +502,7 @@ type NoHandler struct {
 }
 ```
 
-### func \(NoHandler\) [AddonID](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/event.go#L211>)
+### func \(NoHandler\) [AddonID](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/event.go#L204>)
 
 ```go
 func (NoHandler) AddonID(incompatible)
@@ -519,7 +510,7 @@ func (NoHandler) AddonID(incompatible)
 
 AddonID \- см\. описание NoHandler\.IprotoPack
 
-### func \(NoHandler\) [Handle](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/event.go#L178>)
+### func \(NoHandler\) [Handle](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/event.go#L171>)
 
 ```go
 func (NoHandler) Handle(context.Context) error
@@ -527,7 +518,7 @@ func (NoHandler) Handle(context.Context) error
 
 Handle \- не делает ничего
 
-### func \(NoHandler\) [IprotoPack](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/event.go#L199>)
+### func \(NoHandler\) [IprotoPack](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/event.go#L192>)
 
 ```go
 func (NoHandler) IprotoPack(incompatible)
@@ -543,7 +534,7 @@ IprotoPack \- ломаем совместимость NoHandler с маршал�
 
 Если же всё\-таки зачем\-то потребуется объявить маршалеры для типа события \- это можно сделать\, т\.к\. они перекроют "наследуемые" методы \(и с правильной\, и с неправильной сигнатурой\)\.
 
-### func \(NoHandler\) [IprotoUnpack](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/event.go#L202>)
+### func \(NoHandler\) [IprotoUnpack](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/event.go#L195>)
 
 ```go
 func (NoHandler) IprotoUnpack(incompatible)
@@ -551,7 +542,7 @@ func (NoHandler) IprotoUnpack(incompatible)
 
 IprotoUnpack \- см\. описание NoHandler\.IprotoPack
 
-### func \(NoHandler\) [MarshalAddon](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/event.go#L205>)
+### func \(NoHandler\) [MarshalAddon](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/event.go#L198>)
 
 ```go
 func (NoHandler) MarshalAddon(incompatible)
@@ -559,7 +550,7 @@ func (NoHandler) MarshalAddon(incompatible)
 
 MarshalAddon \- см\. описание NoHandler\.IprotoPack
 
-### func \(NoHandler\) [UnmarshalAddon](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/event.go#L208>)
+### func \(NoHandler\) [UnmarshalAddon](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/event.go#L201>)
 
 ```go
 func (NoHandler) UnmarshalAddon(incompatible)
@@ -577,7 +568,7 @@ type Queue struct {
 }
 ```
 
-### func [Init](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queue.go#L81>)
+### func [Init](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queue.go#L87>)
 
 ```go
 func Init(ctx context.Context, conf *queueconfig.Config) (*Queue, error)
@@ -585,7 +576,7 @@ func Init(ctx context.Context, conf *queueconfig.Config) (*Queue, error)
 
 Init создаёт объект для высокоуровневой работы с API очередей\. Инициализирует клиент очередей \(queuedclient\) с указанным конфигом\.
 
-### func \(\*Queue\) [Encode](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queue_group.go#L144>)
+### func \(\*Queue\) [Encode](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queue_group.go#L145>)
 
 ```go
 func (queue *Queue) Encode(data Handler) (eventData []byte, err error)
@@ -597,29 +588,29 @@ Encode кодирует событие\. Тип события должен бы
 
 Кодировщику безразлично\, передаётся указатель или значение\, но для вызова методов по указанным интерфейсам нужно соблюдать правильный тип \(тот\, для которого объявлен метод \- очевидно\, для Builder нужен указатель\)\.
 
-Номер очереди и ID события можно получить методами ID\(\) и QueueID\(\) \(см\. тип Event\)
+ID события\, кроме интерфейса EventIDBuilder\, можно также передать явно\. Номер шарда будет вычислен из ID события\, если оно задано одним из этих способов\. Если EventID\.ID == 0\, шард будет выбран по round robin \(queuedclient\.BalanceShard\)\.
 
-### func \(\*Queue\) [GetActiveEvents](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queue.go#L133>)
+### func \(\*Queue\) [GetActiveEvents](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queue.go#L139>)
 
 ```go
-func (queue *Queue) GetActiveEvents(ctx context.Context, queueID QueueIDType, count int) (*eventList, error)
+func (queue *Queue) GetActiveEvents(ctx context.Context, queueID QueueIDType, count int) (*EventList, error)
 ```
 
 GetActiveEvents получает активные события \(наступило время срабатывания\) в декодированном виде из очереди queueID\. Если count не задано \(==0\)\, используется значение из конфига \(fetch\_batch\_size\)\.
 
 Вместе с ошибкой может вернуться и валидный \(не\-nil\) результат\, этот кейс надо учитывать\. Это означает\, что ошибку вернули только некоторые из шардов\.
 
-### func \(\*Queue\) [GetEventsByIDs](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queue.go#L143>)
+### func \(\*Queue\) [GetEventsByIDs](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queue.go#L149>)
 
 ```go
-func (queue *Queue) GetEventsByIDs(ctx context.Context, queueID QueueIDType, eventIDs []queuedproto.EventID) (*eventList, error)
+func (queue *Queue) GetEventsByIDs(ctx context.Context, queueID QueueIDType, eventIDs []queuedproto.EventID) (*EventList, error)
 ```
 
 #### GetEventsByIDs получает события в декодированном виде с указанными ID из очереди queueID
 
 Вместе с ошибкой может вернуться и валидный \(не\-nil\) результат\, этот кейс надо учитывать\. Это означает\, что ошибку вернули только некоторые из шардов\.
 
-### func \(\*Queue\) [NewPoller](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queue_worker.go#L36>)
+### func \(\*Queue\) [NewPoller](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queue_worker.go#L37>)
 
 ```go
 func (q *Queue) NewPoller(logger *zerolog.Logger) workerpool.Poller
@@ -627,7 +618,7 @@ func (q *Queue) NewPoller(logger *zerolog.Logger) workerpool.Poller
 
 NewPoller возвращает объект для опроса новых событий из WorkerPool
 
-### func \(\*Queue\) [Publish](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queue.go#L110>)
+### func \(\*Queue\) [Publish](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queue.go#L116>)
 
 ```go
 func (queue *Queue) Publish(ctx context.Context, event Handler) (eventID queuedproto.EventID, err error)
@@ -639,7 +630,7 @@ Publish кодирует событие при помощи метода Encode\
 
 Если тип события поддерживает интерфейс IgnoreDuplicateItems\, и метод IgnoreDuplicateItems возвращает true\, дубли при совпадении ID события игнорируются \(также подавляется ошибка в логе queued флагом queuedproto\.FlagIgnoreWrongItem\)\.
 
-### func \(\*Queue\) [Queued](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queue.go#L99>)
+### func \(\*Queue\) [Queued](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queue.go#L105>)
 
 ```go
 func (queue *Queue) Queued() *queuedclient.QueuedClient
@@ -690,13 +681,17 @@ type QueueManager struct {
 }
 ```
 
-### func [NewQueueManager](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/manage.go#L45>)
+### func [NewQueueManager](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/manage.go#L48>)
 
 ```go
 func NewQueueManager(queue *Queue, pool *workerpool.WorkerPool, logger *zerolog.Logger) *QueueManager
 ```
 
-### func \(\*QueueManager\) [Manage](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/manage.go#L238>)
+NewQueueManager создаёт новый объект для управления пулом\.
+
+Это \- низкоуровневый интерфейс\. Для типового кейса следует юзать обёртку InitProcessor\.
+
+### func \(\*QueueManager\) [Manage](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/manage.go#L241>)
 
 ```go
 func (qm *QueueManager) Manage()
@@ -704,7 +699,7 @@ func (qm *QueueManager) Manage()
 
 Manage \- для обработчиков очередей\. Запуск управления пулом воркеров из конфига\. Применяет конфиг сразу при вызове\, а также при изменении конфига\, и по сигналу SIGHUP\. Если в конфиге при первом запуске обнаружены ошибки \- пул воркеров останавливается\, и функция возвращается\. При изменении конфига/по сигналу выход/остановка происходят только при ошибке достижения oom\_hard\_limit\. Для обычных ошибок \- пишется ошибка в лог\, и остаётся старый конфиг\. Вызывать из main\, при возврате \- выходить\.
 
-### func \(\*QueueManager\) [Stop](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/manage.go#L311>)
+### func \(\*QueueManager\) [Stop](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/manage.go#L314>)
 
 ```go
 func (qm *QueueManager) Stop()
@@ -712,13 +707,23 @@ func (qm *QueueManager) Stop()
 
 Stop \- враппер для WorkerPool\.Stop\. Останавливает обработку новых событий\, по завершению запущенных обработчиков\, метод Manage выходит\.
 
-## type [Sharder](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queue.go#L62-L64>)
+## type [Sharder](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queue.go#L68-L70>)
 
 Sharder \- переопределив метод Shard у своего типа события\, можно задать произвольный алгоритм шардирования \(default: остаток от деления\)
 
 ```go
 type Sharder interface {
     Shard(hash uint64) uint
+}
+```
+
+## type [Unpacker](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queue.go#L48-L50>)
+
+Unpacker \- если у события объявлен метод Unpack\, он вызывается при поступлении события после его распаковки\. Можно использовать для извлечения полей\, запакованных в EventID\.
+
+```go
+type Unpacker interface {
+    Unpack() error
 }
 ```
 
@@ -837,12 +842,15 @@ var (
 
 ```go
 var (
+    // ErrInvalidFormat - неизвестный ID формата
     ErrInvalidFormat = errors.New("invalid format ID")
-    ErrProtobuf      = errors.New("struct must be generated by protoc-gen-go")
+
+    // ErrProtobuf - структуры для protobuf должны поддерживать интерфейс proto.Message
+    ErrProtobuf = errors.New("struct must be generated by protoc-gen-go")
 )
 ```
 
-## func [Decode](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/encodings/encodings.go#L47>)
+## func [Decode](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/encodings/encodings.go#L48>)
 
 ```go
 func Decode(format Format, encoded []byte, valPtr interface{}) error
@@ -852,7 +860,7 @@ Decode декодирует encoded в valPtr\, который должен бы
 
 TODO проверить хотя бы в API верхнего уровня\, что не будет паники\, если передать по значению\. Когда устаканятся дженерики \- потребовать указатель на этапе компиляции\.
 
-## func [Encode](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/encodings/encodings.go#L35>)
+## func [Encode](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/encodings/encodings.go#L36>)
 
 ```go
 func Encode(format Format, version uint8, val interface{}) ([]byte, error)
@@ -868,6 +876,8 @@ Format \- тип ID формата сообщения\. Все форматы д
 type Format uint
 ```
 
+ID поддерживаемых форматов
+
 ```go
 const (
     Perl Format = iota
@@ -875,7 +885,7 @@ const (
 )
 ```
 
-### func [Detect](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/encodings/encodings.go#L56>)
+### func [Detect](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/encodings/encodings.go#L57>)
 
 ```go
 func Detect(v interface{}) Format
@@ -941,7 +951,6 @@ update_batch_size              UpdateBatchSize strconv.ParseInt
 
 - [Constants](<#constants>)
 - [Variables](<#variables>)
-- [func ParseDuration(s string) (time.Duration, error)](<#func-parseduration>)
 - [type ConfError](<#type-conferror>)
   - [func (ce *ConfError) Error() string](<#func-conferror-error>)
   - [func (ce *ConfError) MarshalZerologObject(ev *zerolog.Event)](<#func-conferror-marshalzerologobject>)
@@ -966,6 +975,8 @@ update_batch_size              UpdateBatchSize strconv.ParseInt
 
 ## Constants
 
+Дефолты для некоторых значений\. Используются\, если значение не задано в конфиге нигде \(ни для очереди\, ни для инстанса\, ни глобально\)\.
+
 ```go
 const (
     DefaultLogLevel        = zerolog.TraceLevel // default for log_level
@@ -981,6 +992,8 @@ const (
 
 ## Variables
 
+Ошибки в конфиге
+
 ```go
 var (
     ErrNotFound             = errors.New("path not found")
@@ -989,19 +1002,13 @@ var (
 )
 ```
 
+CSVRegex \- значения в конфиге через запятую\, с опциональными пробелами\.
+
 ```go
 var CSVRegex = regexp.MustCompile(`\s*,\s*`)
 ```
 
-## func [ParseDuration](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/config.go#L127>)
-
-```go
-func ParseDuration(s string) (time.Duration, error)
-```
-
-ParseDuration парзит длительность при помощи time\.ParseDuration\. Если единицы измерения не указаны \- считается\, что указаны секунды\.
-
-## type [ConfError](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/error.go#L20-L26>)
+## type [ConfError](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/error.go#L21-L27>)
 
 ConfError \- тип для ошибок\, который можно как вернуть юзеру \- так и эффективно записать в лог\. Преобразование в строку делается\, только если это потребовано явно \(вызовом метода Error\)\, а не по факту возврата ошибки \(как это обычно принято\)\.
 
@@ -1017,7 +1024,7 @@ type ConfError struct {
 }
 ```
 
-### func \(\*ConfError\) [Error](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/error.go#L48>)
+### func \(\*ConfError\) [Error](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/error.go#L49>)
 
 ```go
 func (ce *ConfError) Error() string
@@ -1025,7 +1032,7 @@ func (ce *ConfError) Error() string
 
 Error преобразует ошибку в строку\. Value пишется\, если ошибка \- не ErrNotFound\, даже если значение пустое \(чтобы сообщить о том\, что пустое значение для данного параметра не является валидным\)\.
 
-### func \(\*ConfError\) [MarshalZerologObject](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/error.go#L69>)
+### func \(\*ConfError\) [MarshalZerologObject](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/error.go#L70>)
 
 ```go
 func (ce *ConfError) MarshalZerologObject(ev *zerolog.Event)
@@ -1035,7 +1042,7 @@ MarshalZerologObject печатает ошибку в лог\. Использу�
 
 Поля: conf\_path: путь в онлайнконфе err\_value: если путь найден \- ошибочное значение err:       ошибка \("path not found"\, если путь не найден\, либо ошибка парзинга\) default:   если есть значение по умолчанию
 
-### func \(\*ConfError\) [Unwrap](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/error.go#L42>)
+### func \(\*ConfError\) [Unwrap](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/error.go#L43>)
 
 ```go
 func (ce *ConfError) Unwrap() error
@@ -1043,7 +1050,7 @@ func (ce *ConfError) Unwrap() error
 
 Unwrap возвращает Err для работы с errors\.Is и т\.д\.
 
-## type [Config](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/config.go#L23-L28>)
+## type [Config](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/config.go#L27-L32>)
 
 Config \- настройки обработчика очередей\. Можно пользоваться\, как обычным объектом с интерфейсом Onlineconf для получения настроек относительно корня проекта\. Также предусмотрены методы для получения настроек per\-instance и pre\-queue\.
 
@@ -1054,11 +1061,13 @@ type Config struct {
 }
 ```
 
-### func [New](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/config.go#L30>)
+### func [New](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/config.go#L35>)
 
 ```go
 func New(conf oconf.OnlineConf, instanceName string) *Config
 ```
+
+New возвращает новый объект конфига\. oconf \- корень проекта \(не обязательно TREE\)\.
 
 ### func \(\*Config\) [ClearErrCache](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/log.go#L10>)
 
@@ -1084,7 +1093,7 @@ func (c *Config) FetchBatchSize(ctx context.Context, queueID uint16) int
 
 FetchBatchSize получает fetch\_batch\_size для указанной очереди\. Если оно не задано\, возвращается DefaultFetchBatchSize
 
-### func \(\*Config\) [GetDuration](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/config.go#L137>)
+### func \(\*Config\) [GetDuration](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/config.go#L133>)
 
 ```go
 func (c *Config) GetDuration(ctx context.Context, confPath string, dfl time.Duration) time.Duration
@@ -1203,9 +1212,6 @@ Multicast/broadcast методы отправляют запросы в указ
   - [func (errs *ErrMulti) Append(err error)](<#func-errmulti-append>)
   - [func (errs ErrMulti) Error() string](<#func-errmulti-error>)
   - [func (errs ErrMulti) ToError() error](<#func-errmulti-toerror>)
-- [type IprotoLogger](<#type-iprotologger>)
-  - [func (IprotoLogger) Debugf(ctx context.Context, fmt string, v ...interface{})](<#func-iprotologger-debugf>)
-  - [func (IprotoLogger) Printf(ctx context.Context, fmt string, v ...interface{})](<#func-iprotologger-printf>)
 - [type QueuedClient](<#type-queuedclient>)
   - [func Dial(ctx context.Context, conf *queueconfig.Config) (*QueuedClient, error)](<#func-dial>)
   - [func (qc *QueuedClient) Defer(ctx context.Context, queueID uint16, delay time.Duration, eventIDs []queuedproto.EventID) error](<#func-queuedclient-defer>)
@@ -1263,7 +1269,9 @@ const (
     // ConfMinPID - минимальный pid, который считаем валидным (уникальным в рамках хоста). Если pid <= указанного, считаем, что работаем в контейнере.
     //
     // Подробнее - см. функцию GetPID.
-    ConfMinPID    = "/queueds/multi/min_pid"
+    ConfMinPID = "/queueds/multi/min_pid"
+
+    // DefaultMinPID - если /queueds/multi/min_pid не задано в онлайнконфе.
     DefaultMinPID = 20
 
     // BalanceShard - распределять запросы по шардам. Только для unicast-режима. Сейчас используется round robin (может быть заменён на что-то другое, например, на вероятностное распределение).
@@ -1313,11 +1321,13 @@ TODO мультикаст\-запрос с разными айдишниками
 type ErrMulti []error
 ```
 
-### func \(\*ErrMulti\) [Append](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/error.go#L49>)
+### func \(\*ErrMulti\) [Append](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/error.go#L50>)
 
 ```go
 func (errs *ErrMulti) Append(err error)
 ```
+
+Append добавляет ошибку в список\.
 
 ### func \(ErrMulti\) [Error](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/error.go#L39>)
 
@@ -1327,33 +1337,15 @@ func (errs ErrMulti) Error() string
 
 Error возвращает список ошибок через запятую\.
 
-### func \(ErrMulti\) [ToError](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/error.go#L53>)
+### func \(ErrMulti\) [ToError](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/error.go#L55>)
 
 ```go
 func (errs ErrMulti) ToError() error
 ```
 
-## type [IprotoLogger](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/log.go#L12>)
+ToError преобразует мульти\-ошибку в стандартный тип error\. Если ошибок 0 \- возвращается nil\.
 
-IprotoLogger \- адаптер из iproto\.Logger в zerolog
-
-```go
-type IprotoLogger struct{}
-```
-
-### func \(IprotoLogger\) [Debugf](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/log.go#L20>)
-
-```go
-func (IprotoLogger) Debugf(ctx context.Context, fmt string, v ...interface{})
-```
-
-### func \(IprotoLogger\) [Printf](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/log.go#L16>)
-
-```go
-func (IprotoLogger) Printf(ctx context.Context, fmt string, v ...interface{})
-```
-
-## type [QueuedClient](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/client.go#L61-L66>)
+## type [QueuedClient](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/client.go#L64-L69>)
 
 QueuedClient \- низкоуровневый клиент queued
 
@@ -1364,7 +1356,7 @@ type QueuedClient struct {
 }
 ```
 
-### func [Dial](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/client.go#L69>)
+### func [Dial](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/client.go#L72>)
 
 ```go
 func Dial(ctx context.Context, conf *queueconfig.Config) (*QueuedClient, error)
@@ -1490,7 +1482,7 @@ ID запроса \(queuedproto\.ReqAddItem\.ReqID\) для всех ретра�
 
 Ошибки обработки результата \(iproto\.Unpack\) не приводят к ретраям\, т\.к\.\, скорее всего\, являются ошибками прикладного уровня\.
 
-### func \(\*QueuedClient\) [ShardNum](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/client.go#L122>)
+### func \(\*QueuedClient\) [ShardNum](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/client.go#L127>)
 
 ```go
 func (qc *QueuedClient) ShardNum() uint
@@ -1543,15 +1535,22 @@ import "gitlab.corp.mail.ru/mygo/tp.git/workerpool"
 
 ```go
 const (
-    InternalPanicDelay  = 100 * time.Millisecond // задержка между итерациями внутри горутины-воркера при необработанной панике
-    DefaultMaxDryPolls  = 20                     // кол-во пустых запусков, после которых поллинг заданий не осуществляется в течении pollDelay
-    DefaultDryPollDelay = 300 * time.Millisecond // задержка поллинга, если заданий определённого типа не было maxDryPolls раз подряд
-    DefaultIdleDelay    = 5 * time.Second        // задержка, если других задержек нет ) защита от зависания намертво. если все воркеры заняты - новые задания не посылаются всё равно.
+    // InternalPanicDelay - задержка между итерациями внутри горутины-воркера при необработанной панике.
+    InternalPanicDelay = 100 * time.Millisecond
 
+    // DefaultMaxDryPolls - кол-во пустых запусков, после которых поллинг заданий не осуществляется в течении pollDelay.
+    DefaultMaxDryPolls = 20
+
+    // DefaultDryPollDelay - задержка поллинга, если заданий определённого типа не было maxDryPolls раз подряд.
+    DefaultDryPollDelay = 300 * time.Millisecond
+
+    // DefaultIdleDelay - задержка, если других задержек нет ) защита от зависания намертво. если все воркеры заняты - новые задания не посылаются всё равно.
+    // Пока проект не станет стабильным - лучше не уменьшать - так ошибки в логике станут заметны быстрее (из-за долгих засыпаний).
+    DefaultIdleDelay = 5 * time.Second
 )
 ```
 
-## type [JobTypeID](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/workerpool/pool.go#L21>)
+## type [JobTypeID](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/workerpool/pool.go#L29>)
 
 JobTypeID \- здесь работой называется очередь\, на случай выноса функцонала пула воркеров из проекта очередей\.
 
@@ -1559,7 +1558,7 @@ JobTypeID \- здесь работой называется очередь\, н�
 type JobTypeID = uint16
 ```
 
-## type [Poller](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/workerpool/pool.go#L29-L32>)
+## type [Poller](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/workerpool/pool.go#L37-L40>)
 
 Poller используется для опроса ресурса с указанным ID\.
 
@@ -1574,7 +1573,7 @@ type Poller interface {
 }
 ```
 
-## type [Stopper](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/workerpool/pool.go#L37-L39>)
+## type [Stopper](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/workerpool/pool.go#L45-L47>)
 
 Stopper \- если poller поддерживает также этот интерфейс\, при запросе остановки вызывается метод Stop\.
 
@@ -1586,7 +1585,7 @@ type Stopper interface {
 }
 ```
 
-## type [Worker](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/workerpool/pool.go#L44-L46>)
+## type [Worker](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/workerpool/pool.go#L52-L54>)
 
 Worker возвращается методом Poller\.Poll\, метод Work осуществляет выполнение задания\.
 
@@ -1598,7 +1597,9 @@ type Worker interface {
 }
 ```
 
-## type [WorkerPool](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/workerpool/pool.go#L69-L89>)
+## type [WorkerPool](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/workerpool/pool.go#L78-L98>)
+
+WorkerPool \- управляемый пул воркеров
 
 ```go
 type WorkerPool struct {
@@ -1607,11 +1608,13 @@ type WorkerPool struct {
 }
 ```
 
-### func [New](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/workerpool/pool.go#L92>)
+### func [New](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/workerpool/pool.go#L102>)
 
 ```go
 func New(poller Poller, logger *zerolog.Logger) *WorkerPool
 ```
+
+New создаёт новый пул воркеров
 
 ### func \(\*WorkerPool\) [Manage](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/workerpool/manage.go#L13>)
 

@@ -7,6 +7,7 @@ import (
 	"github.com/rs/zerolog"
 )
 
+// Ошибки в конфиге
 var (
 	ErrNotFound             = errors.New("path not found")
 	ErrOOMSoftDownscaleRate = errors.New("oom_soft_downscale_rate should be >= 0")

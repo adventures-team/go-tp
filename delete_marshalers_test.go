@@ -9,7 +9,7 @@ import (
 
 	"gitlab.corp.mail.ru/e-mail-ru/easygo/iproto"
 	"gitlab.corp.mail.ru/mygo/queuedproto.git/addons"
-	"gitlab.corp.mail.ru/mygo/tp.git"
+	tp "gitlab.corp.mail.ru/mygo/tp.git"
 )
 
 type (

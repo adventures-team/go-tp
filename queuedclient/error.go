@@ -46,10 +46,12 @@ func (errs ErrMulti) Error() string {
 	return strings.Join(strs, ", ")
 }
 
+// Append добавляет ошибку в список.
 func (errs *ErrMulti) Append(err error) {
 	*errs = append(*errs, err)
 }
 
+// ToError преобразует мульти-ошибку в стандартный тип error. Если ошибок 0 - возвращается nil.
 func (errs ErrMulti) ToError() error {
 	if len(errs) == 0 {
 		return nil

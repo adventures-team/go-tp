@@ -9,6 +9,7 @@ import (
 // Format - тип ID формата сообщения. Все форматы должны начинаться с uint8 с номером версии.
 type Format uint
 
+// ID поддерживаемых форматов
 const (
 	Perl Format = iota
 	Protobuf

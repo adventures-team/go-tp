@@ -57,7 +57,7 @@ func (*testAnotherEvent) Handle(context.Context) error {
 func getTestEvents(t *testing.T) *testEvent {
 	var next Handler
 
-	evl := &eventList{
+	evl := &EventList{
 		queueID: 12345,
 		queue:   &Queue{},
 	}
@@ -66,7 +66,7 @@ func getTestEvents(t *testing.T) *testEvent {
 
 	for i := 0; i < 10; i++ {
 		ev := &testEvent{}
-		ev.id = queuedproto.EventID{ID: 1, Shard: 1}
+		ev.EventID = queuedproto.EventID{ID: 1, Shard: 1}
 		ev.next = next
 		ev.list = evl
 		next = ev

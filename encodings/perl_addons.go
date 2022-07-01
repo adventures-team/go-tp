@@ -148,8 +148,7 @@ func getEventTypeAddons(event interface{}) (supportedAddons *eventTypeAddons) {
 
 	numFields := typ.NumField()
 	for i := 0; i < numFields; i++ {
-		//if !typ.Field(i).IsExported() { // TODO go1.17+ - после апгрейда версии заменить на более понятный вызов
-		if typ.Field(i).PkgPath != "" {
+		if !typ.Field(i).IsExported() {
 			continue
 		}
 

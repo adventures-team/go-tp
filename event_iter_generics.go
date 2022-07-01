@@ -1,5 +1,5 @@
-//go:build go1.18 && !gomarkdoc
-// +build go1.18,!gomarkdoc
+//go:build go1.18 && !golangci
+// +build go1.18,!golangci
 
 package tp
 
@@ -56,7 +56,7 @@ func Next[T Handler](ctxPtr *context.Context, evPtr *T) bool {
 	nextEv := (*evPtr).GetEvent()
 	nextEv.flags |= evIsProcessed
 
-	nextEventLogger(ctxPtr, nextEv.id).Debug().Interface("event", *evPtr).Msg("new event received (batch mode)")
+	nextEventLogger(ctxPtr, nextEv.EventID).Debug().Interface("event", *evPtr).Msg("new event received (batch mode)")
 
 	return true
 }

@@ -44,8 +44,7 @@ func setLogLevel(logger *zerolog.Logger, newLevel zerolog.Level) {
 	zerolog.SetGlobalLevel(newLevel)
 
 	if EnableUnsafeLogLevel {
-		// unsafe.Add requires go1.17 or later
-		*(*zerolog.Level)(unsafe.Pointer(uintptr(unsafe.Pointer(logger)) + levelOffset)) = newLevel
+		*(*zerolog.Level)(unsafe.Add(unsafe.Pointer(logger), levelOffset)) = newLevel
 	}
 }
 

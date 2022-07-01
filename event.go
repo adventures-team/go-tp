@@ -10,8 +10,8 @@ import (
 )
 
 const (
-	evIsDeleted      uint8 = 1 << iota // события с этим флагом удаляются балком методом eventList.commit
-	evHasCustomDefer                   // проставляется для событий, которым вручную был задан кастомный дефер. их не обрабатывает eventList.commit
+	evIsDeleted      uint8 = 1 << iota // события с этим флагом удаляются балком методом EventList.commit
+	evHasCustomDefer                   // проставляется для событий, которым вручную был задан кастомный дефер. их не обрабатывает EventList.commit
 	evIsProcessed                      // проставляется функцией tp.Next для возвращаемых ей событий. для пропуска уже обработанных событий в основном цикле. НЕ означает, что событие обработано успешно
 )
 
@@ -35,14 +35,14 @@ type (
 	// TODO убрать nolint, когда пофиксят https://github.com/golangci/golangci-lint/issues/826
 	//nolint:structcheck
 	eventInternal struct {
-		id    queuedproto.EventID // сделано приватным (с аксессором), чтобы не вводить юзера в заблуждение (что можно как-то хитро проставить это поле, и это на что-то повлияет при отправке)
-		list  *eventList          // список всех событий, полученных одной пачкой (т.е. разные версии для той же очереди)
-		next  Handler             // следующее событие того же типа (т.е. той же версии для той же очереди)
-		flags uint8               // см. константы ev* выше
+		queuedproto.EventID            // состоит из ID события (ID), и номера шарда (Shard). поддерживает интерфейс fmt.Stringer
+		list                *EventList // список всех событий, полученных одной пачкой (т.е. разные версии для той же очереди)
+		next                Handler    // следующее событие того же типа (т.е. той же версии для той же очереди)
+		flags               uint8      // см. константы ev* выше
 	}
 
-	// eventList - список событий, прилетающих из queued для одной очереди. В списке могут быть события разных версий.
-	eventList struct {
+	// EventList - список событий, прилетающих из queued для одной очереди. В списке могут быть события разных версий.
+	EventList struct {
 		queueID QueueIDType
 		events  []Handler
 		queue   *Queue
@@ -59,13 +59,6 @@ func (ev *Event) GetEvent() *Event {
 	return ev
 }
 
-// ID события, состоящий из собственно ID и номера шарда (Shard).
-//
-// Поддерживает интерфейс fmt.Stringer (для преобразования в строку можно воспользоваться методом queuedproto.EventID.String)
-func (ev *Event) ID() queuedproto.EventID {
-	return ev.id
-}
-
 // QueueID - ID очереди, из которой прилетело событие
 func (ev *Event) QueueID() QueueIDType {
 	return ev.list.queueID
@@ -73,7 +66,7 @@ func (ev *Event) QueueID() QueueIDType {
 
 // Hash - возвращает хэш от ID события, совместимый с перловыми очередями (crc32 от строкового десятичного представления ID)
 func (ev *Event) Hash() uint64 {
-	return uint64(crc32.ChecksumIEEE([]byte(strconv.FormatUint(ev.id.ID, 10))))
+	return uint64(crc32.ChecksumIEEE([]byte(strconv.FormatUint(ev.EventID.ID, 10))))
 }
 
 // Shard - распределяет событие по шардам в зависимости от хеша. Совместимая с перлом версия (остаток от деления).
@@ -96,7 +89,7 @@ func (ev *Event) Done() {
 //
 // Если событие было помечено как выполненное при помощи Done, а потом был вызван Defer, пометка на удаление снимается.
 func (ev *Event) Defer(ctx context.Context, delay time.Duration) error {
-	if err := ev.list.queue.client.Defer(ctx, ev.list.queueID, delay, []queuedproto.EventID{ev.id}); err != nil {
+	if err := ev.list.queue.client.Defer(ctx, ev.list.queueID, delay, []queuedproto.EventID{ev.EventID}); err != nil {
 		return err
 	}
 
@@ -131,21 +124,21 @@ func (ev *Event) BatchLen() int {
 
 		l++
 
-		ev = ev.next.GetEvent() // TODO когда-нибудь порефакторить Event/eventList, но точно после запуска в прод
+		ev = ev.next.GetEvent() // TODO когда-нибудь порефакторить Event/EventList, но точно после запуска в прод
 	}
 }
 
 // commit удаляет события, для которых был вызван метод Done, а также проставляет дефолтный дефер (defer_time из конфига)
 // всем событиям из списка, которые не были удалены, и для которых не был вызван метод Defer с кастомным временем.
-func (evl *eventList) commit(ctx context.Context) error {
+func (evl *EventList) commit(ctx context.Context) error {
 	deleteEventIDs := make([]queuedproto.EventID, 0, len(evl.events))
 	deferEventIDs := make([]queuedproto.EventID, 0, len(evl.events))
 
 	for _, handler := range evl.events {
 		if ev := handler.GetEvent(); ev.flags&evIsDeleted != 0 {
-			deleteEventIDs = append(deleteEventIDs, ev.id)
+			deleteEventIDs = append(deleteEventIDs, ev.EventID)
 		} else if ev.flags&evHasCustomDefer == 0 {
-			deferEventIDs = append(deferEventIDs, ev.id)
+			deferEventIDs = append(deferEventIDs, ev.EventID)
 		}
 	}
 

@@ -8,6 +8,7 @@ import (
 	"gitlab.corp.mail.ru/e-mail-ru/easygo/iproto"
 
 	"gitlab.corp.mail.ru/mygo/tp.git/queueconfig"
+	"gitlab.corp.mail.ru/mygo/utils.git/mylog"
 )
 
 const (
@@ -48,7 +49,9 @@ const (
 	// ConfMinPID - минимальный pid, который считаем валидным (уникальным в рамках хоста). Если pid <= указанного, считаем, что работаем в контейнере.
 	//
 	// Подробнее - см. функцию GetPID.
-	ConfMinPID    = "/queueds/multi/min_pid"
+	ConfMinPID = "/queueds/multi/min_pid"
+
+	// DefaultMinPID - если /queueds/multi/min_pid не задано в онлайнконфе.
 	DefaultMinPID = 20
 
 	// BalanceShard - распределять запросы по шардам. Только для unicast-режима. Сейчас используется round robin (может быть заменён на что-то другое, например, на вероятностное распределение).
@@ -84,6 +87,8 @@ func Dial(ctx context.Context, conf *queueconfig.Config) (*QueuedClient, error) 
 			continue
 		}
 
+		logAdapter := mylog.IprotoLogger{}
+
 		endpoint, err := iproto.Dial(ctx, "tcp", server, &iproto.PoolConfig{
 			Size:              1,
 			ConnectTimeout:    timeout,
@@ -91,12 +96,12 @@ func Dial(ctx context.Context, conf *queueconfig.Config) (*QueuedClient, error) 
 			RedialInterval:    redialInterval,
 			MaxRedialInterval: redialInterval,
 			RedialForever:     true,
-			Logger:            IprotoLogger{},
+			Logger:            logAdapter,
 			ChannelConfig: &iproto.ChannelConfig{
 				WriteTimeout:   timeout,
 				RequestTimeout: timeout,
 				PingInterval:   pingInterval,
-				Logger:         IprotoLogger{},
+				Logger:         logAdapter,
 			},
 		})
 

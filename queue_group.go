@@ -140,7 +140,8 @@ func (queue *Queue) Register(queueID QueueIDType, valueExample Handler, autofill
 // Кодировщику безразлично, передаётся указатель или значение, но для вызова методов по указанным интерфейсам
 // нужно соблюдать правильный тип (тот, для которого объявлен метод - очевидно, для Builder нужен указатель).
 //
-// Номер очереди и ID события можно получить методами ID() и QueueID() (см. тип Event)
+// ID события, кроме интерфейса EventIDBuilder, можно также передать явно. Номер шарда будет вычислен из ID события,
+// если оно задано одним из этих способов. Если EventID.ID == 0, шард будет выбран по round robin (queuedclient.BalanceShard).
 func (queue *Queue) Encode(data Handler) (eventData []byte, err error) {
 	if data == nil {
 		return nil, fmt.Errorf("%w nil data", ErrUnknownType)
@@ -162,7 +163,7 @@ func (oi *outgoingInfo) encode(queue *Queue, data Handler) (eventData []byte, er
 	}
 
 	ev := data.GetEvent()
-	ev.list = &eventList{
+	ev.list = &EventList{
 		queueID: oi.queueID,
 		queue:   queue,
 	}
@@ -174,14 +175,20 @@ func (oi *outgoingInfo) encode(queue *Queue, data Handler) (eventData []byte, er
 	}
 
 	if getEvID, ok := data.(EventIDBuilder); ok {
-		ev.id.ID = getEvID.BuildEventID()
-		ev.id.Shard = ev.Shard(ev.Hash())
-	} else {
-		ev.id.ID = 0
-		ev.id.Shard = queuedclient.BalanceShard
+		ev.EventID.ID = getEvID.BuildEventID()
 	}
 
-	return encodings.Encode(oi.format, oi.version, data)
+	if ev.EventID.ID == 0 {
+		ev.EventID.Shard = queuedclient.BalanceShard
+	} else {
+		ev.EventID.Shard = ev.Shard(ev.Hash())
+	}
+
+	eventData, err = encodings.Encode(oi.format, oi.version, data)
+
+	ev.EventID.ID = 0
+
+	return
 }
 
 func setAutofill(autofill marshalerDisabled, evType reflect.Type) (autofillIdx int, autofillVal reflect.Value, err error) {
@@ -201,8 +208,7 @@ func setAutofill(autofill marshalerDisabled, evType reflect.Type) (autofillIdx i
 		field := evType.Field(i)
 
 		if field.Type == autofillType {
-			//if !field.IsExported() { // TODO go1.17+ - после апгрейда версии заменить на более понятный вызов
-			if field.PkgPath != "" {
+			if !field.IsExported() {
 				return -1, reflect.Value{}, fmt.Errorf("%v.%s: %w", evType, field.Name, ErrExportedRequired)
 			}
 

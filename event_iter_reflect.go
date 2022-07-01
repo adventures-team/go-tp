@@ -1,5 +1,9 @@
-//go:build !go1.18 || gomarkdoc
-// +build !go1.18 gomarkdoc
+//go:build !go1.18 || golangci
+// +build !go1.18 golangci
+
+// выкинуть костыль про golangci, когда сделают:
+// https://github.com/golang/go/issues/48525
+// https://github.com/golangci/golangci-lint/issues/2649
 
 package tp
 
@@ -95,7 +99,7 @@ func Next(ctxPtr *context.Context, evPtr interface{}) bool {
 	nextEv := next.GetEvent()
 	nextEv.flags |= evIsProcessed
 
-	nextEventLogger(ctxPtr, nextEv.id).Debug().Interface("event", evPtr).Msg("new event received (batch mode)")
+	nextEventLogger(ctxPtr, nextEv.EventID).Debug().Interface("event", evPtr).Msg("new event received (batch mode)")
 
 	return true
 }

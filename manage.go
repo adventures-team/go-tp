@@ -42,6 +42,9 @@ type (
 	}
 )
 
+// NewQueueManager создаёт новый объект для управления пулом.
+//
+// Это - низкоуровневый интерфейс. Для типового кейса следует юзать обёртку InitProcessor.
 func NewQueueManager(queue *Queue, pool *workerpool.WorkerPool, logger *zerolog.Logger) *QueueManager {
 	return &QueueManager{
 		Queue:         queue,

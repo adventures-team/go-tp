@@ -43,6 +43,12 @@ type (
 		BuildEventID() uint64
 	}
 
+	// Unpacker - если у события объявлен метод Unpack, он вызывается при поступлении события после его распаковки.
+	// Можно использовать для извлечения полей, запакованных в EventID.
+	Unpacker interface {
+		Unpack() error
+	}
+
 	// IgnoreDuplicateItems - для событий, вернувших true, игнорируются дубли по ID сообщения (выставляется флаг FlagIgnoreWrongItem).
 	// Следует использовать вместе с EventIDBuilder, если нужна идемпотентность ID.
 	// Перловый аналог называется так же.
@@ -119,9 +125,9 @@ func (queue *Queue) Publish(ctx context.Context, event Handler) (eventID queuedp
 		flags |= queuedproto.FlagIgnoreWrongItem
 	}
 
-	ev := event.GetEvent() // кто будет отсюда копипастить )) для своего события получать Event методом GetEvent не надо, т.к. структура Event уже вложена в свой тип события. можно обращаться к ID() напрямую.
+	ev := event.GetEvent() // кто будет отсюда копипастить )) для своего события получать Event методом GetEvent не надо, т.к. структура Event уже вложена в свой тип события. можно обращаться к EventID напрямую.
 
-	return queue.client.Publish(ctx, ev.QueueID(), ev.ID(), flags, eventData)
+	return queue.client.Publish(ctx, ev.QueueID(), ev.EventID, flags, eventData)
 }
 
 // TODO тут нужны высокоуровневые методы Delete и Defer, чтобы не приходилось собирать вручную айдишник и лезть в низкоуровневый QueuedClient
@@ -130,7 +136,7 @@ func (queue *Queue) Publish(ctx context.Context, event Handler) (eventID queuedp
 //
 // Вместе с ошибкой может вернуться и валидный (не-nil) результат, этот кейс надо учитывать. Это означает, что ошибку вернули только некоторые
 // из шардов.
-func (queue *Queue) GetActiveEvents(ctx context.Context, queueID QueueIDType, count int) (*eventList, error) {
+func (queue *Queue) GetActiveEvents(ctx context.Context, queueID QueueIDType, count int) (*EventList, error) {
 	return queue.eventListFromItems(ctx, queueID, func() (queuedproto.ItemList, error) {
 		return queue.client.GetActive(ctx, queueID, count)
 	})
@@ -140,13 +146,13 @@ func (queue *Queue) GetActiveEvents(ctx context.Context, queueID QueueIDType, co
 //
 // Вместе с ошибкой может вернуться и валидный (не-nil) результат, этот кейс надо учитывать. Это означает, что ошибку вернули только некоторые
 // из шардов.
-func (queue *Queue) GetEventsByIDs(ctx context.Context, queueID QueueIDType, eventIDs []queuedproto.EventID) (*eventList, error) {
+func (queue *Queue) GetEventsByIDs(ctx context.Context, queueID QueueIDType, eventIDs []queuedproto.EventID) (*EventList, error) {
 	return queue.eventListFromItems(ctx, queueID, func() (queuedproto.ItemList, error) {
 		return queue.client.GetByIDs(ctx, queueID, eventIDs)
 	})
 }
 
-func (queue *Queue) eventListFromItems(ctx context.Context, queueID QueueIDType, get func() (queuedproto.ItemList, error)) (*eventList, error) {
+func (queue *Queue) eventListFromItems(ctx context.Context, queueID QueueIDType, get func() (queuedproto.ItemList, error)) (*EventList, error) {
 	byVersion, ok := queue.incoming[queueID]
 	if !ok {
 		return nil, fmt.Errorf("%w %d", ErrUnknownQueue, queueID)
@@ -157,7 +163,7 @@ func (queue *Queue) eventListFromItems(ctx context.Context, queueID QueueIDType,
 		return nil, getErr
 	}
 
-	evl := &eventList{
+	evl := &EventList{
 		queueID: queueID,
 		queue:   queue,
 	}
@@ -189,7 +195,8 @@ func (queue *Queue) eventListFromItems(ctx context.Context, queueID QueueIDType,
 		}
 
 		valPtr := reflect.New(hinfo.dataType)
-		handler, ok := valPtr.Interface().(Handler)
+		valIface := valPtr.Interface()
+		handler, ok := valIface.(Handler)
 
 		if !ok {
 			return nil, ErrInternalHandler
@@ -207,8 +214,17 @@ func (queue *Queue) eventListFromItems(ctx context.Context, queueID QueueIDType,
 		}
 
 		ev := handler.GetEvent()
-		ev.id = item.EventID
+		ev.EventID = item.EventID
 		ev.list = evl
+
+		if unpacker, ok := valIface.(Unpacker); ok {
+			if err := unpacker.Unpack(); err != nil {
+				zerolog.Ctx(ctx).Err(err).Uint16("queue_id", queueID).Stringer("event_id", item).Uint8("version", version).Msg("Unpack() error")
+				unsupported = append(unsupported, item.EventID)
+
+				continue
+			}
+		}
 
 		if prevPtr, ok := prevHandler[version]; ok {
 			*prevPtr = handler

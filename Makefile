@@ -3,16 +3,13 @@ TEST_TIMEOUT=10s
 GO = go
 GOSRC = $(shell find . -type f -name '*.go')
 
-# Устанавливаем для gotip язык явно, чтобы для экспериментов с дженериками не приходилось править язык в go.mod
-ifeq ($(GO),go)
-GOFLAGS=
-else
-GOFLAGS=-gcflags=-lang=go1.18
-endif
+# Устанавливаем для gotip язык явно, чтобы для экспериментов с дженериками не приходилось править язык в go.mod.
+# 2022-06-08: перешли на go1.18, однако у коллег локально могут быть устаревшие версии, поэтому пока юзаем этот костыль.
+# При обновлении версии в go.mod этот блок можно выпилить.
+GOFLAGS=-gcflags=all=-lang=$(shell go version | cut -d\  -f3 | cut -d. -f1,2)
 
 .PHONY: all
-all:
-	$(info TODO)
+all: format deps test full-lint doc
 
 .PHONY: help
 help:
@@ -29,15 +26,15 @@ deps:
 .PHONY: lint
 lint:
 	$(info #Running lint...)
-	golangci-lint run --new-from-rev=origin/$(shell (grep -s DEFAULT_BRANCH: .gitlab-ci.yml | cut -d: -f2 | sed 's/^\s*$$/master/' | tr -d ' \t'; echo master) | head -n1) ./...
-	golangci-lint run --build-tags=integration --new-from-rev=origin/$(shell (grep -s DEFAULT_BRANCH: .gitlab-ci.yml | cut -d: -f2 | sed 's/^\s*$$/master/' | tr -d ' \t'; echo master) | head -n1) ./...
+	golangci-lint run --build-tags=golangci --new-from-rev=origin/$(shell (grep -s DEFAULT_BRANCH: .gitlab-ci.yml | cut -d: -f2 | sed 's/^\s*$$/master/' | tr -d ' \t'; echo master) | head -n1) ./...
+	golangci-lint run --build-tags=golangci,integration --new-from-rev=origin/$(shell (grep -s DEFAULT_BRANCH: .gitlab-ci.yml | cut -d: -f2 | sed 's/^\s*$$/master/' | tr -d ' \t'; echo master) | head -n1) ./...
 
 # Линт на весь код
 .PHONY: full-lint
 full-lint:
 	$(info #Running full lint...)
-	golangci-lint run ./...
-	golangci-lint run --build-tags=integration ./...
+	golangci-lint run --build-tags=golangci ./...
+	golangci-lint run --build-tags=golangci,integration ./...
 
 # Форматирует код с помощью goimports
 .PHONY: format
