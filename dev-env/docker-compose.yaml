@@ -1,0 +1,17 @@
+x-queued_shard: &queued_shard
+  image: queued
+  build: queued/build
+  pull_policy: never
+
+services:
+  queued_shard0:
+    <<: *queued_shard
+    container_name: queued_shard0
+    ports:
+      - 20000:20000
+
+  queued_shard1:
+    <<: *queued_shard
+    container_name: queued_shard1
+    ports:
+      - 20500:20000

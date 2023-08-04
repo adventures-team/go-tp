@@ -1,5 +1,5 @@
-//go:build !go1.18 || golangci
-// +build !go1.18 golangci
+//go:build !go1.18 && !golangci
+// +build !go1.18,!golangci
 
 // выкинуть костыль про golangci, когда сделают:
 // https://github.com/golang/go/issues/48525

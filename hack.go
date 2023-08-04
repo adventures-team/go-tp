@@ -47,15 +47,3 @@ func setLogLevel(logger *zerolog.Logger, newLevel zerolog.Level) {
 		*(*zerolog.Level)(unsafe.Add(unsafe.Pointer(logger), levelOffset)) = newLevel
 	}
 }
-
-// проверка на интерфейс с типизированным nil (не является nil-интерфейсом).
-// типичная ошибка - странно, что функций для проверки такого нет в reflect (а reflect.InterfaceData - deprecated)
-
-type iface struct {
-	_    uintptr
-	data uintptr
-}
-
-func isTypedNil(v interface{}) bool {
-	return v != nil && (*iface)(unsafe.Pointer(&v)).data == 0
-}

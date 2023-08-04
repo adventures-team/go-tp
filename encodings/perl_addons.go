@@ -13,7 +13,7 @@ import (
 
 // переделал слайс на мэп, чтобы юзер мог добавлять свои аддоны, не вторгаясь в пакет queuedproto/addons.
 // отдельный слайс, упорядоченный по полям, нужен для воспроизводимого кодирования.
-//type eventTypeAddons []int
+// type eventTypeAddons []int
 type (
 	addonMap map[uint16]int // addonID -> userEventFieldIdx
 

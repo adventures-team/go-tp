@@ -1,5 +1,5 @@
-//go:build go1.18 && !golangci
-// +build go1.18,!golangci
+//go:build go1.18
+// +build go1.18
 
 package tp
 

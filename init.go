@@ -24,19 +24,19 @@ type Config struct {
 
 // InitProcessor - инициализация типового обработчика очередей. Простейший случай:
 //
-//		func main() {
-//			conf := oconf.NewSubtree(onlineconf.GetModule("TREE"), "/project/queued")
-//			qm := tp.Config{Config: conf}.InitProcessor()
-//			app := NewService(myServiceConfig{...})
+//	func main() {
+//		conf := oconf.NewSubtree(onlineconf.GetModule("TREE"), "/project/queued")
+//		qm := tp.Config{Config: conf}.InitProcessor()
+//		app := NewService(myServiceConfig{...})
 //
-//			err := qm.Register(QueueID, &QueueEvent{}, app)
-//			if err != nil { zLog.Fatal().Err(err).Send() }
+//		err := qm.Register(QueueID, &QueueEvent{}, app)
+//		if err != nil { zLog.Fatal().Err(err).Send() }
 //
-//			err = qm.Register(AnotherQueueID, &AnotherQueueEvent{}, app)
-//			if err != nil { zLog.Fatal().Err(err).Send() }
+//		err = qm.Register(AnotherQueueID, &AnotherQueueEvent{}, app)
+//		if err != nil { zLog.Fatal().Err(err).Send() }
 //
-//			qm.Manage()
-//		}
+//		qm.Manage()
+//	}
 //
 // Параметр Config.Config обязателен. Если Config.InstanceName не задан - читается параметр командной строки -instance.
 // В таком случае, flag.Parse() вызывать из main() до вызова Config.Init не следует (обходить определением глобальной переменной с флагом не стал, чтобы этот флаг не появился во всех бинарниках, импортирующих эту библиотеку).

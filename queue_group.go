@@ -14,8 +14,6 @@ const MaxVersion = queuedproto.VersionMask
 
 type (
 	// queueGroup - информация о всех зарегистрированных очередях. Мы сможем обрабатывать и посылать события для очередей, определённых тут.
-	// TODO убрать nolint, когда пофиксят https://github.com/golangci/golangci-lint/issues/826
-	//nolint:structcheck
 	queueGroup struct {
 		incoming incomingMap // мэп типов для входящих событий по id очереди и номеру версии
 		outgoing outgoingMap // мэп id очереди и номеров версий по типу события

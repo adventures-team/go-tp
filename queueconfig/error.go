@@ -63,10 +63,11 @@ func (ce *ConfError) Error() string {
 // Используется при печати ошибки методами zerolog.Event.Object и zerolog.Event.Err.
 //
 // Поля:
-//    conf_path: путь в онлайнконфе
-//    err_value: если путь найден - ошибочное значение
-//    err:       ошибка ("path not found", если путь не найден, либо ошибка парзинга)
-//    default:   если есть значение по умолчанию
+//
+//	conf_path: путь в онлайнконфе
+//	err_value: если путь найден - ошибочное значение
+//	err:       ошибка ("path not found", если путь не найден, либо ошибка парзинга)
+//	default:   если есть значение по умолчанию
 func (ce *ConfError) MarshalZerologObject(ev *zerolog.Event) {
 	ev = ev.Str("conf_path", ce.Path)
 

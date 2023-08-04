@@ -54,7 +54,7 @@ func (*testAnotherEvent) Handle(context.Context) error {
 	return nil
 }
 
-func getTestEvents(t *testing.T) *testEvent {
+func getTestEvents(*testing.T) *testEvent {
 	var next Handler
 
 	evl := &EventList{

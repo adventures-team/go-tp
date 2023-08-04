@@ -39,7 +39,7 @@ func (qc *QueuedClient) GetActive(ctx context.Context, queueID uint16, count int
 
 // GetByIDsBroadcast запрашивает события из очереди queueID с указанными ID изо всех шардов одновременно.
 //
-// ID событий указываются без номера шарда, обычными uint64
+// # ID событий указываются без номера шарда, обычными uint64
 //
 // Ретраи в случае ошибок не производятся.
 func (qc *QueuedClient) GetByIDsBroadcast(ctx context.Context, queueID uint16, eventIDs []uint64) (queuedproto.ItemList, error) {

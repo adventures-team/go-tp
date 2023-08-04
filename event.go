@@ -32,8 +32,6 @@ type (
 	}
 
 	// next это слишком C-style, особенно вместе с костыльным логгированием. Кажется, более красиво это реализуется через канал в Queue.Work.
-	// TODO убрать nolint, когда пофиксят https://github.com/golangci/golangci-lint/issues/826
-	//nolint:structcheck
 	eventInternal struct {
 		queuedproto.EventID            // состоит из ID события (ID), и номера шарда (Shard). поддерживает интерфейс fmt.Stringer
 		list                *EventList // список всех событий, полученных одной пачкой (т.е. разные версии для той же очереди)
