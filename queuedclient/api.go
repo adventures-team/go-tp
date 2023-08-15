@@ -123,6 +123,7 @@ func (qc *QueuedClient) GetByIDs(ctx context.Context, queueID uint16, eventIDs [
 }
 
 // Delete удаляет указанные события параллельно изо всех необходимых шардов пачками по update_batch_size событий.
+// TODO может быть, игнорить ErrItemLocked и просто писать его в лог?
 func (qc *QueuedClient) Delete(ctx context.Context, queueID uint16, eventIDs []queuedproto.EventID) error {
 	err := qc.MakeMulticastRequest(
 		ctx,

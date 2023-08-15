@@ -161,9 +161,12 @@ func (oi *outgoingInfo) encode(queue *Queue, data Handler) (eventData []byte, er
 	}
 
 	ev := data.GetEvent()
-	ev.list = &EventList{
-		queueID: oi.queueID,
-		queue:   queue,
+
+	if ev.list == nil {
+		ev.list = &EventList{
+			queueID: oi.queueID,
+			queue:   queue,
+		}
 	}
 
 	if builder, ok := data.(Builder); ok {
