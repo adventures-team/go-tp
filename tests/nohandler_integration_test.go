@@ -7,13 +7,12 @@ import (
 	"context"
 	"testing"
 
-	"github.com/onlineconf/onlineconf-go"
+	"github.com/gofrs/uuid"
 
 	"gitlab.corp.mail.ru/mygo/queuedproto.git"
 	"gitlab.corp.mail.ru/mygo/tp.git"
 	"gitlab.corp.mail.ru/mygo/tp.git/queueconfig"
 	"gitlab.corp.mail.ru/mygo/utils.git/mylog"
-	"gitlab.corp.mail.ru/mygo/utils.git/oconf"
 )
 
 func TestNoHandler(t *testing.T) {
@@ -21,7 +20,7 @@ func TestNoHandler(t *testing.T) {
 	logger := mylog.InitTestZerolog(t)
 	ctx := logger.WithContext(context.Background())
 
-	conf := oconf.NewSubtree(onlineconf.GetModule("TREE"), testConfPrefix)
+	conf := newMockConf(t, testNoHandlerQueueID)
 	queueConf := queueconfig.New(conf, testInstanceName)
 	queue, err := tp.Init(ctx, queueConf)
 
@@ -33,7 +32,12 @@ func TestNoHandler(t *testing.T) {
 		t.Fatal("Register:", err)
 	}
 
-	eventID, err := queue.Publish(ctx, &eventPublishOnly{TransientID: 132123123})
+	uid, err := uuid.NewV7()
+	if err != nil {
+		t.Fatal("uuid.NewV7:", err)
+	}
+
+	eventID, err := queue.Publish(ctx, &eventPublishOnly{TransientID: 132123123, UUID: UUID{uid}})
 	if err != nil {
 		t.Fatal("Publish:", err)
 	}
