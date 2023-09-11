@@ -3,6 +3,7 @@ module gitlab.corp.mail.ru/mygo/tp.git
 go 1.18
 
 require (
+	github.com/gofrs/uuid v4.4.0+incompatible
 	github.com/golang/mock v1.6.0
 	github.com/onlineconf/onlineconf-go v1.2.0
 	github.com/rs/zerolog v1.30.0
