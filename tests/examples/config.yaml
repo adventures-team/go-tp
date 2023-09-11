@@ -1,0 +1,7 @@
+queueds:
+  multi: 127.0.0.1:20000,127.0.0.1:20500
+tp:
+  go:
+    log_level: debug
+    workers: 5
+    queue_ids: 1122
