@@ -16,7 +16,7 @@ func (*SimpleEvent) Version() uint8 {
 }
 
 func (ev *SimpleEvent) Handle(ctx context.Context) error {
-	zerolog.Ctx(ctx).Info().Uint32("id", ev.ID).Str("name", ev.Name).Msg("SimpleEvent received")
+	zerolog.Ctx(ctx).Info().Uint32("id", ev.ID).Str("name", ev.Name).Interface("service", ev.Service).Msg("SimpleEvent received")
 	ev.Done()
 
 	return nil
@@ -28,7 +28,9 @@ func startHandler() {
 		InstanceName: "test-instance",
 	}.InitProcessor()
 
-	if err := qm.Register(SimpleQueueID, &SimpleEvent{}, nil); err != nil {
+	service := &Service{DatabaseConnection: "test connection"}
+
+	if err := qm.Register(SimpleQueueID, &SimpleEvent{}, service); err != nil {
 		zLog.Fatal().Err(err).Msg("error registering queue")
 	}
 
