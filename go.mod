@@ -1,6 +1,6 @@
 module gitlab.corp.mail.ru/mygo/tp.git
 
-go 1.18
+go 1.19
 
 require (
 	github.com/gofrs/uuid v4.4.0+incompatible
@@ -12,6 +12,7 @@ require (
 	gitlab.corp.mail.ru/mygo/queuedproto.git v0.0.2-0.20220617115539-a28007035e98
 	gitlab.corp.mail.ru/mygo/utils.git v0.0.5-0.20220907154539-8d905d530dd1
 	google.golang.org/protobuf v1.31.0
+	gopkg.in/yaml.v3 v3.0.1
 	kythe.io v0.0.63
 )
 
@@ -48,5 +49,4 @@ require (
 	golang.org/x/term v0.5.0 // indirect
 	golang.org/x/time v0.0.0-20220609170525-579cf78fd858 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

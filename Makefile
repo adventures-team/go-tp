@@ -8,7 +8,13 @@ TEST_TIMEOUT = 10s
 GOFLAGS=-gcflags=all=-lang=$(shell go version | cut -d\  -f3 | cut -d. -f1,2)
 
 .PHONY: all
-all: format deps test full-lint doc
+all: format deps test full-lint doc queued-stresser
+
+.PHONY: queued-stresser
+queued-stresser: bin/queued-stresser
+
+bin/queued-stresser: cmd/queued-stresser/*.go go.mod go.sum
+	$(GO) build -o $@ ./cmd/queued-stresser
 
 .PHONY: help
 help:
