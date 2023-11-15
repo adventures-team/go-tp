@@ -26,6 +26,7 @@ type ConnPool struct {
 	durationMu  sync.Mutex
 	duration    time.Duration
 	durationMax time.Duration
+	delay       atomic.Uint64
 	logger      iproto.Logger
 	payload     []byte //using fixed payload since queued doesn't implement data compression
 }
@@ -71,6 +72,16 @@ func (cp *ConnPool) SampleDuration() (time.Duration, time.Duration) {
 	cp.durationMu.Unlock()
 
 	return duration, durationMax
+}
+
+// SetDelay sets the duration of delay performed after each request.
+func (cp *ConnPool) SetDelay(delay time.Duration) {
+	cp.delay.Store(uint64(delay))
+}
+
+// GetDelay returns the current duration of delay performed after each request.
+func (cp *ConnPool) GetDelay() time.Duration {
+	return time.Duration(cp.delay.Load())
 }
 
 // Run the connection pool until the context is cancelled.
@@ -142,6 +153,8 @@ loop:
 			if err := cp.makeRequest(ctx, conn); err != nil {
 				cancel(err) // the first error cancels the loop
 			}
+
+			SleepContext(ctx, time.Duration(cp.delay.Load()))
 
 			<-tickets
 		}()

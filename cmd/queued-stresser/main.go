@@ -5,6 +5,7 @@ import (
 	"context"
 	"flag"
 	"log"
+	"math"
 	"os"
 	"os/signal"
 	"syscall"
@@ -30,6 +31,7 @@ type Options struct {
 	Timeout     time.Duration
 	Duration    time.Duration
 	Refresh     time.Duration
+	RPS         float64
 	Debug       bool
 }
 
@@ -43,6 +45,7 @@ func (opt *Options) bind() {
 	flag.DurationVar(&opt.Timeout, "timeout", defaultTimeout, "timeout")
 	flag.DurationVar(&opt.Duration, "duration", time.Minute, "test duration (use 0s for infinite run)")
 	flag.DurationVar(&opt.Refresh, "refresh", time.Second, "stats refresh interval")
+	flag.Float64Var(&opt.RPS, "rps", 0, "simulate average load")
 	flag.BoolVar(&opt.Debug, "debug", false, "easygo/iproto debug")
 }
 
@@ -122,17 +125,54 @@ func refreshStats(ctx context.Context, opt *Options, pool *ConnPool) {
 			oldCount = count
 
 			kbytes := pool.SampleSize() / 1024
-			duration, durationMax := pool.SampleDuration()
+			durationSum, durationMax := pool.SampleDuration()
 			sec := float64(time.Second) / float64(opt.Refresh)
+			rps := float64(delta) * sec
+			durationAvg := float64(durationSum) / float64(delta)
 
 			log.Printf("%d Kb sent, %.0f rps, %.0f Kb/s, avg: %.2f ms/req, max: %.f ms/req",
-				kbytes, float64(delta)*sec,
-				float64(kbytes)*sec, float64(duration)/float64(time.Millisecond)/float64(delta),
+				kbytes, rps,
+				float64(kbytes)*sec, durationAvg/float64(time.Millisecond),
 				float64(durationMax)/float64(time.Millisecond))
+
+			if opt.RPS != 0 {
+				pool.SetDelay(calcDelay(durationAvg, pool.GetDelay(), opt))
+			}
 
 		case <-ctx.Done():
 			log.Print("exiting")
 			return
 		}
+	}
+}
+
+func calcDelay(durationAvg float64, currentDelay time.Duration, opt *Options) time.Duration {
+	delay := float64(time.Second)*float64(opt.Connections*opt.Pipeline)/opt.RPS - durationAvg
+	if delay <= 0 {
+		return time.Duration(0)
+	}
+
+	curr := float64(currentDelay)
+
+	if delta := delay - curr; delta > 0 {
+		if coeff := math.Log10(delta / float64(time.Millisecond)); coeff > 0 {
+			delay = curr + delta/coeff
+		}
+	}
+
+	return time.Duration(delay)
+}
+
+// SleepContext should be moved to myutils or even to the official time package )
+func SleepContext(ctx context.Context, delay time.Duration) {
+	t := time.NewTimer(delay)
+
+	select {
+	case <-ctx.Done():
+		if !t.Stop() {
+			<-t.C
+		}
+
+	case <-t.C:
 	}
 }
