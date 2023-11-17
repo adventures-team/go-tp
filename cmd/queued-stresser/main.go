@@ -130,9 +130,10 @@ func refreshStats(ctx context.Context, opt *Options, pool *ConnPool) {
 			rps := float64(delta) * sec
 			durationAvg := float64(durationSum) / float64(delta)
 
-			log.Printf("%d Kb sent, %.0f rps, %.0f Kb/s, avg: %.2f ms/req, max: %.f ms/req",
-				kbytes, rps,
-				float64(kbytes)*sec, durationAvg/float64(time.Millisecond),
+			log.Printf("%.0f rps, %.0f Kb/s, avg: %.2f ms/req, max: %.f ms/req",
+				rps,
+				float64(kbytes)*sec,
+				durationAvg/float64(time.Millisecond),
 				float64(durationMax)/float64(time.Millisecond))
 
 			if opt.RPS != 0 {
