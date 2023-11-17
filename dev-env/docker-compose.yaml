@@ -9,9 +9,11 @@ services:
     container_name: queued_shard0
     ports:
       - 20000:20000
+      - 20010:20010
 
   queued_shard1:
     <<: *queued_shard
     container_name: queued_shard1
     ports:
       - 20500:20000
+      - 20510:20510
