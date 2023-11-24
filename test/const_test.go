@@ -6,7 +6,7 @@ package tptest
 import "time"
 
 const (
-	testConfPrefix       = "/project/queued"
+	testConfPrefix       = "/"
 	testInstanceName     = "test"
 	testRawQueueID       = 65534
 	testAddonsQueueID    = 65533

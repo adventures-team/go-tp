@@ -20,6 +20,7 @@ func TestQueueWorker(t *testing.T) {
 	logger := mylog.InitTestZerolog(t)
 	ctx := logger.WithContext(context.Background())
 
+	onlineconf.Initialize(ConfigDir())
 	conf := oconf.NewSubtree(onlineconf.GetModule("TREE"), testConfPrefix)
 	queueConf := queueconfig.New(conf, testInstanceName)
 	queue, err := tp.Init(ctx, queueConf)

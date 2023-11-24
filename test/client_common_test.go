@@ -5,6 +5,7 @@ package tptest
 
 import (
 	"context"
+	"sync"
 	"testing"
 
 	"github.com/onlineconf/onlineconf-go"
@@ -15,10 +16,17 @@ import (
 	"gitlab.corp.mail.ru/mygo/utils.git/oconf"
 )
 
+var initConfig sync.Once
+
 func getTestClient(t *testing.T) (context.Context, *queuedclient.QueuedClient) {
 	ctx := mylog.InitTestZerolog(t).WithContext(context.Background())
 
 	//	zerolog.SetGlobalLevel(zerolog.DebugLevel)
+
+	initConfig.Do(func() {
+		configDir := ConfigDir()
+		onlineconf.Initialize(configDir)
+	})
 
 	conf := oconf.NewSubtree(onlineconf.GetModule("TREE"), testConfPrefix)
 	queueConf := queueconfig.New(conf, testInstanceName)
