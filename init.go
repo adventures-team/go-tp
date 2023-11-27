@@ -43,7 +43,7 @@ type Config struct {
 // Logger по умолчанию инициализируется при помощи mylog.InitZerolog(), из тестов можно использовать mylog.InitTestZerolog(t).
 //
 // В случае ошибки инициализации происходит выход (zerolog.Logger.Fatal). Предполагается вызов из функции main.
-func (conf Config) InitProcessor() *QueueManager {
+func (conf Config) InitProcessor() *StandaloneMaster {
 	if conf.Logger == nil {
 		conf.Logger = mylog.InitZerolog()
 	}
