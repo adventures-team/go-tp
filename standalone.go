@@ -28,11 +28,11 @@ type (
 		workers int
 	}
 
-	// QueueManager - управление пулом обработчиков очередей при помощи onlineconf.
+	// StandaloneMaster - управление пулом обработчиков очередей при помощи onlineconf.
 	// Поддерживает все методы типа Queue.
 	//
 	// Не путать с перловым менеджером очередей.
-	QueueManager struct {
+	StandaloneMaster struct {
 		*Queue
 		pool          *workerpool.WorkerPool
 		logger        *zerolog.Logger
@@ -45,8 +45,8 @@ type (
 // NewQueueManager создаёт новый объект для управления пулом.
 //
 // Это - низкоуровневый интерфейс. Для типового кейса следует юзать обёртку InitProcessor.
-func NewQueueManager(queue *Queue, pool *workerpool.WorkerPool, logger *zerolog.Logger) *QueueManager {
-	return &QueueManager{
+func NewQueueManager(queue *Queue, pool *workerpool.WorkerPool, logger *zerolog.Logger) *StandaloneMaster {
+	return &StandaloneMaster{
 		Queue:         queue,
 		pool:          pool,
 		logger:        logger,
@@ -56,7 +56,7 @@ func NewQueueManager(queue *Queue, pool *workerpool.WorkerPool, logger *zerolog.
 	}
 }
 
-func (qm *QueueManager) forceReload() {
+func (qm *StandaloneMaster) forceReload() {
 	qm.oldScale = -1
 	qm.client.Config.ClearErrCache()
 }
@@ -66,7 +66,7 @@ func (qm *QueueManager) forceReload() {
 // Для остановки всех запущенных очередей надо задать пустой параметр.
 // Если workers_max меньше кол-ва заданных очередей в queue_ids, то запускается по 1 обработчику на очередь, и выдаётся ошибка в лог (приоритета важности очереди у нас нет, параметр нужен для экстренного тушения аварий, поэтому овердизайнить тут не стоит).
 // Параллельно вызывать applyConfig не надо (особенно с одним и тем же queuesRunning).
-func (qm *QueueManager) applyConfig(ctx context.Context) error {
+func (qm *StandaloneMaster) applyConfig(ctx context.Context) error {
 	logLevel := qm.client.Config.LogLevel(ctx)
 	if qm.oldLogLevel != logLevel {
 		qm.oldLogLevel = logLevel
@@ -154,7 +154,7 @@ func (qm *QueueManager) applyConfig(ctx context.Context) error {
 	return nil
 }
 
-func (qm *QueueManager) applyMemLimits(ctx context.Context) (float64, error) {
+func (qm *StandaloneMaster) applyMemLimits(ctx context.Context) (float64, error) {
 	scale := float64(1)
 
 	softLimit := qm.client.Config.OOMSoftLimit(ctx)
@@ -206,7 +206,7 @@ func limitWorkers(queueWorkers []queueIDWorkers, excess int) {
 	}
 }
 
-func (qm *QueueManager) startStop(queueWorkers []queueIDWorkers) {
+func (qm *StandaloneMaster) startStop(queueWorkers []queueIDWorkers) {
 	flipFlop := false // чтобы не заводить 2 мэпа - такой странный алгоритм
 	for _, old := range qm.queuesRunning {
 		flipFlop = !old
@@ -232,13 +232,13 @@ func (qm *QueueManager) startStop(queueWorkers []queueIDWorkers) {
 	}
 }
 
-// Manage - для обработчиков очередей. Запуск управления пулом воркеров из конфига.
+// Run - для обработчиков очередей. Запуск управления пулом воркеров из конфига.
 // Применяет конфиг сразу при вызове, а также при изменении конфига, и по сигналу SIGHUP.
 // Если в конфиге при первом запуске обнаружены ошибки - пул воркеров останавливается, и функция возвращается.
 // При изменении конфига/по сигналу выход/остановка происходят только при ошибке достижения oom_hard_limit.
 // Для обычных ошибок - пишется ошибка в лог, и остаётся старый конфиг.
 // Вызывать из main, при возврате - выходить.
-func (qm *QueueManager) Manage() {
+func (qm *StandaloneMaster) Run() {
 	ctx := qm.logger.WithContext(context.Background())
 
 	err := qm.applyConfig(ctx)
@@ -249,17 +249,17 @@ func (qm *QueueManager) Manage() {
 		return
 	}
 
-	go qm.manage(ctx) // менеджер конфига запускается асинхронно, т.к. просто посылает команды пулу
-	qm.pool.Manage()  // пул должен запускаться синхронно, чтобы выход из Manage происходил после окончания всей обработки
+	go qm.run(ctx)   // менеджер конфига запускается асинхронно, т.к. просто посылает команды пулу
+	qm.pool.Manage() // пул должен запускаться синхронно, чтобы выход из Manage происходил после окончания всей обработки
 }
 
-func (qm *QueueManager) manage(ctx context.Context) {
+func (qm *StandaloneMaster) run(ctx context.Context) {
 	defer func() {
 		if reason := recover(); reason != nil {
 			mylog.LogPanic(qm.logger.Error(), reason).Msg("panic in QueueManager.manage")
 			time.Sleep(workerpool.InternalPanicDelay)
 
-			go qm.manage(ctx)
+			go qm.run(ctx)
 		}
 	}()
 
@@ -311,6 +311,6 @@ func (qm *QueueManager) manage(ctx context.Context) {
 
 // Stop - враппер для WorkerPool.Stop. Останавливает обработку новых событий,
 // по завершению запущенных обработчиков, метод Manage выходит.
-func (qm *QueueManager) Stop() {
+func (qm *StandaloneMaster) Stop() {
 	qm.pool.Stop()
 }

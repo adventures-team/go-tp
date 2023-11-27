@@ -44,5 +44,5 @@ func startHandler() {
 		qm.Stop()
 	}()
 
-	qm.Manage()
+	qm.Run()
 }

@@ -22,7 +22,7 @@ import (
 
 // тесты на управление пулом при помощи онлайнконфа (проще говоря - тест системы целиком)
 
-func testManaged(t *testing.T, doTest func(*tp.QueueManager, *counter, <-chan struct{})) *tp.QueueManager {
+func testManaged(t *testing.T, doTest func(*tp.StandaloneMaster, *counter, <-chan struct{})) *tp.StandaloneMaster {
 	mylog.TestTimeFormat = "15:04:05.000"
 	doneChan := make(chan struct{})
 
@@ -64,7 +64,7 @@ func testManaged(t *testing.T, doTest func(*tp.QueueManager, *counter, <-chan st
 	}()
 
 	go doTest(qm, cnt, doneChan)
-	qm.Manage()
+	qm.Run()
 
 	if workersLeft := cnt.Get(); workersLeft != 0 {
 		zLog.Fatal().Msgf("%d workers are still working", workersLeft)
@@ -86,7 +86,7 @@ func TestDeferred(t *testing.T) {
 	ctx := context.Background()
 	// confLogLevel = logLevelTrace
 
-	testManaged(t, func(qm *tp.QueueManager, cnt *counter, _ <-chan struct{}) {
+	testManaged(t, func(qm *tp.StandaloneMaster, cnt *counter, _ <-chan struct{}) {
 		for i := 0; i < 10; i++ {
 			eventID, err := qm.Publish(ctx, &eventSleeper{
 				DurationMin: durationMin,
@@ -121,7 +121,7 @@ func TestOOM(t *testing.T) {
 	confLogLevel = logLevelDebug
 	confFetchBatchSize = 1 // чтобы не выгребало пачками - а заняло все воркеры. не забываем, что это per-shard значение, и пачки будут по ShardNum штук
 
-	qm := testManaged(t, func(qm *tp.QueueManager, cnt *counter, doneChan <-chan struct{}) {
+	qm := testManaged(t, func(qm *tp.StandaloneMaster, cnt *counter, doneChan <-chan struct{}) {
 		for i := 0; i < 50; i++ {
 			newEvents.Lock()
 			eventID, err := qm.Publish(ctx, &eventSleeper{
@@ -185,7 +185,7 @@ func TestResize(t *testing.T) {
 	confLogLevel = logLevelTrace
 	confFetchBatchSize = 1 // чтобы не выгребало пачками - а заняло все воркеры
 
-	qm := testManaged(t, func(qm *tp.QueueManager, cnt *counter, doneChan <-chan struct{}) {
+	qm := testManaged(t, func(qm *tp.StandaloneMaster, cnt *counter, doneChan <-chan struct{}) {
 		newEvents.Lock()
 
 		for i := 0; i < 50; i++ {
@@ -263,7 +263,7 @@ func TestUpdateDelete(t *testing.T) {
 	confLogLevel = logLevelTrace
 	confFetchBatchSize = 1 // чтобы не выгребало пачками - а заняло все воркеры
 
-	qm := testManaged(t, func(qm *tp.QueueManager, cnt *counter, doneChan <-chan struct{}) {
+	qm := testManaged(t, func(qm *tp.StandaloneMaster, cnt *counter, doneChan <-chan struct{}) {
 		newEvents.Lock()
 
 		for i := 0; i < 50; i++ {
