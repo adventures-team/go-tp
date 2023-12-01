@@ -1,0 +1,78 @@
+# More info on config here: https://golangci-lint.run/usage/configuration/
+run:
+  deadline: 10m
+  issues-exit-code: 1
+  tests: true
+  skip-dirs:
+    - bin
+
+output:
+  format: colored-line-number
+  print-issued-lines: true
+  print-linter-name: true
+
+linters-settings:
+  govet:
+    check-shadowing: true
+  dupl:
+    threshold: 100
+  goconst:
+    min-len: 2
+    min-occurrences: 2
+  gocritic:
+    enabled-checks:
+      - nilValReturn
+  revive:
+    rules:
+      - name: package-comments
+        disabled: true
+
+linters:
+  disable-all: true
+  enable:
+    - revive
+    - govet
+    - errcheck
+    - ineffassign
+    - typecheck
+    - goconst
+    - gosec
+    - goimports
+    - gosimple
+    - unused
+    - staticcheck # enable before push
+    - gocyclo
+    # - dupl # - it's very slow, enable if you really know why you need it
+    - gocognit
+    - prealloc
+    - gochecknoinits
+    - wsl
+    - gocritic
+    - bodyclose
+    - wastedassign
+
+issues:
+  exclude-use-default: false
+  exclude:
+    # _ instead of err checks
+    - G104
+    # errcheck: Almost all programs ignore errors on these functions and in most cases it's ok
+    - Error return value of .((os\.)?std(out|err)\..*|.*Close|.*Flush|os\.Remove(All)?|.*printf?|.*println|os\.(Un)?Setenv|.*Rollback). is not checked
+    # ugorji/codec meta field
+    - _struct` is unused
+    - "not declared by package utf8"
+    - "unicode/utf8/utf8.go"
+    - "exported: .* should have comment .*"
+  exclude-rules:
+    - path: "design/"
+      linters:
+        - revive
+      text: "dot-imports:"
+    - path: ".*\\.*_test\\.go$"
+      linters:
+        - dupl
+        - wsl
+        - gosec
+        - prealloc
+        - gocognit
+        - gocyclo

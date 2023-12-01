@@ -42,10 +42,10 @@ type (
 	}
 )
 
-// NewQueueManager создаёт новый объект для управления пулом.
+// NewStandaloneManager создаёт новый объект для управления пулом.
 //
 // Это - низкоуровневый интерфейс. Для типового кейса следует юзать обёртку InitProcessor.
-func NewQueueManager(queue *Queue, pool *workerpool.WorkerPool, logger *zerolog.Logger) *StandaloneMaster {
+func NewStandaloneManager(queue *Queue, pool *workerpool.WorkerPool, logger *zerolog.Logger) *StandaloneMaster {
 	return &StandaloneMaster{
 		Queue:         queue,
 		pool:          pool,
@@ -249,8 +249,8 @@ func (qm *StandaloneMaster) Run() {
 		return
 	}
 
-	go qm.run(ctx)   // менеджер конфига запускается асинхронно, т.к. просто посылает команды пулу
-	qm.pool.Manage() // пул должен запускаться синхронно, чтобы выход из Manage происходил после окончания всей обработки
+	go qm.run(ctx) // менеджер конфига запускается асинхронно, т.к. просто посылает команды пулу
+	qm.pool.Run()  // пул должен запускаться синхронно, чтобы выход из Manage происходил после окончания всей обработки
 }
 
 func (qm *StandaloneMaster) run(ctx context.Context) {

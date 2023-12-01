@@ -9,8 +9,8 @@ import (
 	"gitlab.corp.mail.ru/mygo/utils.git/myatomic"
 )
 
-// Manage управляет запуском заданий. Метод не возвращается, в случае паники об этом пишется в лог, и обработка возобновляется.
-func (wp *WorkerPool) Manage() {
+// Run управляет запуском заданий. Метод не возвращается, в случае паники об этом пишется в лог, и обработка возобновляется.
+func (wp *WorkerPool) Run() {
 	if !atomic.CompareAndSwapInt32(&wp.isManaged, 0, 1) {
 		return
 	}

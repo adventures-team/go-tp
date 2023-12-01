@@ -5,6 +5,7 @@ go 1.19
 require (
 	github.com/gofrs/uuid v4.4.0+incompatible
 	github.com/golang/mock v1.6.0
+	github.com/google/go-cmp v0.5.9
 	github.com/onlineconf/onlineconf-go v1.2.0
 	github.com/rs/zerolog v1.30.0
 	github.com/stretchr/testify v1.8.4

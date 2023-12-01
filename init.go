@@ -70,7 +70,7 @@ func (conf Config) InitProcessor() *StandaloneMaster {
 
 	instanceLogger.Info().Msg("queue processor started")
 
-	return NewQueueManager(
+	return NewStandaloneManager(
 		queue,
 		workerpool.New(queue.NewPoller(&instanceLogger), &instanceLogger),
 		&instanceLogger,
