@@ -17,3 +17,11 @@ services:
     ports:
       - 20500:20000
       - 20510:20510
+  qm:
+    image: qm:master
+    ports:
+      - 7877:7877
+    volumes:
+      - ./qm:/usr/local/etc/onlineconf:ro
+    platform: linux/amd64
+    command:  [ '/usr/bin/perl5.28', '/usr/local/sbin/project-qm/qm_manager', '--log_to_stderr', '1', '--mode', 'release', '--profile', 'Project::TP::QMProfile', '--port', '7877', '--admin_console_port', '7700', '--tpmode', '1', '--start_collector_command', '/usr/local/sbin/project-qm/qm_job_collector' ]

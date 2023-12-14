@@ -1,6 +1,6 @@
 module gitlab.corp.mail.ru/mygo/tp.git
 
-go 1.19
+go 1.21.0
 
 require (
 	github.com/gofrs/uuid v4.4.0+incompatible
@@ -11,11 +11,14 @@ require (
 	github.com/stretchr/testify v1.8.4
 	gitlab.corp.mail.ru/e-mail-ru/easygo v0.0.0-20220826105440-a9cdb5bfcf5a
 	gitlab.corp.mail.ru/mygo/queuedproto.git v0.0.2-0.20220617115539-a28007035e98
-	gitlab.corp.mail.ru/mygo/utils.git v0.0.5-0.20220907154539-8d905d530dd1
+	gitlab.corp.mail.ru/mygo/utils.git v0.0.7
+	go.uber.org/mock v0.3.0
 	google.golang.org/protobuf v1.31.0
 	gopkg.in/yaml.v3 v3.0.1
 	kythe.io v0.0.63
 )
+
+require golang.org/x/text v0.7.0 // indirect
 
 require (
 	github.com/antchfx/jsonquery v1.3.0 // indirect
@@ -25,6 +28,7 @@ require (
 	github.com/colinmarc/cdb v0.0.0-20190223170904-60f317823f70 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/fsnotify/fsnotify v1.5.4 // indirect
+	github.com/go-faker/faker/v4 v4.2.0
 	github.com/gobwas/pool v0.2.1 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
@@ -47,7 +51,7 @@ require (
 	go4.org v0.0.0-20201209231011-d4a079459e60 // indirect
 	golang.org/x/net v0.7.0 // indirect
 	golang.org/x/sys v0.10.0 // indirect
-	golang.org/x/term v0.5.0 // indirect
+	golang.org/x/term v0.7.0 // indirect
 	golang.org/x/time v0.0.0-20220609170525-579cf78fd858 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )

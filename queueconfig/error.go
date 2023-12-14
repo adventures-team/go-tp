@@ -7,11 +7,14 @@ import (
 	"github.com/rs/zerolog"
 )
 
+const separator = ": "
+
 // Ошибки в конфиге
 var (
 	ErrNotFound             = errors.New("path not found")
 	ErrOOMSoftDownscaleRate = errors.New("oom_soft_downscale_rate should be >= 0")
 	ErrWorkersCount         = errors.New("workers count should be >=0")
+	ErrSlotsCount           = errors.New("slots count should be >=0")
 )
 
 // ConfError - тип для ошибок, который можно как вернуть юзеру - так и эффективно записать в лог.
@@ -49,14 +52,14 @@ func (ce *ConfError) Unwrap() error {
 func (ce *ConfError) Error() string {
 	val := ""
 	if !ce.isNotFound {
-		val = ce.Value + ": "
+		val = ce.Value + separator
 	}
 
 	if ce.Default != nil {
 		return fmt.Sprintf("%s: %s%v, using default %v", ce.Path, val, ce.Err, ce.Default)
 	}
 
-	return ce.Path + ": " + val + ce.Err.Error()
+	return ce.Path + separator + val + ce.Err.Error()
 }
 
 // MarshalZerologObject печатает ошибку в лог.

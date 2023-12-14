@@ -5,3 +5,4 @@ tp:
     log_level: debug
     workers: 5
     queue_ids: 1122
+    initial_delay: 5s

@@ -32,7 +32,7 @@ type (
 	handlerInfo struct {
 		dataType    reflect.Type  // Тип самой структуры, а не указателя на неё. Поддерживает интерфейс Handler
 		autofillIdx int           // -1 - автозаполнение отключено
-		autofillVal reflect.Value // поддерживает marshalerDisabled
+		autofillVal reflect.Value // поддерживает MarshalerDisabled
 		format      encodings.Format
 	}
 
@@ -69,7 +69,7 @@ type (
 //
 // Повторная регистрация для той же очереди перезаписывает предыдущую, и не вызывает ошибку.
 // Так сделано, чтобы не ломало регистрацию очередей из init() библиотек (что, тем не менее, делать не рекомендуется).
-func (queue *Queue) Register(queueID QueueIDType, valueExample Handler, autofill marshalerDisabled) error {
+func (q *Queue) Register(queueID QueueIDType, valueExample Handler, autofill MarshalerDisabled) error {
 	version := valueExample.Version()
 
 	if version > MaxVersion {
@@ -94,29 +94,29 @@ func (queue *Queue) Register(queueID QueueIDType, valueExample Handler, autofill
 	}
 
 	// проверяем, что всё кодируется правильно, + наполняем кеш перл.аддонов
-	if _, err := oi.encode(queue, valueExample); err != nil {
+	if _, err := oi.encode(q, valueExample); err != nil {
 		return err
 	}
 
-	if queue.outgoing == nil {
-		queue.outgoing = make(outgoingMap)
+	if q.outgoing == nil {
+		q.outgoing = make(outgoingMap)
 	}
 
-	queue.outgoing[evType] = oi
-	queue.outgoing[reflect.PtrTo(evType)] = oi
+	q.outgoing[evType] = oi
+	q.outgoing[reflect.PtrTo(evType)] = oi
 
 	if _, ok := valueExample.(noHandler); ok {
 		return nil
 	}
 
-	if queue.incoming == nil {
-		queue.incoming = make(incomingMap)
+	if q.incoming == nil {
+		q.incoming = make(incomingMap)
 	}
 
-	byVersion, ok := queue.incoming[queueID]
+	byVersion, ok := q.incoming[queueID]
 	if !ok {
 		byVersion = make(versionsMap)
-		queue.incoming[queueID] = byVersion
+		q.incoming[queueID] = byVersion
 	}
 
 	hinfo := handlerInfo{
@@ -140,19 +140,24 @@ func (queue *Queue) Register(queueID QueueIDType, valueExample Handler, autofill
 //
 // ID события, кроме интерфейса EventIDBuilder, можно также передать явно. Номер шарда будет вычислен из ID события,
 // если оно задано одним из этих способов. Если EventID.ID == 0, шард будет выбран по round robin (queuedclient.BalanceShard).
-func (queue *Queue) Encode(data Handler) (eventData []byte, err error) {
+func (q *Queue) Encode(data Handler) (eventData []byte, err error) {
 	if data == nil {
 		return nil, fmt.Errorf("%w nil data", ErrUnknownType)
 	}
 
 	typ := reflect.TypeOf(data)
-	oi, ok := queue.outgoing[typ]
+	oi, ok := q.outgoing[typ]
 
 	if !ok {
 		return nil, fmt.Errorf("%w %v", ErrUnknownType, typ)
 	}
 
-	return oi.encode(queue, data)
+	return oi.encode(q, data)
+}
+
+func (q *Queue) IsRegistered(queueID uint16) bool {
+	_, ok := q.incoming[queueID]
+	return ok
 }
 
 func (oi *outgoingInfo) encode(queue *Queue, data Handler) (eventData []byte, err error) {
@@ -192,7 +197,7 @@ func (oi *outgoingInfo) encode(queue *Queue, data Handler) (eventData []byte, er
 	return
 }
 
-func setAutofill(autofill marshalerDisabled, evType reflect.Type) (autofillIdx int, autofillVal reflect.Value, err error) {
+func setAutofill(autofill MarshalerDisabled, evType reflect.Type) (autofillIdx int, autofillVal reflect.Value, err error) {
 	if autofill == nil {
 		return -1, reflect.Value{}, nil
 	}

@@ -72,9 +72,9 @@ type (
 	// DisableMarshaler - встраивание этого типа в структуру отключает сериализацию средствами iproto
 	DisableMarshaler struct{}
 
-	// marshalerDisabled - для проверки, отключен ли у типа маршалер средствами DisableMarshaler
-	marshalerDisabled interface {
-		marshalerDisabled()
+	// MarshalerDisabled - для проверки, отключен ли у типа маршалер средствами DisableMarshaler
+	MarshalerDisabled interface {
+		MarshalerDisabled()
 	}
 
 	// Ломаем совместимость NoHandler и Event с маршалерами iproto и addons.
@@ -247,7 +247,7 @@ func (queue *Queue) eventListFromItems(ctx context.Context, queueID QueueIDType,
 var (
 	_ iproto.IprotoPacker   = DisableMarshaler{}
 	_ iproto.IprotoUnpacker = DisableMarshaler{}
-	_ marshalerDisabled     = DisableMarshaler{}
+	_ MarshalerDisabled     = DisableMarshaler{}
 )
 
 // IprotoPack - не делает ничего
@@ -260,4 +260,4 @@ func (DisableMarshaler) IprotoUnpack(*bytes.Reader, iproto.PackMode) error {
 	return nil
 }
 
-func (DisableMarshaler) marshalerDisabled() {}
+func (DisableMarshaler) MarshalerDisabled() {}

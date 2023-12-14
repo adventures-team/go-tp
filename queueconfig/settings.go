@@ -85,6 +85,25 @@ func (c *Config) WorkersMaxCount(ctx context.Context) (int, error) {
 	return count, err
 }
 
+// SlotsCount получает slots_count
+func (c *Config) SlotsCount(ctx context.Context) (int, error) {
+	count, err := c.getIntPerInstance("slots_count")
+	if count < 0 {
+		err = &ConfError{
+			Path:  "slots_count",
+			Value: strconv.Itoa(count),
+			Err:   ErrSlotsCount,
+		}
+		count = 0
+	}
+
+	if err != nil {
+		c.logError(ctx, err, nil, "slots_count is mandatory")
+	}
+
+	return count, err
+}
+
 // QueueIDs получает queue_ids, который задаётся в виде разделённых через запятую интов (см. CSVRegex).
 // Если задан пустой список (пустая строка), ошибкой это не считается (требуется холостой запуск, либо остановка всех запущенных очередей)
 func (c *Config) QueueIDs() ([]uint16, error) {

@@ -56,7 +56,7 @@ TODO дока по архитектуре
   - [func (q *Queue) NewPoller(logger *zerolog.Logger) workerpool.Poller](<#func-queue-newpoller>)
   - [func (queue *Queue) Publish(ctx context.Context, event Handler) (eventID queuedproto.EventID, err error)](<#func-queue-publish>)
   - [func (queue *Queue) Queued() *queuedclient.QueuedClient](<#func-queue-queued>)
-  - [func (queue *Queue) Register(queueID QueueIDType, valueExample Handler, autofill marshalerDisabled) error](<#func-queue-register>)
+  - [func (queue *Queue) Register(queueID QueueIDType, valueExample Handler, autofill MarshalerDisabled) error](<#func-queue-register>)
 - [type QueueIDType](<#type-queueidtype>)
 - [type QueueManager](<#type-queuemanager>)
   - [func NewQueueManager(queue *Queue, pool *workerpool.WorkerPool, logger *zerolog.Logger) *QueueManager](<#func-newqueuemanager>)
@@ -647,7 +647,7 @@ Queued возвращает клиент очередей.
 ### func \(\*Queue\) [Register](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queue_group.go#L72>)
 
 ```go
-func (queue *Queue) Register(queueID QueueIDType, valueExample Handler, autofill marshalerDisabled) error
+func (queue *Queue) Register(queueID QueueIDType, valueExample Handler, autofill MarshalerDisabled) error
 ```
 
 Register регистрирует тип valueExample \(используется только тип, значение игнорируется\) для версии version и очереди queueID. valueExample может быть как указателем, так и значением. Предполагается, что метод вызывается при инициализации, поэтому не поддерживает работу из параллельных горутин. Перед регистрацией типа события происходит попытка его закодировать, для обнаружения ошибок в определении структуры на раннем этапе \(при запуске сервиса\).

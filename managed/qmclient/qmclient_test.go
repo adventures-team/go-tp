@@ -1,0 +1,116 @@
+package qmclient
+
+import (
+	"context"
+	"testing"
+
+	"github.com/go-faker/faker/v4"
+	"gitlab.corp.mail.ru/e-mail-ru/easygo/iproto"
+	mock_iproto "gitlab.corp.mail.ru/mygo/tp.git/test/mock/iproto"
+	"go.uber.org/mock/gomock"
+)
+
+func TestServeIProto_cmdStat(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		ctx := context.Background()
+		ctrl := gomock.NewController(t)
+		conn := mock_iproto.NewMockConnection(ctrl)
+
+		data := StatsData{}
+		_ = faker.FakeData(&data)
+
+		collectStatsData := func() StatsData {
+			return data
+		}
+		client := Client{
+			stats: collectStatsData,
+		}
+		req := iproto.Packet{
+			Header: iproto.Header{
+				Msg:  cmdStat,
+				Sync: 1,
+			},
+		}
+
+		statsResp := StatsResponse{
+			Status:  answerOK,
+			Data:    data,
+			Cluster: "generic",
+		}
+		iprotoResp, _ := iproto.Pack(&statsResp)
+
+		conn.EXPECT().Send(ctx, iproto.Packet{
+			Header: iproto.Header{
+				Msg:  req.Header.Msg,
+				Len:  uint32(len(iprotoResp)),
+				Sync: req.Header.Sync,
+			},
+			Data: iprotoResp,
+		})
+
+		client.ServeIProto(ctx, conn, req)
+	})
+}
+
+func TestServeIProto_cmdSetQueue(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		ctx := context.Background()
+		ctrl := gomock.NewController(t)
+		conn := mock_iproto.NewMockConnection(ctrl)
+
+		assignSlotCalls := 0
+		data := StatsData{}
+		// _ = faker.FakeData(&data)
+
+		collectStatsData := func() StatsData {
+			return data
+		}
+		assignSlot := func(slotID, queueID uint32) error {
+			assignSlotCalls++
+			return nil
+		}
+		client := Client{
+			stats:      collectStatsData,
+			assignSlot: assignSlot,
+		}
+
+		setQueues := []SetQueue{{Slot: 0, QueueID: 1}, {Slot: 1, QueueID: 2}}
+		reqData, _ := iproto.Pack(SetQueueRequest{Queues: setQueues})
+		req := iproto.Packet{
+			Header: iproto.Header{
+				Msg:  cmdSetQueue,
+				Sync: 1,
+			},
+			Data: reqData,
+		}
+
+		statsResp := StatsResponse{
+			Status:  answerOK,
+			Data:    data,
+			Cluster: "generic",
+		}
+		queueResp := SetQueueResponse{
+			Status:           answerOK,
+			SetQueueStatuses: []uint32{answerOK, answerOK},
+			Stats:            statsResp,
+		}
+		iprotoResp, _ := iproto.Pack(&queueResp)
+		_ = iprotoResp
+
+		conn.EXPECT().Send(ctx, iproto.Packet{
+			Header: iproto.Header{
+				Msg:  req.Header.Msg,
+				Len:  uint32(len(iprotoResp)),
+				Sync: req.Header.Sync,
+			},
+			Data: iprotoResp,
+		})
+
+		client.ServeIProto(ctx, conn, req)
+
+		got, want := assignSlotCalls, 2
+		if got != want {
+			t.Errorf("unexpected number of assignSlot calls: got %d, want %d", got, want)
+		}
+	})
+}

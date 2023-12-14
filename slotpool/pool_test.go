@@ -5,6 +5,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 )
@@ -68,6 +69,18 @@ func TestPool_AddSlot(t *testing.T) {
 			}
 		})
 	}
+
+	t.Run("startedAt is set on creation", func(t *testing.T) {
+		p := New(0)
+		p.AddSlot()
+
+		st := <-p.state
+		slot := st.slots[0]
+
+		if time.Now().Unix()-slot.startedAt > 1 {
+			t.Errorf("slot has unexpected startedAt value: got %d", slot.startedAt)
+		}
+	})
 }
 
 func TestPool_RemoveSlot(t *testing.T) {
@@ -310,7 +323,7 @@ func TestAssignSlot(t *testing.T) {
 
 	t.Run("work id is set on active", func(t *testing.T) {
 		p := New(1)
-		workID := 100
+		workID := uint32(100)
 		wait := make(chan struct{})
 		var wg sync.WaitGroup
 		work := Work{ID: workID, Do: func() { wg.Done(); <-wait }}
@@ -374,6 +387,45 @@ func TestReleaseSlot(t *testing.T) {
 		}
 	})
 
+	t.Run("several slots", func(t *testing.T) {
+		p := New(2)
+		n := int32(0)
+		cond := sync.NewCond(&sync.Mutex{})
+
+		work := Work{ID: 100, Do: func() {
+			atomic.AddInt32(&n, 1)
+			cond.L.Lock()
+			cond.Wait()
+			cond.L.Unlock()
+		}}
+
+		_ = p.AssignSlot(0, work)
+		_ = p.AssignSlot(1, work)
+		runtime.Gosched()
+		time.Sleep(200 * time.Millisecond) // TODO: Slot workID does not always have time to change.
+
+		_ = p.ReleaseSlot(0)
+		_ = p.ReleaseSlot(1)
+		runtime.Gosched()
+
+		cond.Broadcast()
+		runtime.Gosched()
+
+		if atomic.LoadInt32(&n) != 2 {
+			t.Errorf("work must be executed 2 times: got %d", n)
+		}
+		runtime.Gosched()
+		time.Sleep(200 * time.Millisecond) // TODO: Slot workID does not always have time to change.
+		st := <-p.state
+		for i, slot := range st.slots {
+			got, want := slot.workID.Load(), int32(0)
+			if got != want {
+				t.Errorf("got unexpected work id for slot %d: got %v, want %v", i, got, want)
+			}
+		}
+
+	})
+
 	t.Run("slot not found", func(t *testing.T) {
 		p := New(0)
 
@@ -384,6 +436,20 @@ func TestReleaseSlot(t *testing.T) {
 			t.Errorf("ReleaseSlot(1) = %v, want %v", got, want)
 		}
 	})
+
+	t.Run("release twice", func(t *testing.T) {
+		p := New(1)
+
+		_ = p.ReleaseSlot(0)
+		_ = p.ReleaseSlot(0)
+
+		st := <-p.state
+		slot := st.slots[0]
+
+		if len(slot.release) != 0 {
+			t.Errorf("ReleaseSlot must not try to release empty slot")
+		}
+	})
 }
 
 func TestFinish(t *testing.T) {
@@ -392,7 +458,7 @@ func TestFinish(t *testing.T) {
 	wait := make(chan struct{})
 	f := func() { atomic.AddInt32(&n, 1); <-wait }
 
-	for i := 0; i < 10; i++ {
+	for i := uint32(0); i < 10; i++ {
 		_ = p.AssignSlot(i, Work{ID: i, Do: f})
 	}
 	runtime.Gosched()
@@ -414,4 +480,144 @@ func TestFinish(t *testing.T) {
 	if _, ok := <-p.state; ok {
 		t.Error("state channel must be closed")
 	}
+}
+
+func TestSlotStates(t *testing.T) {
+	t.Run("no slots", func(t *testing.T) {
+		p := New(0)
+
+		states := p.SlotStates()
+
+		if len(states) != 0 {
+			t.Error("SlotStates should return empty slice")
+		}
+	})
+
+	t.Run("idle slot", func(t *testing.T) {
+		p := New(1)
+
+		states := p.SlotStates()
+
+		if len(states) != 1 {
+			t.Error("SlotStates should return one slot")
+		}
+
+		state := states[0]
+
+		got, want := state.WorkID, uint32(0)
+		if got != want {
+			t.Errorf("slot has invalid WorkID: got %d, want %d", got, want)
+		}
+		got, want = state.PendingWorkID, uint32(0)
+		if got != want {
+			t.Errorf("slot has invalid PendingWorkID: got %d, want %d", got, want)
+		}
+		got, want = state.UpdatedAt, uint32(0)
+		if got != want {
+			t.Errorf("slot has invalid UpldatedAt: got %d, want %d", got, want)
+		}
+		got, want = state.StartedAt, uint32(time.Now().Unix())
+		if want-got > 1 {
+			t.Errorf("slot has invalid StartedAt: got %d, want ~ %d", got, want)
+		}
+	})
+
+	t.Run("one work", func(t *testing.T) {
+		cond := sync.NewCond(&sync.Mutex{})
+		p := New(1)
+		workID := uint32(1122)
+
+		f := func() {
+			cond.L.Lock()
+			cond.Wait()
+			cond.L.Unlock()
+		}
+
+		_ = p.AssignSlot(0, Work{ID: workID, Do: f})
+		time.Sleep(100 * time.Millisecond)
+
+		states := p.SlotStates()
+
+		if len(states) != 1 {
+			t.Error("SlotStates should return one slot")
+		}
+
+		state := states[0]
+
+		got, want := state.WorkID, workID
+		if got != want {
+			t.Errorf("slot has invalid WorkID: got %d, want %d", got, want)
+		}
+		got, want = state.UpdatedAt, uint32(time.Now().Unix())
+		if want-got > 1 {
+			t.Errorf("slot has invalid UpdatedAt: got %d, want ~ %d", got, want)
+		}
+	})
+
+	t.Run("has pending work", func(t *testing.T) {
+		cond := sync.NewCond(&sync.Mutex{})
+		p := New(1)
+		firstWorkID := uint32(1122)
+		secondWorkID := firstWorkID + 1
+
+		f := func() {
+			cond.L.Lock()
+			cond.Wait()
+			cond.L.Unlock()
+		}
+
+		_ = p.AssignSlot(0, Work{ID: firstWorkID, Do: f})
+		time.Sleep(100 * time.Millisecond)
+		_ = p.AssignSlot(0, Work{ID: secondWorkID, Do: f})
+		runtime.Gosched()
+
+		time.Sleep(200 * time.Millisecond) // TODO: Slot workID does not always have time to change.
+
+		states := p.SlotStates()
+
+		if len(states) != 1 {
+			t.Error("SlotStates should return one slot")
+		}
+
+		state := states[0]
+
+		got, want := state.WorkID, firstWorkID
+		if got != want {
+			t.Errorf("slot has invalid WorkID: got %d, want %d", got, want)
+		}
+		got, want = state.PendingWorkID, secondWorkID
+		if got != want {
+			t.Errorf("slot has invalid PendingWorkID: got %d, want %d", got, want)
+		}
+		got, want = state.UpdatedAt, uint32(time.Now().Unix())
+		if want-got > 1 {
+			t.Errorf("slot has invalid UpdatedAt: got %d, want ~ %d", got, want)
+		}
+
+		cond.Broadcast()
+	})
+
+	t.Run("several slots", func(t *testing.T) {
+		cond := sync.NewCond(&sync.Mutex{})
+		slots := 3
+		p := New(slots)
+
+		f := func() {
+			cond.L.Lock()
+			cond.Wait()
+			cond.L.Unlock()
+		}
+
+		for i := uint32(0); i < uint32(slots); i++ {
+			_ = p.AssignSlot(i, Work{ID: i + 1, Do: f})
+		}
+		runtime.Gosched()
+
+		states := p.SlotStates()
+
+		got, want := len(states), 3
+		if got != want {
+			t.Errorf("SlotStates() returned unexpected number of states: got %d, want %d", got, want)
+		}
+	})
 }

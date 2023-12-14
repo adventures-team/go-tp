@@ -34,7 +34,7 @@ type ConnPool struct {
 // NewConnPool initializes ConnPool. Each new pool comes with the unique random pid.
 func NewConnPool(opt *Options) *ConnPool {
 	payload := make([]byte, opt.Size)
-	_, _ = rand.Read(payload) //nolint:gosec
+	_, _ = rand.Read(payload) //nolint
 
 	cp := &ConnPool{
 		pid:         uint32(rand.Intn(99999)), //nolint:gosec

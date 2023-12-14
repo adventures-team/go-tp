@@ -4,6 +4,7 @@ import (
 	"errors"
 	"sync"
 	"sync/atomic"
+	"time"
 )
 
 var (
@@ -11,7 +12,7 @@ var (
 )
 
 type Work struct {
-	ID int
+	ID uint32
 	Do func()
 }
 
@@ -22,13 +23,22 @@ type Pool struct {
 }
 
 type poolState struct {
-	slots map[int]*slot
+	slots map[uint32]*slot
 }
 
 type slot struct {
-	work    chan Work
-	release chan struct{}
-	workID  atomic.Int32
+	work      chan Work
+	release   chan struct{}
+	workID    atomic.Int32
+	startedAt int64
+	updatedAt int64
+}
+
+type SlotState struct {
+	StartedAt     uint32
+	UpdatedAt     uint32
+	WorkID        uint32
+	PendingWorkID uint32
 }
 
 // New starts a pool of slotsCount slots
@@ -38,7 +48,7 @@ func New(slotsCount int) *Pool {
 		finish: make(chan struct{}),
 	}
 
-	state := poolState{slots: make(map[int]*slot, slotsCount)}
+	state := poolState{slots: make(map[uint32]*slot, slotsCount)}
 	p.state <- state
 
 	for i := 0; i < slotsCount; i++ {
@@ -53,13 +63,14 @@ func (p *Pool) AddSlot() {
 	st := <-p.state
 	defer func() { p.state <- st }()
 
-	count := len(st.slots)
+	count := uint32(len(st.slots))
 
 	work := make(chan Work, 1)
 	release := make(chan struct{}, 1)
 	sl := &slot{
-		work:    work,
-		release: release,
+		work:      work,
+		release:   release,
+		startedAt: time.Now().Unix(),
 	}
 
 	st.slots[count] = sl
@@ -78,8 +89,8 @@ func (p *Pool) AddSlot() {
 				case <-sl.release:
 					sl.workID.Store(int32(0))
 				default:
-					if len(work) == 0 {
-						work <- w
+					if len(sl.work) == 0 {
+						sl.work <- w
 					} else {
 						sl.workID.Store(int32(0))
 					}
@@ -97,7 +108,7 @@ func (p *Pool) RemoveSlot() {
 	st := <-p.state
 	defer func() { p.state <- st }()
 
-	l := len(st.slots)
+	l := uint32(len(st.slots))
 	if l == 0 {
 		return
 	}
@@ -113,7 +124,7 @@ func (p *Pool) RemoveSlot() {
 // AssignSlot adds work for the slot.
 //
 // AssignSlot drops pending work and exectue new one after the current work is completed.
-func (p *Pool) AssignSlot(id int, w Work) error {
+func (p *Pool) AssignSlot(id uint32, w Work) error {
 	st := <-p.state
 	defer func() { p.state <- st }()
 
@@ -135,12 +146,13 @@ LOOP:
 	}
 
 	slot.work <- w
+	slot.updatedAt = time.Now().Unix()
 
 	return nil
 }
 
 // ReleaseSlot removes work from the slot.
-func (p *Pool) ReleaseSlot(id int) error {
+func (p *Pool) ReleaseSlot(id uint32) error {
 	st := <-p.state
 	defer func() { p.state <- st }()
 
@@ -149,7 +161,12 @@ func (p *Pool) ReleaseSlot(id int) error {
 		return ErrSlotNotFound
 	}
 
+	if slot.workID.Load() == 0 && len(slot.work) == 0 {
+		return nil
+	}
+
 	slot.release <- struct{}{}
+	slot.updatedAt = time.Now().Unix()
 
 	return nil
 }
@@ -176,4 +193,31 @@ func (p *Pool) Finish() {
 
 	<-p.state
 	close(p.state)
+}
+
+func (p *Pool) SlotStates() []SlotState {
+	st := <-p.state
+	defer func() { p.state <- st }()
+
+	states := make([]SlotState, 0, len(st.slots))
+
+	for _, slot := range st.slots {
+		pendingWork := uint32(0)
+
+		select {
+		case w := <-slot.work:
+			pendingWork = w.ID
+			slot.work <- w
+		default:
+		}
+
+		states = append(states, SlotState{
+			StartedAt:     uint32(slot.startedAt),
+			UpdatedAt:     uint32(slot.updatedAt),
+			WorkID:        uint32(slot.workID.Load()),
+			PendingWorkID: pendingWork,
+		})
+	}
+
+	return states
 }

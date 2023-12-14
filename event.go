@@ -162,7 +162,7 @@ func (Event) UnmarshalAddon(incompatible) {}
 // AddonID - см. описание NoHandler.IprotoPack
 func (Event) AddonID(incompatible) {}
 
-func (Event) marshalerDisabled(incompatible) {} //nolint:unused
+func (Event) MarshalerDisabled(incompatible) {} //nolint:unused
 func (Event) enforceDictatorship()           {} //nolint:unused
 
 // Handle - не делает ничего
@@ -201,4 +201,4 @@ func (NoHandler) UnmarshalAddon(incompatible) {}
 // AddonID - см. описание NoHandler.IprotoPack
 func (NoHandler) AddonID(incompatible) {}
 
-func (NoHandler) marshalerDisabled(incompatible) {} //nolint:unused
+func (NoHandler) MarshalerDisabled(incompatible) {} //nolint:unused

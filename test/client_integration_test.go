@@ -57,7 +57,7 @@ func TestBatch(t *testing.T) {
 
 	for i := 0; i < testBatchSize; i++ {
 		testData := make([]byte, 10)
-		_, err := rand.Read(testData)
+		_, err := rand.Read(testData) //nolint
 
 		if err != nil {
 			t.Fatalf("rand.Read: %v", err)
