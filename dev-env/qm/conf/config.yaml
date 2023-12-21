@@ -1,0 +1,17 @@
+project:
+  system:
+    queueds:
+      multi: queued_shard0:20000,queued_shard1:20500
+      multi/admin: queued_shard0:20010
+    queue-manager:
+      graphite:
+        carbon: graphite.example.com:2038
+    tp:
+      manager: qm:7877
+      qm_jobs:
+        "1122":
+          epi: 10
+        "1123":
+          epi: 10
+        qm_jobs_list: 1122,1123
+      slots: 4

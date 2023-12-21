@@ -21,7 +21,11 @@ services:
     image: qm:master
     ports:
       - 7877:7877
+      - 7700:7700
     volumes:
-      - ./qm:/usr/local/etc/onlineconf:ro
+      - ./qm/perl/QMProfile.pm:/usr/local/lib/project/Project/TP/QMProfile.pm:ro
+      - ./qm/conf/TREE.cdb:/usr/local/etc/onlineconf/TREE.cdb
+      - ./qm/conf/LOG.conf:/usr/local/etc/onlineconf/LOG.conf
+      - ./qm/conf/onlineconf.yaml:/usr/local/etc/onlineconf.yaml
     platform: linux/amd64
-    command:  [ '/usr/bin/perl5.28', '/usr/local/sbin/project-qm/qm_manager', '--log_to_stderr', '1', '--mode', 'release', '--profile', 'Project::TP::QMProfile', '--port', '7877', '--admin_console_port', '7700', '--tpmode', '1', '--start_collector_command', '/usr/local/sbin/project-qm/qm_job_collector' ]
+    command:  [ '/usr/bin/perl5.28', '/usr/local/sbin/project-qm/qm_manager', '--log_to_stderr', '1', '--mode', 'debug', '--profile', 'Project::TP::QMProfile', '--port', '7877', '--admin_console_port', '7700', '--tpmode', '1', '--start_collector_command', '/usr/local/sbin/project-qm/qm_job_collector' ]

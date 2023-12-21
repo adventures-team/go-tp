@@ -1,0 +1,2 @@
+data_dir: /usr/local/etc/onlineconf/
+enable_cdb_client: 1

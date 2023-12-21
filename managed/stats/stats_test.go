@@ -66,7 +66,7 @@ func TestSetQueueID(t *testing.T) {
 			t.Errorf("Queue has invalid startedAt: got %d, want ~ %d", got, want)
 		}
 
-		got, want = queue.started, uint32(1)
+		got, want = queue.current.started, uint32(1)
 		if want != got {
 			t.Errorf("Queue has invalid started: got %d, want %d", got, want)
 		}
@@ -106,14 +106,13 @@ func TestSetQueueID(t *testing.T) {
 
 		}
 
-		got, want = firstQueue.started, uint32(1)
+		got, want = firstQueue.current.started, uint32(0)
 		if want != got {
 			t.Errorf("Queue has invalid started: got %d, want %d", got, want)
 		}
-
-		gotWorkTime, wantWorkTime := firstQueue.workTime, float64(firstQueue.stoppedAt-firstQueue.startedAt)
-		if gotWorkTime != wantWorkTime {
-			t.Errorf("Queue has invalid started: got %f, want %f", gotWorkTime, wantWorkTime)
+		got, want = firstQueue.current.stopped, uint32(1)
+		if want != got {
+			t.Errorf("Queue has invalid stopped: got %d, want %d", got, want)
 		}
 	})
 
@@ -124,28 +123,44 @@ func TestSetQueueID(t *testing.T) {
 
 		slot.SetQueueID(firstQueueID)
 		firstQueue := slot.queue(firstQueueID)
-		firstQueue.processed = 1
-		firstQueue.loops = 11
-		firstQueue.workTime = 11.1
-		firstQueue.waitTime = 111.1
+		firstQueue.current.processed = 1
+		firstQueue.current.loops = 11
+		firstQueue.current.workTime = 11.1
+		firstQueue.current.waitTime = 111.1
 
 		slot.SetQueueID(secondQueueID)
 		slot.SetQueueID(firstQueueID)
 
-		if firstQueue.processed != 0 {
-			t.Errorf("Queue processed should be reset")
+		if firstQueue.current.processed != 0 {
+			t.Errorf("Queue current.processed should be reset")
 		}
 
-		if firstQueue.loops != 0 {
-			t.Errorf("Queue loops should be reset")
+		if firstQueue.current.loops != 0 {
+			t.Errorf("Queue current.loops should be reset")
 		}
 
-		if firstQueue.workTime != 0 {
-			t.Errorf("Queue workTime should be reset")
+		if firstQueue.current.workTime != 0 {
+			t.Errorf("Queue current.workTime should be reset")
 		}
 
-		if firstQueue.waitTime != 0 {
-			t.Errorf("Queue waitTime should be reset")
+		if firstQueue.current.waitTime != 0 {
+			t.Errorf("Queue current.waitTime should be reset")
+		}
+
+		if firstQueue.total.processed != 0 {
+			t.Errorf("Queue total.processed should be reset")
+		}
+
+		if firstQueue.total.loops != 0 {
+			t.Errorf("Queue total.loops should be reset")
+		}
+
+		if firstQueue.total.workTime != 0 {
+			t.Errorf("Queue total.workTime should be reset")
+		}
+
+		if firstQueue.total.waitTime != 0 {
+			t.Errorf("Queue total.waitTime should be reset")
 		}
 	})
 }
@@ -168,9 +183,13 @@ func TestIncrementQueueLoop(t *testing.T) {
 	slot.IncrementQueueLoop(queueID)
 
 	queue := slot.queues[queueID]
-	got, want := queue.loops, uint32(1)
+	got, want := queue.current.loops, uint32(1)
 	if got != want {
-		t.Errorf("Slot loops after increment = %d; want %d", got, want)
+		t.Errorf("Queue current.loops after increment = %d; want %d", got, want)
+	}
+	got, want = queue.total.loops, uint32(1)
+	if got != want {
+		t.Errorf("Queue total.loops after increment = %d; want %d", got, want)
 	}
 }
 
@@ -180,12 +199,15 @@ func TestAddQueueWaitTime(t *testing.T) {
 	waitTime := 5.5
 
 	slot.AddQueueWaitTime(queueID, waitTime)
-	slot.AddQueueWaitTime(queueID, waitTime)
 
 	queue := slot.queues[queueID]
-	got, want := queue.waitTime, 2*waitTime
+	got, want := queue.current.waitTime, waitTime
 	if got != want {
-		t.Errorf("Slot waitTime after 2 calls = %f; want %f", got, want)
+		t.Errorf("Queue current.waitTime after call = %f; want %f", got, want)
+	}
+	got, want = queue.total.waitTime, waitTime
+	if got != want {
+		t.Errorf("Queue total.waitTime after call = %f; want %f", got, want)
 	}
 }
 
@@ -195,12 +217,51 @@ func TestAddQueueWorkTime(t *testing.T) {
 	workTime := 5.5
 
 	slot.AddQueueWorkTime(queueID, workTime)
-	slot.AddQueueWorkTime(queueID, workTime)
 
 	queue := slot.queues[queueID]
-	got, want := queue.workTime, 2*workTime
+	got, want := queue.current.workTime, workTime
 	if got != want {
-		t.Errorf("Slot workTime after 2 calls = %f; want %f", got, want)
+		t.Errorf("Queue current.workTime after call = %f; want %f", got, want)
+	}
+	got, want = queue.total.workTime, workTime
+	if got != want {
+		t.Errorf("Queue total.workTime after call = %f; want %f", got, want)
+	}
+}
+
+func TestAddQueueProcessed(t *testing.T) {
+	slot := New(1)
+	queueID := uint32(2)
+	processed := uint32(5)
+
+	slot.AddQueueProcessed(queueID, processed)
+
+	queue := slot.queues[queueID]
+	got, want := queue.current.processed, processed
+	if got != want {
+		t.Errorf("Queue current.processed = %d; want %d", got, want)
+	}
+	got, want = queue.total.processed, processed
+	if got != want {
+		t.Errorf("Queue total.processed = %d; want %d", got, want)
+	}
+}
+
+func TestAddQueueErrors(t *testing.T) {
+	slot := New(1)
+	queueID := uint32(2)
+	errors := uint32(5)
+
+	slot.AddQueueErrors(queueID, errors)
+
+	queue := slot.queues[queueID]
+	got, want := queue.current.errors, errors
+	if got != want {
+		t.Errorf("Queue current.errors = %d; want %d", got, want)
+	}
+	got, want = queue.total.errors, errors
+	if got != want {
+		t.Errorf("Queue total.errors = %d; want %d", got, want)
 	}
 }
 
@@ -239,32 +300,50 @@ func TestSlotStat(t *testing.T) {
 			ID:        firstQueueID,
 			StartedAt: now,
 			StoppedAt: now,
-			Processed: 1,
-			Loops:     11,
-			Started:   1,
-			Stopped:   1,
+			Current: QueueCounters{
+				Processed: 1,
+				Loops:     2,
+				Started:   0,
+				Stopped:   1,
+			},
+			Total: QueueCounters{
+				Processed: 1,
+				Loops:     2,
+				Started:   1,
+				Stopped:   1,
+			},
 		}
 		wantSecondQueueStat := QueueStat{
 			ID:        secondQueueID,
 			StartedAt: now,
 			StoppedAt: 0,
-			Processed: 10,
-			Loops:     13,
-			Started:   1,
-			Stopped:   0,
+			Current: QueueCounters{
+				Processed: 10,
+				Loops:     1,
+				Started:   1,
+				Stopped:   0,
+			},
+			Total: QueueCounters{
+				Processed: 10,
+				Loops:     1,
+				Started:   1,
+				Stopped:   0,
+			},
 		}
 
 		slot := New(slotID)
 
 		slot.SetQueueID(firstQueueID)
+
 		firstQueue := slot.queue(firstQueueID)
-		firstQueue.processed = wantFirstQueueStat.Processed
-		firstQueue.loops = wantFirstQueueStat.Loops
+		firstQueue.addProcessed(wantFirstQueueStat.Current.Processed)
+		firstQueue.incrementLoop()
+		firstQueue.incrementLoop()
 
 		slot.SetQueueID(secondQueueID)
 		secondQueue := slot.queue(secondQueueID)
-		secondQueue.processed = wantSecondQueueStat.Processed
-		secondQueue.loops = wantSecondQueueStat.Loops
+		secondQueue.addProcessed(wantSecondQueueStat.Current.Processed)
+		secondQueue.incrementLoop()
 
 		slot.switches = slotSwitches
 		slot.slotErrors = slotErrors

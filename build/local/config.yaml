@@ -4,5 +4,5 @@ tp:
   go:
     log_level: debug
     workers: 5
-    queue_ids: 1122
+    queue_ids: 1122,1123
     initial_delay: 5s

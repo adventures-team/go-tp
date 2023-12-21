@@ -19,19 +19,33 @@ type (
 		isStopped int32
 	}
 
+	Stat struct {
+		processed uint32
+		errors    uint32
+	}
+
 	queueWorker struct {
 		*Queue
 		events    *EventList
 		ctx       context.Context
 		isStopped *int32
+		stat      *Stat
 	}
 )
 
 var (
 	_ workerpool.Poller  = &queuePoller{}
 	_ workerpool.Stopper = &queuePoller{}
-	_ workerpool.Worker  = queueWorker{}
+	_ workerpool.Worker  = &queueWorker{}
 )
+
+func (s Stat) Processed() uint32 {
+	return s.processed
+}
+
+func (s Stat) Errors() uint32 {
+	return s.errors
+}
 
 // NewPoller возвращает объект для опроса новых событий из WorkerPool
 func (q *Queue) NewPoller(logger *zerolog.Logger) workerpool.Poller {
@@ -85,11 +99,12 @@ func (qp *queuePoller) Poll(queueID QueueIDType) workerpool.Worker {
 		return nil
 	}
 
-	return queueWorker{
+	return &queueWorker{
 		Queue:     qp.Queue,
 		events:    events,
 		ctx:       ctx,
 		isStopped: &qp.isStopped,
+		stat:      &Stat{},
 	}
 }
 
@@ -97,7 +112,7 @@ func (qp *queuePoller) Stop() {
 	atomic.StoreInt32(&qp.isStopped, 1)
 }
 
-func (qw queueWorker) Work() {
+func (qw *queueWorker) Work() {
 	logger := logFromCtx(qw.ctx)
 
 	defer func() { // TODO даже без обработки паник, хотя бы страхуемся обновлением всех обработанных событий и деферим необработанные
@@ -134,8 +149,14 @@ func (qw queueWorker) Work() {
 
 		err := handler.Handle(evCtx)
 		if err != nil {
+			qw.stat.errors++
 			// TODO cancel?
 			evLog.Err(err).Send() // Msg тут не нужен - чтобы из логов нагрепывали реальную причину, а не эту строку
 		}
+		qw.stat.processed++
 	}
+}
+
+func (qw *queueWorker) Stat() workerpool.WorkerStat {
+	return qw.stat
 }

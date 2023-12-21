@@ -17,33 +17,46 @@ const (
 	Sleeping  State = 7
 )
 
-type queue struct {
-	id        uint32
-	startedAt uint32
-	stoppedAt uint32
-
-	// resettable fields
+type queueCounters struct {
 	processed uint32
 	loops     uint32
+	errors    uint32
 	workTime  float64
 	waitTime  float64
 	started   uint32
 	stopped   uint32
 }
 
+type queue struct {
+	id        uint32
+	startedAt uint32
+	stoppedAt uint32
+
+	current queueCounters
+	total   queueCounters
+}
+
 // Slot represents a slot and its associated statistics.
 type Slot struct {
-	mu        sync.Mutex
-	id        uint32
-	pid       uint32
-	startedAt uint32
-	state     State
-	queueID   uint32
-
-	// Resettable params
+	mu         sync.Mutex
+	id         uint32
+	pid        uint32
+	startedAt  uint32
+	state      State
+	queueID    uint32
 	switches   int
 	slotErrors int
 	queues     map[uint32]*queue
+}
+
+type QueueCounters struct {
+	Processed uint32
+	Errors    uint32
+	Loops     uint32
+	WorkTime  float64
+	WaitTime  float64
+	Started   uint32
+	Stopped   uint32
 }
 
 // QueueStat represents the statistics of a queue.
@@ -51,12 +64,9 @@ type QueueStat struct {
 	ID        uint32
 	StartedAt uint32
 	StoppedAt uint32
-	Processed uint32
-	Loops     uint32
-	WorkTime  float64
-	WaitTime  float64
-	Started   uint32
-	Stopped   uint32
+
+	Current QueueCounters
+	Total   QueueCounters
 }
 
 // SlotStat represents the statistics of a slot.
@@ -106,6 +116,7 @@ func (s *Slot) SetQueueID(id uint32) {
 	if id != 0 {
 		newQ := s.queue(id)
 		newQ.reset()
+		newQ.start()
 	}
 
 	s.switches++
@@ -144,6 +155,22 @@ func (s *Slot) AddQueueWorkTime(queueID uint32, t float64) {
 	q.addWorkTime(t)
 }
 
+// AddQueueProcessed adds the provided number to the queue processed.
+func (s *Slot) AddQueueProcessed(queueID, n uint32) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	q := s.queue(queueID)
+	q.addProcessed(n)
+}
+
+// AddQueueErrors adds the provided number to the queue errors.
+func (s *Slot) AddQueueErrors(queueID, n uint32) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	q := s.queue(queueID)
+	q.addErrors(n)
+}
+
 // Stat returns the current statistics of the slot, including its queues.
 func (s *Slot) Stat() SlotStat {
 	s.mu.Lock()
@@ -155,12 +182,23 @@ func (s *Slot) Stat() SlotStat {
 			ID:        q.id,
 			StartedAt: q.startedAt,
 			StoppedAt: q.stoppedAt,
-			Processed: q.processed,
-			Loops:     q.loops,
-			WorkTime:  q.workTime,
-			WaitTime:  q.waitTime,
-			Started:   q.started,
-			Stopped:   q.stopped,
+			Current: QueueCounters{
+				Processed: q.total.processed,
+				Loops:     q.current.loops,
+				WorkTime:  q.current.workTime,
+				WaitTime:  q.current.waitTime,
+				Started:   q.current.started,
+				Stopped:   q.current.stopped,
+			},
+			Total: QueueCounters{
+				Processed: q.total.processed,
+				Errors:    q.total.errors,
+				Loops:     q.total.loops,
+				WorkTime:  q.total.workTime,
+				WaitTime:  q.total.waitTime,
+				Started:   q.total.started,
+				Stopped:   q.total.stopped,
+			},
 		})
 
 		q.reset()
@@ -192,33 +230,54 @@ func (s *Slot) queue(id uint32) *queue {
 
 func newQueue(id uint32) *queue {
 	return &queue{
-		id:        id,
-		startedAt: uint32(time.Now().Unix()),
-		started:   1,
+		id:      id,
+		current: queueCounters{},
+		total:   queueCounters{},
 	}
+}
+
+func (q *queue) start() {
+	q.startedAt = uint32(time.Now().Unix())
+	q.current.started = 1
+	q.total.started++
 }
 
 func (q *queue) stop() {
 	q.stoppedAt = uint32(time.Now().Unix())
-	q.workTime = float64(q.stoppedAt - q.startedAt)
-	q.stopped = 1
+	q.current.started = 0
+	q.current.stopped = 1
+	q.total.stopped++
 }
 
 func (q *queue) reset() {
-	q.processed = 0
-	q.loops = 0
-	q.workTime = 0
-	q.waitTime = 0
+	q.current.processed = 0
+	q.current.loops = 0
+	q.current.errors = 0
+	q.current.workTime = 0
+	q.current.waitTime = 0
 }
 
 func (q *queue) incrementLoop() {
-	q.loops++
+	q.current.loops++
+	q.total.loops++
 }
 
 func (q *queue) addWaitTime(t float64) {
-	q.waitTime += t
+	q.current.waitTime += t
+	q.total.waitTime += t
 }
 
 func (q *queue) addWorkTime(t float64) {
-	q.workTime += t
+	q.current.workTime += t
+	q.total.workTime += t
+}
+
+func (q *queue) addProcessed(n uint32) {
+	q.current.processed += n
+	q.total.processed += n
+}
+
+func (q *queue) addErrors(n uint32) {
+	q.current.errors += n
+	q.total.errors += n
 }

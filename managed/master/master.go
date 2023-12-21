@@ -45,6 +45,8 @@ type Pool interface {
 type SlotStat interface {
 	AddQueueWaitTime(queueID uint32, t float64)
 	AddQueueWorkTime(queueID uint32, t float64)
+	AddQueueProcessed(queueID, n uint32)
+	AddQueueErrors(queueID, n uint32)
 	IncrementQueueLoop(queueID uint32)
 	IncrementSlotError()
 	SetQueueID(id uint32)
@@ -150,6 +152,8 @@ func (mm *ManagedMaster) work(slotID, queueID uint32) {
 
 	mm.resetDelay(queueID)
 	worker.Work()
+	stat.AddQueueProcessed(queueID, worker.Stat().Processed())
+	stat.AddQueueErrors(queueID, worker.Stat().Errors())
 	workTime()
 }
 
@@ -220,9 +224,21 @@ func (mm *ManagedMaster) Stats() qmclient.StatsData {
 
 		archiveQueues := make([]qmclient.QueueExtendedStat, 0, max(len(slStat.Queues)-1, 0))
 
-		var qStat stats.QueueStat
+		var (
+			qStat       stats.QueueStat
+			overallStat qmclient.QueueStat
+		)
 
 		for _, v := range slStat.Queues {
+			overallStat.Errors += v.Total.Errors
+			overallStat.Processed += v.Total.Processed
+			overallStat.Errors += v.Total.Errors
+			overallStat.Loops += v.Total.Loops
+			overallStat.WorkTime += v.Total.WorkTime
+			overallStat.WaitTime += v.Total.WaitTime
+			overallStat.Started += v.Total.Started
+			overallStat.Stopped += v.Total.Stopped
+
 			if v.ID == slStat.QueueID {
 				qStat = v
 				continue
@@ -234,12 +250,22 @@ func (mm *ManagedMaster) Stats() qmclient.StatsData {
 				StartedAt: v.StartedAt,
 				StoppedAt: v.StoppedAt,
 				Current: qmclient.QueueStat{
-					Processed: v.Processed,
-					Loops:     v.Loops,
-					WorkTime:  v.WorkTime,
-					WaitTime:  v.WaitTime,
-					Started:   v.Started,
-					Stopped:   v.Stopped,
+					Processed: v.Current.Processed,
+					Errors:    v.Current.Errors,
+					Loops:     v.Current.Loops,
+					WorkTime:  v.Current.WorkTime,
+					WaitTime:  v.Current.WaitTime,
+					Started:   v.Current.Started,
+					Stopped:   v.Current.Stopped,
+				},
+				Total: qmclient.QueueStat{
+					Processed: v.Total.Processed,
+					Errors:    v.Total.Errors,
+					Loops:     v.Total.Loops,
+					WorkTime:  v.Total.WorkTime,
+					WaitTime:  v.Total.WaitTime,
+					Started:   v.Total.Started,
+					Stopped:   v.Total.Stopped,
 				},
 			})
 		}
@@ -252,13 +278,22 @@ func (mm *ManagedMaster) Stats() qmclient.StatsData {
 				Flags:     0,
 				StartedAt: slState.StartedAt,
 				Current: qmclient.QueueStat{
-					Processed: qStat.Processed,
-					Errors:    0,
-					Loops:     qStat.Loops,
-					WorkTime:  qStat.WorkTime,
-					WaitTime:  qStat.WaitTime,
-					Started:   qStat.Started,
-					Stopped:   qStat.Stopped,
+					Processed: qStat.Current.Processed,
+					Errors:    qStat.Current.Errors,
+					Loops:     qStat.Current.Loops,
+					WorkTime:  qStat.Current.WorkTime,
+					WaitTime:  qStat.Current.WaitTime,
+					Started:   qStat.Current.Started,
+					Stopped:   qStat.Current.Stopped,
+				},
+				Total: qmclient.QueueStat{
+					Processed: qStat.Total.Processed,
+					Errors:    qStat.Total.Errors,
+					Loops:     qStat.Total.Loops,
+					WorkTime:  qStat.Total.WorkTime,
+					WaitTime:  qStat.Total.WaitTime,
+					Started:   qStat.Total.Started,
+					Stopped:   qStat.Total.Stopped,
 				},
 			}
 		}
@@ -273,6 +308,7 @@ func (mm *ManagedMaster) Stats() qmclient.StatsData {
 			SlotNumber:     slotNumber,
 			State:          uint32(state),
 			Interval:       float64(interval),
+			Overall:        overallStat,
 			QueueStat:      queueStat,
 			NextQueueID:    slState.PendingWorkID,
 			ArchivedQueues: archiveQueues,

@@ -1,6 +1,7 @@
 package managedmaster
 
 import (
+	"errors"
 	"os"
 	"testing"
 	"time"
@@ -73,6 +74,42 @@ func TestAssignSlot(t *testing.T) {
 		}
 	})
 
+	t.Run("error on release slot", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		q := mock_queue.NewMockQueue(ctrl)
+		p := mock_slotpool.NewMockPool(ctrl)
+		slotID := uint32(0)
+		queueID := uint32(0)
+		slotStats := make(chan map[uint32]SlotStat, 1)
+		stats := make(map[uint32]SlotStat)
+		slotStats <- stats
+		mm := ManagedMaster{
+			queue:     q,
+			pool:      p,
+			poller:    nil,
+			logger:    &zerolog.Logger{},
+			slotStats: slotStats,
+		}
+
+		wantErr := errors.New("Oops")
+		p.EXPECT().ReleaseSlot(slotID).Return(wantErr)
+
+		gotErr := mm.AssignSlot(slotID, queueID)
+		if gotErr != wantErr {
+			t.Errorf("AssignSlot(%d, %d) = %v, error expected", slotID, queueID, gotErr)
+		}
+
+		stat := stats[0].Stat()
+		gotSlotErrors, wantSlotErrors := stat.SlotErrors, 1
+		if gotSlotErrors != wantSlotErrors {
+			t.Errorf("unexpected number of slot errors: got %d, want %d", gotSlotErrors, wantSlotErrors)
+		}
+
+		if stat.QueueID != 0 {
+			t.Errorf("QueueID should be cleared")
+		}
+	})
+
 	t.Run("queue is not registered", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		q := mock_queue.NewMockQueue(ctrl)
@@ -134,14 +171,19 @@ func TestWork(t *testing.T) {
 		pool := mock_slotpool.NewMockPool(ctrl)
 		poller := mock_poller.NewMockPoller(ctrl)
 		worker := mock_poller.NewMockWorker(ctrl)
+		workerStat := mock_poller.NewMockWorkerStat(ctrl)
 		queueID := uint32(10)
 		slotID := uint32(0)
 
 		pool.EXPECT().SlotStates().Return(nil)
+
 		mm := NewManagedMaster(q, pool, poller, &zerolog.Logger{})
 
 		poller.EXPECT().Poll(uint16(queueID)).Return(worker)
 		worker.EXPECT().Work()
+		workerStat.EXPECT().Processed().Return(1)
+		workerStat.EXPECT().Errors().Return(0)
+		worker.EXPECT().Stat().Return(workerStat).Times(2)
 
 		mm.work(slotID, queueID)
 	})
@@ -201,7 +243,11 @@ func TestResetDelay(t *testing.T) {
 
 func BenchmarkDelay(b *testing.B) {
 	queueID := uint32(100)
-	mm := NewManagedMaster(nil, nil, nil, nil)
+	delays := make(chan map[uint32]float64, 1)
+	delays <- make(map[uint32]float64)
+	mm := &ManagedMaster{
+		delays: delays,
+	}
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -211,7 +257,11 @@ func BenchmarkDelay(b *testing.B) {
 
 func BenchmarkResetDelay(b *testing.B) {
 	queueID := uint32(100)
-	mm := NewManagedMaster(nil, nil, nil, nil)
+	delays := make(chan map[uint32]float64, 1)
+	delays <- make(map[uint32]float64)
+	mm := &ManagedMaster{
+		delays: delays,
+	}
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -302,12 +352,14 @@ func TestStats(t *testing.T) {
 		queueStat := stats.QueueStat{
 			ID:        queueID,
 			StartedAt: now,
-			Processed: 10,
-			Loops:     5,
-			WorkTime:  4.1,
-			WaitTime:  7.1,
-			Started:   1,
-			Stopped:   0,
+			Current: stats.QueueCounters{
+				Processed: 10,
+				Loops:     5,
+				WorkTime:  4.1,
+				WaitTime:  7.1,
+				Started:   1,
+				Stopped:   0,
+			},
 		}
 
 		pool.EXPECT().SlotStates().MaxTimes(2).Return([]slotpool.SlotState{slot})
@@ -340,11 +392,11 @@ func TestStats(t *testing.T) {
 					StartedAt: queueStat.StartedAt,
 					Current: qmclient.QueueStat{
 						EvalErrors: 0,
-						Processed:  queueStat.Processed,
-						Loops:      queueStat.Loops,
-						WorkTime:   queueStat.WorkTime,
-						WaitTime:   queueStat.WaitTime,
-						Started:    queueStat.Started,
+						Processed:  queueStat.Current.Processed,
+						Loops:      queueStat.Current.Loops,
+						WorkTime:   queueStat.Current.WorkTime,
+						WaitTime:   queueStat.Current.WaitTime,
+						Started:    queueStat.Current.Started,
 					},
 					Total: qmclient.QueueStat{},
 				},
@@ -388,12 +440,14 @@ func TestStats(t *testing.T) {
 		queueStat := stats.QueueStat{
 			ID:        queueID,
 			StartedAt: now,
-			Processed: 10,
-			Loops:     5,
-			WorkTime:  4.1,
-			WaitTime:  7.1,
-			Started:   1,
-			Stopped:   0,
+			Current: stats.QueueCounters{
+				Processed: 10,
+				Loops:     5,
+				WorkTime:  4.1,
+				WaitTime:  7.1,
+				Started:   1,
+				Stopped:   0,
+			},
 		}
 
 		pool.EXPECT().SlotStates().MaxTimes(2).Return([]slotpool.SlotState{slot})
@@ -425,11 +479,11 @@ func TestStats(t *testing.T) {
 					StartedAt: queueStat.StartedAt,
 					Current: qmclient.QueueStat{
 						EvalErrors: 0,
-						Processed:  queueStat.Processed,
-						Loops:      queueStat.Loops,
-						WorkTime:   queueStat.WorkTime,
-						WaitTime:   queueStat.WaitTime,
-						Started:    queueStat.Started,
+						Processed:  queueStat.Current.Processed,
+						Loops:      queueStat.Current.Loops,
+						WorkTime:   queueStat.Current.WorkTime,
+						WaitTime:   queueStat.Current.WaitTime,
+						Started:    queueStat.Current.Started,
 					},
 					Total: qmclient.QueueStat{},
 				},
@@ -495,22 +549,26 @@ func TestStats(t *testing.T) {
 		queueStats := []stats.QueueStat{{
 			ID:        currentQueueID,
 			StartedAt: now,
-			Processed: 10,
-			Loops:     5,
-			WorkTime:  4.1,
-			WaitTime:  7.1,
-			Started:   1,
-			Stopped:   0,
+			Current: stats.QueueCounters{
+				Processed: 10,
+				Loops:     5,
+				WorkTime:  4.1,
+				WaitTime:  7.1,
+				Started:   1,
+				Stopped:   0,
+			},
 		}, {
 			ID:        archivedQueueID,
 			StartedAt: now - 1000,
 			StoppedAt: now,
-			Processed: 11,
-			Loops:     4,
-			WorkTime:  10.7,
-			WaitTime:  30.3,
-			Started:   1,
-			Stopped:   1,
+			Current: stats.QueueCounters{
+				Processed: 11,
+				Loops:     4,
+				WorkTime:  10.7,
+				WaitTime:  30.3,
+				Started:   1,
+				Stopped:   1,
+			},
 		}}
 
 		pool.EXPECT().SlotStates().MaxTimes(2).Return([]slotpool.SlotState{slot})
@@ -542,11 +600,11 @@ func TestStats(t *testing.T) {
 					StartedAt: queueStats[0].StartedAt,
 					Current: qmclient.QueueStat{
 						EvalErrors: 0,
-						Processed:  queueStats[0].Processed,
-						Loops:      queueStats[0].Loops,
-						WorkTime:   queueStats[0].WorkTime,
-						WaitTime:   queueStats[0].WaitTime,
-						Started:    queueStats[0].Started,
+						Processed:  queueStats[0].Current.Processed,
+						Loops:      queueStats[0].Current.Loops,
+						WorkTime:   queueStats[0].Current.WorkTime,
+						WaitTime:   queueStats[0].Current.WaitTime,
+						Started:    queueStats[0].Current.Started,
 					},
 					Total: qmclient.QueueStat{},
 				},
@@ -558,11 +616,11 @@ func TestStats(t *testing.T) {
 					StoppedAt: queueStats[1].StoppedAt,
 					Current: qmclient.QueueStat{
 						EvalErrors: 0,
-						Processed:  queueStats[1].Processed,
-						Loops:      queueStats[1].Loops,
-						WorkTime:   queueStats[1].WorkTime,
-						WaitTime:   queueStats[1].WaitTime,
-						Started:    queueStats[1].Started,
+						Processed:  queueStats[1].Current.Processed,
+						Loops:      queueStats[1].Current.Loops,
+						WorkTime:   queueStats[1].Current.WorkTime,
+						WaitTime:   queueStats[1].Current.WaitTime,
+						Started:    queueStats[1].Current.Started,
 						Stopped:    1,
 					},
 					Total: qmclient.QueueStat{},

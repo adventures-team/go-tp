@@ -38,6 +38,78 @@ func (m *MockSlotStat) EXPECT() *MockSlotStatMockRecorder {
 	return m.recorder
 }
 
+// AddQueueErrors mocks base method.
+func (m *MockSlotStat) AddQueueErrors(arg0, arg1 uint32) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "AddQueueErrors", arg0, arg1)
+}
+
+// AddQueueErrors indicates an expected call of AddQueueErrors.
+func (mr *MockSlotStatMockRecorder) AddQueueErrors(arg0, arg1 any) *SlotStatAddQueueErrorsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddQueueErrors", reflect.TypeOf((*MockSlotStat)(nil).AddQueueErrors), arg0, arg1)
+	return &SlotStatAddQueueErrorsCall{Call: call}
+}
+
+// SlotStatAddQueueErrorsCall wrap *gomock.Call
+type SlotStatAddQueueErrorsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *SlotStatAddQueueErrorsCall) Return() *SlotStatAddQueueErrorsCall {
+	c.Call = c.Call.Return()
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *SlotStatAddQueueErrorsCall) Do(f func(uint32, uint32)) *SlotStatAddQueueErrorsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *SlotStatAddQueueErrorsCall) DoAndReturn(f func(uint32, uint32)) *SlotStatAddQueueErrorsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// AddQueueProcessed mocks base method.
+func (m *MockSlotStat) AddQueueProcessed(arg0, arg1 uint32) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "AddQueueProcessed", arg0, arg1)
+}
+
+// AddQueueProcessed indicates an expected call of AddQueueProcessed.
+func (mr *MockSlotStatMockRecorder) AddQueueProcessed(arg0, arg1 any) *SlotStatAddQueueProcessedCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddQueueProcessed", reflect.TypeOf((*MockSlotStat)(nil).AddQueueProcessed), arg0, arg1)
+	return &SlotStatAddQueueProcessedCall{Call: call}
+}
+
+// SlotStatAddQueueProcessedCall wrap *gomock.Call
+type SlotStatAddQueueProcessedCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *SlotStatAddQueueProcessedCall) Return() *SlotStatAddQueueProcessedCall {
+	c.Call = c.Call.Return()
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *SlotStatAddQueueProcessedCall) Do(f func(uint32, uint32)) *SlotStatAddQueueProcessedCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *SlotStatAddQueueProcessedCall) DoAndReturn(f func(uint32, uint32)) *SlotStatAddQueueProcessedCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // AddQueueWaitTime mocks base method.
 func (m *MockSlotStat) AddQueueWaitTime(arg0 uint32, arg1 float64) {
 	m.ctrl.T.Helper()

@@ -201,7 +201,8 @@ func (p *Pool) SlotStates() []SlotState {
 
 	states := make([]SlotState, 0, len(st.slots))
 
-	for _, slot := range st.slots {
+	for i := 0; i < len(st.slots); i++ {
+		slot := st.slots[uint32(i)]
 		pendingWork := uint32(0)
 
 		select {
