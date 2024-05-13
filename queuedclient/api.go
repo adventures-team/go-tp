@@ -7,7 +7,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"gitlab.corp.mail.ru/e-mail-ru/easygo/iproto"
+	"gitlab.corp.mail.ru/mygo/easygo.git/iproto"
 	"gitlab.corp.mail.ru/mygo/queuedproto.git"
 )
 

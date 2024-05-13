@@ -9,7 +9,7 @@ import (
 
 	"github.com/rs/zerolog"
 
-	"gitlab.corp.mail.ru/e-mail-ru/easygo/iproto"
+	"gitlab.corp.mail.ru/mygo/easygo.git/iproto"
 	"gitlab.corp.mail.ru/mygo/queuedproto.git"
 	"gitlab.corp.mail.ru/mygo/utils.git/mylog"
 )
