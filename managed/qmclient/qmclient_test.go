@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/go-faker/faker/v4"
-	"gitlab.corp.mail.ru/e-mail-ru/easygo/iproto"
+	"gitlab.corp.mail.ru/mygo/easygo.git/iproto"
 	mock_iproto "gitlab.corp.mail.ru/mygo/tp.git/test/mock/iproto"
 	"go.uber.org/mock/gomock"
 )

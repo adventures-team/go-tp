@@ -11,7 +11,7 @@ Package encodings - поддержка сериализации событий.
 
 # Perl
 
-Кроме основного payload, с которым вопросов возникать не должно (штатное кодирование средствами gitlab.corp.mail.ru/e-mail-ru/easygo/iproto
+Кроме основного payload, с которым вопросов возникать не должно (штатное кодирование средствами gitlab.corp.mail.ru/mygo/easygo.git/iproto
 в queuedproto.PerlData.Data), перловый формат поддерживает два механизма передачи дополнительных данных
 в TLV-формате: addons (MR::TP::Addon, используются в современных проектах на перле) и extensions (MR::Queue::Extensions, используются в MM).
 

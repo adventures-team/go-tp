@@ -13,7 +13,7 @@ import (
 	net "net"
 	reflect "reflect"
 
-	iproto "gitlab.corp.mail.ru/e-mail-ru/easygo/iproto"
+	iproto "gitlab.corp.mail.ru/mygo/easygo.git/iproto"
 	gomock "go.uber.org/mock/gomock"
 )
 

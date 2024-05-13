@@ -6,7 +6,7 @@ package tptest
 import (
 	"github.com/gofrs/uuid"
 
-	"gitlab.corp.mail.ru/e-mail-ru/easygo/iproto"
+	"gitlab.corp.mail.ru/mygo/easygo.git/iproto"
 	"gitlab.corp.mail.ru/mygo/tp.git"
 )
 
