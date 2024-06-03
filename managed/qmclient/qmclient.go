@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/rs/zerolog/log"
+
 	"gitlab.corp.mail.ru/mygo/easygo.git/iproto"
 	"gitlab.corp.mail.ru/mygo/utils.git/mylog"
 )

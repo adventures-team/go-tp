@@ -17,11 +17,12 @@ TODO дока по архитектуре
 - [func Next[T Handler](ctxPtr *context.Context, evPtr *T) bool](<#func-next>)
 - [type Builder](<#type-builder>)
 - [type Config](<#type-config>)
-  - [func (conf Config) InitProcessor() *QueueManager](<#func-config-initprocessor>)
+  - [func (conf Config) InitProcessor() *StandaloneMaster](<#func-config-initprocessor>)
   - [func (conf Config) InitProducer() *Queue](<#func-config-initproducer>)
 - [type DisableMarshaler](<#type-disablemarshaler>)
   - [func (DisableMarshaler) IprotoPack(w []byte, _ iproto.PackMode) ([]byte, error)](<#func-disablemarshaler-iprotopack>)
   - [func (DisableMarshaler) IprotoUnpack(*bytes.Reader, iproto.PackMode) error](<#func-disablemarshaler-iprotounpack>)
+  - [func (DisableMarshaler) MarshalerDisabled()](<#func-disablemarshaler-marshalerdisabled>)
 - [type Event](<#type-event>)
   - [func (Event) AddonID(incompatible)](<#func-event-addonid>)
   - [func (ev *Event) BatchLen() int](<#func-event-batchlen>)
@@ -32,6 +33,7 @@ TODO дока по архитектуре
   - [func (Event) IprotoPack(incompatible)](<#func-event-iprotopack>)
   - [func (Event) IprotoUnpack(incompatible)](<#func-event-iprotounpack>)
   - [func (Event) MarshalAddon(incompatible)](<#func-event-marshaladdon>)
+  - [func (Event) MarshalerDisabled(incompatible)](<#func-event-marshalerdisabled>)
   - [func (ev *Event) Publish(ctx context.Context, data Handler) (eventID queuedproto.EventID, err error)](<#func-event-publish>)
   - [func (ev *Event) QueueID() QueueIDType](<#func-event-queueid>)
   - [func (ev *Event) Shard(hash uint64) uint](<#func-event-shard>)
@@ -41,28 +43,34 @@ TODO дока по архитектуре
 - [type Handler](<#type-handler>)
 - [type Hasher](<#type-hasher>)
 - [type IgnoreDuplicateItems](<#type-ignoreduplicateitems>)
+- [type MarshalerDisabled](<#type-marshalerdisabled>)
 - [type NoHandler](<#type-nohandler>)
   - [func (NoHandler) AddonID(incompatible)](<#func-nohandler-addonid>)
   - [func (NoHandler) Handle(context.Context) error](<#func-nohandler-handle>)
   - [func (NoHandler) IprotoPack(incompatible)](<#func-nohandler-iprotopack>)
   - [func (NoHandler) IprotoUnpack(incompatible)](<#func-nohandler-iprotounpack>)
   - [func (NoHandler) MarshalAddon(incompatible)](<#func-nohandler-marshaladdon>)
+  - [func (NoHandler) MarshalerDisabled(incompatible)](<#func-nohandler-marshalerdisabled>)
   - [func (NoHandler) UnmarshalAddon(incompatible)](<#func-nohandler-unmarshaladdon>)
 - [type Queue](<#type-queue>)
   - [func Init(ctx context.Context, conf *queueconfig.Config) (*Queue, error)](<#func-init>)
-  - [func (queue *Queue) Encode(data Handler) (eventData []byte, err error)](<#func-queue-encode>)
+  - [func (q *Queue) Encode(data Handler) (eventData []byte, err error)](<#func-queue-encode>)
   - [func (queue *Queue) GetActiveEvents(ctx context.Context, queueID QueueIDType, count int) (*EventList, error)](<#func-queue-getactiveevents>)
   - [func (queue *Queue) GetEventsByIDs(ctx context.Context, queueID QueueIDType, eventIDs []queuedproto.EventID) (*EventList, error)](<#func-queue-geteventsbyids>)
+  - [func (q *Queue) IsRegistered(queueID uint16) bool](<#func-queue-isregistered>)
   - [func (q *Queue) NewPoller(logger *zerolog.Logger) workerpool.Poller](<#func-queue-newpoller>)
   - [func (queue *Queue) Publish(ctx context.Context, event Handler) (eventID queuedproto.EventID, err error)](<#func-queue-publish>)
   - [func (queue *Queue) Queued() *queuedclient.QueuedClient](<#func-queue-queued>)
-  - [func (queue *Queue) Register(queueID QueueIDType, valueExample Handler, autofill MarshalerDisabled) error](<#func-queue-register>)
+  - [func (q *Queue) Register(queueID QueueIDType, valueExample Handler, autofill MarshalerDisabled) error](<#func-queue-register>)
 - [type QueueIDType](<#type-queueidtype>)
-- [type QueueManager](<#type-queuemanager>)
-  - [func NewQueueManager(queue *Queue, pool *workerpool.WorkerPool, logger *zerolog.Logger) *QueueManager](<#func-newqueuemanager>)
-  - [func (qm *QueueManager) Manage()](<#func-queuemanager-manage>)
-  - [func (qm *QueueManager) Stop()](<#func-queuemanager-stop>)
 - [type Sharder](<#type-sharder>)
+- [type StandaloneMaster](<#type-standalonemaster>)
+  - [func NewStandaloneManager(queue *Queue, pool *workerpool.WorkerPool, logger *zerolog.Logger) *StandaloneMaster](<#func-newstandalonemanager>)
+  - [func (qm *StandaloneMaster) Run()](<#func-standalonemaster-run>)
+  - [func (qm *StandaloneMaster) Stop()](<#func-standalonemaster-stop>)
+- [type Stat](<#type-stat>)
+  - [func (s Stat) Errors() uint32](<#func-stat-errors>)
+  - [func (s Stat) Processed() uint32](<#func-stat-processed>)
 - [type Unpacker](<#type-unpacker>)
 - [type VersionType](<#type-versiontype>)
 
@@ -145,7 +153,7 @@ SignalsExit \- graceful exit \(дожидается завершения обр�
 var SignalsExit = [...]os.Signal{syscall.SIGTERM, syscall.SIGINT}
 ```
 
-## func [Next](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/event_iter_generics.go#L48>)
+## func Next
 
 ```go
 func Next[T Handler](ctxPtr *context.Context, evPtr *T) bool
@@ -187,7 +195,7 @@ func (ev *MyEvent) Handler(ctx context.Context) ... {
 
 Версия функции для go1.18\+ не кидает паники \- ErrPointerRequired невозможна \(возникнет ошибка при компиляции\), ErrEventTypesDiffer и ErrMisconstructedEvent менее вероятны, чем в рефлективной версии, но всё\-таки возможны при внутренних ошибках в tp. Если эти две паники не возникнут ни разу за время эксплуатации рефлективной версии \- можно их тут не обрабатывать.
 
-## type [Builder](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queue.go#L36-L38>)
+## type Builder
 
 Builder \- при поддержке этого интерфейса типом события, метод Build вызывается при добавлении события в очередь. Можно использовать для автозаполнения часто используемых полей \(время создания, etc\). Аналог в перле \- builder/default \(для отдельных полей\)
 
@@ -197,7 +205,7 @@ type Builder interface {
 }
 ```
 
-## type [Config](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/init.go#L19-L23>)
+## type Config
 
 Config \- конфиг для инициализации обработчика или продюсера очередей.
 
@@ -209,10 +217,10 @@ type Config struct {
 }
 ```
 
-### func \(Config\) [InitProcessor](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/init.go#L46>)
+### func \(Config\) InitProcessor
 
 ```go
-func (conf Config) InitProcessor() *QueueManager
+func (conf Config) InitProcessor() *StandaloneMaster
 ```
 
 InitProcessor \- инициализация типового обработчика очередей. Простейший случай:
@@ -237,7 +245,7 @@ func main() {
 
 В случае ошибки инициализации происходит выход \(zerolog.Logger.Fatal\). Предполагается вызов из функции main.
 
-### func \(Config\) [InitProducer](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/init.go#L117>)
+### func \(Config\) InitProducer
 
 ```go
 func (conf Config) InitProducer() *Queue
@@ -282,7 +290,7 @@ func (svc *Service) PostUserDataHandler(...) {
 
 В случае ошибки инициализации происходит выход \(zerolog.Logger.Fatal\). Предполагается вызов из функции main.
 
-## type [DisableMarshaler](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queue.go#L73>)
+## type DisableMarshaler
 
 DisableMarshaler \- встраивание этого типа в структуру отключает сериализацию средствами iproto
 
@@ -290,7 +298,7 @@ DisableMarshaler \- встраивание этого типа в структу
 type DisableMarshaler struct{}
 ```
 
-### func \(DisableMarshaler\) [IprotoPack](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queue.go#L254>)
+### func \(DisableMarshaler\) IprotoPack
 
 ```go
 func (DisableMarshaler) IprotoPack(w []byte, _ iproto.PackMode) ([]byte, error)
@@ -298,7 +306,7 @@ func (DisableMarshaler) IprotoPack(w []byte, _ iproto.PackMode) ([]byte, error)
 
 IprotoPack \- не делает ничего
 
-### func \(DisableMarshaler\) [IprotoUnpack](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queue.go#L259>)
+### func \(DisableMarshaler\) IprotoUnpack
 
 ```go
 func (DisableMarshaler) IprotoUnpack(*bytes.Reader, iproto.PackMode) error
@@ -306,7 +314,13 @@ func (DisableMarshaler) IprotoUnpack(*bytes.Reader, iproto.PackMode) error
 
 IprotoUnpack \- не делает ничего
 
-## type [Event](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/event.go#L20-L22>)
+### func \(DisableMarshaler\) MarshalerDisabled
+
+```go
+func (DisableMarshaler) MarshalerDisabled()
+```
+
+## type Event
 
 Event \- высокоуровневое представление события. Предоставлены также врапперы к нужным частям API очередей.
 
@@ -316,7 +330,7 @@ type Event struct {
 }
 ```
 
-### func \(Event\) [AddonID](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/event.go#L163>)
+### func \(Event\) AddonID
 
 ```go
 func (Event) AddonID(incompatible)
@@ -324,7 +338,7 @@ func (Event) AddonID(incompatible)
 
 AddonID \- см. описание NoHandler.IprotoPack
 
-### func \(\*Event\) [BatchLen](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/event.go#L115>)
+### func \(\*Event\) BatchLen
 
 ```go
 func (ev *Event) BatchLen() int
@@ -343,7 +357,7 @@ for {
 }
 ```
 
-### func \(\*Event\) [Defer](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/event.go#L89>)
+### func \(\*Event\) Defer
 
 ```go
 func (ev *Event) Defer(ctx context.Context, delay time.Duration) error
@@ -355,7 +369,7 @@ Defer устанавливает задержку события.
 
 Если событие было помечено как выполненное при помощи Done, а потом был вызван Defer, пометка на удаление снимается.
 
-### func \(\*Event\) [Done](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/event.go#L79>)
+### func \(\*Event\) Done
 
 ```go
 func (ev *Event) Done()
@@ -365,7 +379,7 @@ Done помечает событие обработанным.
 
 События удаляются не сразу, а по завершении цикла обработки всех событий, полученных за один запрос из queued. В случае возникновения паник \(в т.ч. необработанных\), удаление все равно должно произойти до выхода из tp.Queue.Work
 
-### func \(\*Event\) [GetEvent](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/event.go#L56>)
+### func \(\*Event\) GetEvent
 
 ```go
 func (ev *Event) GetEvent() *Event
@@ -373,7 +387,7 @@ func (ev *Event) GetEvent() *Event
 
 GetEvent \- доступ к кишкам события из юзерской структуры
 
-### func \(\*Event\) [Hash](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/event.go#L66>)
+### func \(\*Event\) Hash
 
 ```go
 func (ev *Event) Hash() uint64
@@ -381,7 +395,7 @@ func (ev *Event) Hash() uint64
 
 Hash \- возвращает хэш от ID события, совместимый с перловыми очередями \(crc32 от строкового десятичного представления ID\)
 
-### func \(Event\) [IprotoPack](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/event.go#L151>)
+### func \(Event\) IprotoPack
 
 ```go
 func (Event) IprotoPack(incompatible)
@@ -389,7 +403,7 @@ func (Event) IprotoPack(incompatible)
 
 IprotoPack \- см. описание NoHandler.IprotoPack
 
-### func \(Event\) [IprotoUnpack](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/event.go#L154>)
+### func \(Event\) IprotoUnpack
 
 ```go
 func (Event) IprotoUnpack(incompatible)
@@ -397,7 +411,7 @@ func (Event) IprotoUnpack(incompatible)
 
 IprotoUnpack \- см. описание NoHandler.IprotoPack
 
-### func \(Event\) [MarshalAddon](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/event.go#L157>)
+### func \(Event\) MarshalAddon
 
 ```go
 func (Event) MarshalAddon(incompatible)
@@ -405,7 +419,13 @@ func (Event) MarshalAddon(incompatible)
 
 MarshalAddon \- см. описание NoHandler.IprotoPack
 
-### func \(\*Event\) [Publish](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/event.go#L100>)
+### func \(Event\) MarshalerDisabled
+
+```go
+func (Event) MarshalerDisabled(incompatible)
+```
+
+### func \(\*Event\) Publish
 
 ```go
 func (ev *Event) Publish(ctx context.Context, data Handler) (eventID queuedproto.EventID, err error)
@@ -413,7 +433,7 @@ func (ev *Event) Publish(ctx context.Context, data Handler) (eventID queuedproto
 
 Publish \- враппер к Queue.Publish \(см. его доку для описания параметра и возвращаемого значения\). Отправляет новое событие в очередь, указанную при регистрации для этого типа методом Queue.Register
 
-### func \(\*Event\) [QueueID](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/event.go#L61>)
+### func \(\*Event\) QueueID
 
 ```go
 func (ev *Event) QueueID() QueueIDType
@@ -421,7 +441,7 @@ func (ev *Event) QueueID() QueueIDType
 
 QueueID \- ID очереди, из которой прилетело событие
 
-### func \(\*Event\) [Shard](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/event.go#L71>)
+### func \(\*Event\) Shard
 
 ```go
 func (ev *Event) Shard(hash uint64) uint
@@ -429,7 +449,7 @@ func (ev *Event) Shard(hash uint64) uint
 
 Shard \- распределяет событие по шардам в зависимости от хеша. Совместимая с перлом версия \(остаток от деления\).
 
-### func \(Event\) [UnmarshalAddon](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/event.go#L160>)
+### func \(Event\) UnmarshalAddon
 
 ```go
 func (Event) UnmarshalAddon(incompatible)
@@ -437,7 +457,7 @@ func (Event) UnmarshalAddon(incompatible)
 
 UnmarshalAddon \- см. описание NoHandler.IprotoPack
 
-## type [EventIDBuilder](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queue.go#L42-L44>)
+## type EventIDBuilder
 
 EventIDBuilder \- события, поддерживающие этот интерфейс, могут генерить ID события сами \(аналог в перле \- generate\_id\). По дефолту, ID событий генерит queued. Поля, автозаполненные при помощи Build\(\), можно использовать в методе BuildEventID\(\)
 
@@ -447,7 +467,7 @@ type EventIDBuilder interface {
 }
 ```
 
-## type [EventList](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/event.go#L43-L47>)
+## type EventList
 
 EventList \- список событий, прилетающих из queued для одной очереди. В списке могут быть события разных версий.
 
@@ -457,7 +477,7 @@ type EventList struct {
 }
 ```
 
-## type [Handler](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queue.go#L26-L31>)
+## type Handler
 
 Handler \- интерфейс обработчика очереди. Структура обработчика должна включать в себя тип Event
 
@@ -470,7 +490,7 @@ type Handler interface {
 }
 ```
 
-## type [Hasher](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queue.go#L63-L65>)
+## type Hasher
 
 Hasher \- переопределив метод Hash у своего типа события, можно задать произвольный алгоритм хеширования \(default: crc32 от строкового десятичного представления ID\)
 
@@ -482,7 +502,7 @@ type Hasher interface {
 }
 ```
 
-## type [IgnoreDuplicateItems](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queue.go#L55-L57>)
+## type IgnoreDuplicateItems
 
 IgnoreDuplicateItems \- для событий, вернувших true, игнорируются дубли по ID сообщения \(выставляется флаг FlagIgnoreWrongItem\). Следует использовать вместе с EventIDBuilder, если нужна идемпотентность ID. Перловый аналог называется так же.
 
@@ -492,7 +512,17 @@ type IgnoreDuplicateItems interface {
 }
 ```
 
-## type [NoHandler](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/event.go#L26-L28>)
+## type MarshalerDisabled
+
+MarshalerDisabled \- для проверки, отключен ли у типа маршалер средствами DisableMarshaler
+
+```go
+type MarshalerDisabled interface {
+    MarshalerDisabled()
+}
+```
+
+## type NoHandler
 
 NoHandler \- если для очереди \(пока\) не предусмотрена обработка \(например, обработчик реализован на перле\), надо встроить в структуру события этот тип
 
@@ -502,7 +532,7 @@ type NoHandler struct {
 }
 ```
 
-### func \(NoHandler\) [AddonID](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/event.go#L202>)
+### func \(NoHandler\) AddonID
 
 ```go
 func (NoHandler) AddonID(incompatible)
@@ -510,7 +540,7 @@ func (NoHandler) AddonID(incompatible)
 
 AddonID \- см. описание NoHandler.IprotoPack
 
-### func \(NoHandler\) [Handle](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/event.go#L169>)
+### func \(NoHandler\) Handle
 
 ```go
 func (NoHandler) Handle(context.Context) error
@@ -518,7 +548,7 @@ func (NoHandler) Handle(context.Context) error
 
 Handle \- не делает ничего
 
-### func \(NoHandler\) [IprotoPack](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/event.go#L190>)
+### func \(NoHandler\) IprotoPack
 
 ```go
 func (NoHandler) IprotoPack(incompatible)
@@ -534,7 +564,7 @@ IprotoPack \- ломаем совместимость NoHandler с маршал�
 
 Если же всё\-таки зачем\-то потребуется объявить маршалеры для типа события \- это можно сделать, т.к. они перекроют "наследуемые" методы \(и с правильной, и с неправильной сигнатурой\).
 
-### func \(NoHandler\) [IprotoUnpack](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/event.go#L193>)
+### func \(NoHandler\) IprotoUnpack
 
 ```go
 func (NoHandler) IprotoUnpack(incompatible)
@@ -542,7 +572,7 @@ func (NoHandler) IprotoUnpack(incompatible)
 
 IprotoUnpack \- см. описание NoHandler.IprotoPack
 
-### func \(NoHandler\) [MarshalAddon](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/event.go#L196>)
+### func \(NoHandler\) MarshalAddon
 
 ```go
 func (NoHandler) MarshalAddon(incompatible)
@@ -550,7 +580,13 @@ func (NoHandler) MarshalAddon(incompatible)
 
 MarshalAddon \- см. описание NoHandler.IprotoPack
 
-### func \(NoHandler\) [UnmarshalAddon](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/event.go#L199>)
+### func \(NoHandler\) MarshalerDisabled
+
+```go
+func (NoHandler) MarshalerDisabled(incompatible)
+```
+
+### func \(NoHandler\) UnmarshalAddon
 
 ```go
 func (NoHandler) UnmarshalAddon(incompatible)
@@ -558,7 +594,7 @@ func (NoHandler) UnmarshalAddon(incompatible)
 
 UnmarshalAddon \- см. описание NoHandler.IprotoPack
 
-## type [Queue](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queue.go#L20-L23>)
+## type Queue
 
 Queue \- высокоуровневое API очередей. Содержит информацию об обрабатываемых очередях \(см. Register\)
 
@@ -568,7 +604,7 @@ type Queue struct {
 }
 ```
 
-### func [Init](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queue.go#L87>)
+### func Init
 
 ```go
 func Init(ctx context.Context, conf *queueconfig.Config) (*Queue, error)
@@ -576,10 +612,10 @@ func Init(ctx context.Context, conf *queueconfig.Config) (*Queue, error)
 
 Init создаёт объект для высокоуровневой работы с API очередей. Инициализирует клиент очередей \(queuedclient\) с указанным конфигом.
 
-### func \(\*Queue\) [Encode](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queue_group.go#L143>)
+### func \(\*Queue\) Encode
 
 ```go
-func (queue *Queue) Encode(data Handler) (eventData []byte, err error)
+func (q *Queue) Encode(data Handler) (eventData []byte, err error)
 ```
 
 Encode кодирует событие. Тип события должен быть зарегистрирован при помощи метода Register.
@@ -590,7 +626,7 @@ Encode кодирует событие. Тип события должен бы�
 
 ID события, кроме интерфейса EventIDBuilder, можно также передать явно. Номер шарда будет вычислен из ID события, если оно задано одним из этих способов. Если EventID.ID == 0, шард будет выбран по round robin \(queuedclient.BalanceShard\).
 
-### func \(\*Queue\) [GetActiveEvents](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queue.go#L139>)
+### func \(\*Queue\) GetActiveEvents
 
 ```go
 func (queue *Queue) GetActiveEvents(ctx context.Context, queueID QueueIDType, count int) (*EventList, error)
@@ -600,7 +636,7 @@ GetActiveEvents получает активные события \(наступ�
 
 Вместе с ошибкой может вернуться и валидный \(не\-nil\) результат, этот кейс надо учитывать. Это означает, что ошибку вернули только некоторые из шардов.
 
-### func \(\*Queue\) [GetEventsByIDs](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queue.go#L149>)
+### func \(\*Queue\) GetEventsByIDs
 
 ```go
 func (queue *Queue) GetEventsByIDs(ctx context.Context, queueID QueueIDType, eventIDs []queuedproto.EventID) (*EventList, error)
@@ -610,7 +646,13 @@ func (queue *Queue) GetEventsByIDs(ctx context.Context, queueID QueueIDType, eve
 
 Вместе с ошибкой может вернуться и валидный \(не\-nil\) результат, этот кейс надо учитывать. Это означает, что ошибку вернули только некоторые из шардов.
 
-### func \(\*Queue\) [NewPoller](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queue_worker.go#L37>)
+### func \(\*Queue\) IsRegistered
+
+```go
+func (q *Queue) IsRegistered(queueID uint16) bool
+```
+
+### func \(\*Queue\) NewPoller
 
 ```go
 func (q *Queue) NewPoller(logger *zerolog.Logger) workerpool.Poller
@@ -618,7 +660,7 @@ func (q *Queue) NewPoller(logger *zerolog.Logger) workerpool.Poller
 
 NewPoller возвращает объект для опроса новых событий из WorkerPool
 
-### func \(\*Queue\) [Publish](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queue.go#L116>)
+### func \(\*Queue\) Publish
 
 ```go
 func (queue *Queue) Publish(ctx context.Context, event Handler) (eventID queuedproto.EventID, err error)
@@ -630,7 +672,7 @@ Publish кодирует событие при помощи метода Encode,
 
 Если тип события поддерживает интерфейс IgnoreDuplicateItems, и метод IgnoreDuplicateItems возвращает true, дубли при совпадении ID события игнорируются \(также подавляется ошибка в логе queued флагом queuedproto.FlagIgnoreWrongItem\).
 
-### func \(\*Queue\) [Queued](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queue.go#L105>)
+### func \(\*Queue\) Queued
 
 ```go
 func (queue *Queue) Queued() *queuedclient.QueuedClient
@@ -644,10 +686,10 @@ Queued возвращает клиент очередей.
 
 Если будут нужны какие\-то методы "среднего уровня", имеет смысл их добавить к типу Queue.
 
-### func \(\*Queue\) [Register](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queue_group.go#L72>)
+### func \(\*Queue\) Register
 
 ```go
-func (queue *Queue) Register(queueID QueueIDType, valueExample Handler, autofill MarshalerDisabled) error
+func (q *Queue) Register(queueID QueueIDType, valueExample Handler, autofill MarshalerDisabled) error
 ```
 
 Register регистрирует тип valueExample \(используется только тип, значение игнорируется\) для версии version и очереди queueID. valueExample может быть как указателем, так и значением. Предполагается, что метод вызывается при инициализации, поэтому не поддерживает работу из параллельных горутин. Перед регистрацией типа события происходит попытка его закодировать, для обнаружения ошибок в определении структуры на раннем этапе \(при запуске сервиса\).
@@ -660,7 +702,7 @@ Register регистрирует тип valueExample \(используется
 
 Повторная регистрация для той же очереди перезаписывает предыдущую, и не вызывает ошибку. Так сделано, чтобы не ломало регистрацию очередей из init\(\) библиотек \(что, тем не менее, делать не рекомендуется\).
 
-## type [QueueIDType](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queue_group.go#L23>)
+## type QueueIDType
 
 QueueIDType \- тип id очереди. Используем type alias \- просто для удобства восприятия, "настоящий" тип \(с методами, и громоздким приведением типов\) нам не нужен.
 
@@ -668,46 +710,7 @@ QueueIDType \- тип id очереди. Используем type alias \- пр
 type QueueIDType = uint16
 ```
 
-## type [QueueManager](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/manage.go#L35-L42>)
-
-QueueManager \- управление пулом обработчиков очередей при помощи onlineconf. Поддерживает все методы типа Queue.
-
-Не путать с перловым менеджером очередей.
-
-```go
-type QueueManager struct {
-    *Queue
-    // contains filtered or unexported fields
-}
-```
-
-### func [NewQueueManager](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/manage.go#L48>)
-
-```go
-func NewQueueManager(queue *Queue, pool *workerpool.WorkerPool, logger *zerolog.Logger) *QueueManager
-```
-
-NewQueueManager создаёт новый объект для управления пулом.
-
-Это \- низкоуровневый интерфейс. Для типового кейса следует юзать обёртку InitProcessor.
-
-### func \(\*QueueManager\) [Manage](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/manage.go#L241>)
-
-```go
-func (qm *QueueManager) Manage()
-```
-
-Manage \- для обработчиков очередей. Запуск управления пулом воркеров из конфига. Применяет конфиг сразу при вызове, а также при изменении конфига, и по сигналу SIGHUP. Если в конфиге при первом запуске обнаружены ошибки \- пул воркеров останавливается, и функция возвращается. При изменении конфига/по сигналу выход/остановка происходят только при ошибке достижения oom\_hard\_limit. Для обычных ошибок \- пишется ошибка в лог, и остаётся старый конфиг. Вызывать из main, при возврате \- выходить.
-
-### func \(\*QueueManager\) [Stop](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/manage.go#L314>)
-
-```go
-func (qm *QueueManager) Stop()
-```
-
-Stop \- враппер для WorkerPool.Stop. Останавливает обработку новых событий, по завершению запущенных обработчиков, метод Manage выходит.
-
-## type [Sharder](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queue.go#L68-L70>)
+## type Sharder
 
 Sharder \- переопределив метод Shard у своего типа события, можно задать произвольный алгоритм шардирования \(default: остаток от деления\)
 
@@ -717,7 +720,66 @@ type Sharder interface {
 }
 ```
 
-## type [Unpacker](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queue.go#L48-L50>)
+## type StandaloneMaster
+
+StandaloneMaster \- управление пулом обработчиков очередей при помощи onlineconf. Поддерживает все методы типа Queue.
+
+Не путать с перловым менеджером очередей.
+
+```go
+type StandaloneMaster struct {
+    *Queue
+    // contains filtered or unexported fields
+}
+```
+
+### func NewStandaloneManager
+
+```go
+func NewStandaloneManager(queue *Queue, pool *workerpool.WorkerPool, logger *zerolog.Logger) *StandaloneMaster
+```
+
+NewStandaloneManager создаёт новый объект для управления пулом.
+
+Это \- низкоуровневый интерфейс. Для типового кейса следует юзать обёртку InitProcessor.
+
+### func \(\*StandaloneMaster\) Run
+
+```go
+func (qm *StandaloneMaster) Run()
+```
+
+Run \- для обработчиков очередей. Запуск управления пулом воркеров из конфига. Применяет конфиг сразу при вызове, а также при изменении конфига, и по сигналу SIGHUP. Если в конфиге при первом запуске обнаружены ошибки \- пул воркеров останавливается, и функция возвращается. При изменении конфига/по сигналу выход/остановка происходят только при ошибке достижения oom\_hard\_limit. Для обычных ошибок \- пишется ошибка в лог, и остаётся старый конфиг. Вызывать из main, при возврате \- выходить.
+
+### func \(\*StandaloneMaster\) Stop
+
+```go
+func (qm *StandaloneMaster) Stop()
+```
+
+Stop \- враппер для WorkerPool.Stop. Останавливает обработку новых событий, по завершению запущенных обработчиков, метод Manage выходит.
+
+## type Stat
+
+```go
+type Stat struct {
+    // contains filtered or unexported fields
+}
+```
+
+### func \(Stat\) Errors
+
+```go
+func (s Stat) Errors() uint32
+```
+
+### func \(Stat\) Processed
+
+```go
+func (s Stat) Processed() uint32
+```
+
+## type Unpacker
 
 Unpacker \- если у события объявлен метод Unpack, он вызывается при поступлении события после его распаковки. Можно использовать для извлечения полей, запакованных в EventID.
 
@@ -727,7 +789,7 @@ type Unpacker interface {
 }
 ```
 
-## type [VersionType](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queue_group.go#L26>)
+## type VersionType
 
 VersionType \- id версии событий. Тоже алиас.
 
@@ -751,7 +813,7 @@ Package encodings \- поддержка сериализации событий.
 
 \# Perl
 
-Кроме основного payload, с которым вопросов возникать не должно \(штатное кодирование средствами gitlab.corp.mail.ru/e\-mail\-ru/easygo/iproto в queuedproto.PerlData.Data\), перловый формат поддерживает два механизма передачи дополнительных данных в TLV\-формате: addons \(MR::TP::Addon, используются в современных проектах на перле\) и extensions \(MR::Queue::Extensions, используются в MM\).
+Кроме основного payload, с которым вопросов возникать не должно \(штатное кодирование средствами gitlab.corp.mail.ru/mygo/easygo.git/iproto в queuedproto.PerlData.Data\), перловый формат поддерживает два механизма передачи дополнительных данных в TLV\-формате: addons \(MR::TP::Addon, используются в современных проектах на перле\) и extensions \(MR::Queue::Extensions, используются в MM\).
 
 Возможности обоих механизмов:
 
@@ -850,7 +912,7 @@ var (
 )
 ```
 
-## func [Decode](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/encodings/encodings.go#L48>)
+## func Decode
 
 ```go
 func Decode(format Format, encoded []byte, valPtr interface{}) error
@@ -860,7 +922,7 @@ Decode декодирует encoded в valPtr, который должен бы�
 
 TODO проверить хотя бы в API верхнего уровня, что не будет паники, если передать по значению. Когда устаканятся дженерики \- потребовать указатель на этапе компиляции.
 
-## func [Encode](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/encodings/encodings.go#L36>)
+## func Encode
 
 ```go
 func Encode(format Format, version uint8, val interface{}) ([]byte, error)
@@ -868,7 +930,7 @@ func Encode(format Format, version uint8, val interface{}) ([]byte, error)
 
 Encode кодирует данные val в указанном формате и версии. val может быть как значением, так и указателем.
 
-## type [Format](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/encodings/encodings.go#L10>)
+## type Format
 
 Format \- тип ID формата сообщения. Все форматы должны начинаться с uint8 с номером версии.
 
@@ -885,7 +947,7 @@ const (
 )
 ```
 
-### func [Detect](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/encodings/encodings.go#L57>)
+### func Detect
 
 ```go
 func Detect(v interface{}) Format
@@ -968,6 +1030,7 @@ update_batch_size              UpdateBatchSize strconv.ParseInt
   - [func (c *Config) OOMSoftDownscaleRate(ctx context.Context) float64](<#func-config-oomsoftdownscalerate>)
   - [func (c *Config) OOMSoftLimit(ctx context.Context) uint64](<#func-config-oomsoftlimit>)
   - [func (c *Config) QueueIDs() ([]uint16, error)](<#func-config-queueids>)
+  - [func (c *Config) SlotsCount(ctx context.Context) (int, error)](<#func-config-slotscount>)
   - [func (c *Config) UpdateBatchSize(ctx context.Context, queueID uint16) int](<#func-config-updatebatchsize>)
   - [func (c *Config) WorkersCount(ctx context.Context, queueID uint16) (int, error)](<#func-config-workerscount>)
   - [func (c *Config) WorkersMaxCount(ctx context.Context) (int, error)](<#func-config-workersmaxcount>)
@@ -999,6 +1062,7 @@ var (
     ErrNotFound             = errors.New("path not found")
     ErrOOMSoftDownscaleRate = errors.New("oom_soft_downscale_rate should be >= 0")
     ErrWorkersCount         = errors.New("workers count should be >=0")
+    ErrSlotsCount           = errors.New("slots count should be >=0")
 )
 ```
 
@@ -1008,7 +1072,7 @@ CSVRegex \- значения в конфиге через запятую, с о�
 var CSVRegex = regexp.MustCompile(`\s*,\s*`)
 ```
 
-## type [ConfError](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/error.go#L21-L27>)
+## type ConfError
 
 ConfError \- тип для ошибок, который можно как вернуть юзеру \- так и эффективно записать в лог. Преобразование в строку делается, только если это потребовано явно \(вызовом метода Error\), а не по факту возврата ошибки \(как это обычно принято\).
 
@@ -1024,7 +1088,7 @@ type ConfError struct {
 }
 ```
 
-### func \(\*ConfError\) [Error](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/error.go#L49>)
+### func \(\*ConfError\) Error
 
 ```go
 func (ce *ConfError) Error() string
@@ -1032,7 +1096,7 @@ func (ce *ConfError) Error() string
 
 Error преобразует ошибку в строку. Value пишется, если ошибка \- не ErrNotFound, даже если значение пустое \(чтобы сообщить о том, что пустое значение для данного параметра не является валидным\).
 
-### func \(\*ConfError\) [MarshalZerologObject](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/error.go#L71>)
+### func \(\*ConfError\) MarshalZerologObject
 
 ```go
 func (ce *ConfError) MarshalZerologObject(ev *zerolog.Event)
@@ -1049,7 +1113,7 @@ err:       ошибка ("path not found", если путь не найден, 
 default:   если есть значение по умолчанию
 ```
 
-### func \(\*ConfError\) [Unwrap](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/error.go#L43>)
+### func \(\*ConfError\) Unwrap
 
 ```go
 func (ce *ConfError) Unwrap() error
@@ -1057,7 +1121,7 @@ func (ce *ConfError) Unwrap() error
 
 Unwrap возвращает Err для работы с errors.Is и т.д.
 
-## type [Config](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/config.go#L27-L32>)
+## type Config
 
 Config \- настройки обработчика очередей. Можно пользоваться, как обычным объектом с интерфейсом Onlineconf для получения настроек относительно корня проекта. Также предусмотрены методы для получения настроек per\-instance и pre\-queue.
 
@@ -1068,7 +1132,7 @@ type Config struct {
 }
 ```
 
-### func [New](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/config.go#L35>)
+### func New
 
 ```go
 func New(conf oconf.OnlineConf, instanceName string) *Config
@@ -1076,7 +1140,7 @@ func New(conf oconf.OnlineConf, instanceName string) *Config
 
 New возвращает новый объект конфига. oconf \- корень проекта \(не обязательно TREE\).
 
-### func \(\*Config\) [ClearErrCache](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/log.go#L10>)
+### func \(\*Config\) ClearErrCache
 
 ```go
 func (c *Config) ClearErrCache()
@@ -1084,7 +1148,7 @@ func (c *Config) ClearErrCache()
 
 ClearErrCache очищает кеш ошибочных путей. Вызывать при перезагрузке конфига.
 
-### func \(\*Config\) [DeferTime](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/settings.go#L173>)
+### func \(\*Config\) DeferTime
 
 ```go
 func (c *Config) DeferTime(ctx context.Context, queueID uint16) time.Duration
@@ -1092,7 +1156,7 @@ func (c *Config) DeferTime(ctx context.Context, queueID uint16) time.Duration
 
 DeferTime получает defer\_time для указанной очереди. Dалидное значение возвращается всегда \(default: DefaultDeferTime\), ошибку надо просто напечатать в лог. К времени добавляется рандомное значение, максимум defer\_time\_jitter \(default: DefaultDeferTimeJitter\)
 
-### func \(\*Config\) [FetchBatchSize](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/settings.go#L202>)
+### func \(\*Config\) FetchBatchSize
 
 ```go
 func (c *Config) FetchBatchSize(ctx context.Context, queueID uint16) int
@@ -1100,7 +1164,7 @@ func (c *Config) FetchBatchSize(ctx context.Context, queueID uint16) int
 
 FetchBatchSize получает fetch\_batch\_size для указанной очереди. Если оно не задано, возвращается DefaultFetchBatchSize
 
-### func \(\*Config\) [GetDuration](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/config.go#L133>)
+### func \(\*Config\) GetDuration
 
 ```go
 func (c *Config) GetDuration(ctx context.Context, confPath string, dfl time.Duration) time.Duration
@@ -1108,7 +1172,7 @@ func (c *Config) GetDuration(ctx context.Context, confPath string, dfl time.Dura
 
 GetDuration получает длительность по указанному глобальному \(не per\-instance\) пути. Если путь не найден \- возвращается дефолт. В случае ошибки парзинга \- в лог пишется об этом, и возвращается дефолт.
 
-### func \(\*Config\) [InitialDelay](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/settings.go#L190>)
+### func \(\*Config\) InitialDelay
 
 ```go
 func (c *Config) InitialDelay(ctx context.Context, queueID uint16) time.Duration
@@ -1116,7 +1180,7 @@ func (c *Config) InitialDelay(ctx context.Context, queueID uint16) time.Duration
 
 InitialDelay получает initial\_delay для указанной очереди. По умолчанию: DefaultInitialDelay.
 
-### func \(\*Config\) [LogLevel](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/settings.go#L120>)
+### func \(\*Config\) LogLevel
 
 ```go
 func (c *Config) LogLevel(ctx context.Context) zerolog.Level
@@ -1124,7 +1188,7 @@ func (c *Config) LogLevel(ctx context.Context) zerolog.Level
 
 LogLevel получает log\_level. По умолчанию: DefaultLogLevel.
 
-### func \(\*Config\) [OOMCheckPeriod](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/settings.go#L58>)
+### func \(\*Config\) OOMCheckPeriod
 
 ```go
 func (c *Config) OOMCheckPeriod(ctx context.Context) time.Duration
@@ -1132,7 +1196,7 @@ func (c *Config) OOMCheckPeriod(ctx context.Context) time.Duration
 
 OOMCheckPeriod получает oom\_check\_period. По умолчанию: DefaultOOMCheckPeriod.
 
-### func \(\*Config\) [OOMHardLimit](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/settings.go#L25>)
+### func \(\*Config\) OOMHardLimit
 
 ```go
 func (c *Config) OOMHardLimit(ctx context.Context) uint64
@@ -1140,7 +1204,7 @@ func (c *Config) OOMHardLimit(ctx context.Context) uint64
 
 OOMHardLimit получает oom\_hard\_limit. По умолчанию \- 0 \(проверку нужно пропустить\).
 
-### func \(\*Config\) [OOMSoftDownscaleRate](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/settings.go#L35>)
+### func \(\*Config\) OOMSoftDownscaleRate
 
 ```go
 func (c *Config) OOMSoftDownscaleRate(ctx context.Context) float64
@@ -1148,7 +1212,7 @@ func (c *Config) OOMSoftDownscaleRate(ctx context.Context) float64
 
 OOMSoftDownscaleRate получает oom\_soft\_downscale\_rate. По умолчанию: DefaultDownscaleRate.
 
-### func \(\*Config\) [OOMSoftLimit](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/settings.go#L15>)
+### func \(\*Config\) OOMSoftLimit
 
 ```go
 func (c *Config) OOMSoftLimit(ctx context.Context) uint64
@@ -1156,7 +1220,7 @@ func (c *Config) OOMSoftLimit(ctx context.Context) uint64
 
 OOMSoftLimit получает oom\_soft\_limit. По умолчанию \- 0 \(проверку нужно пропустить\).
 
-### func \(\*Config\) [QueueIDs](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/settings.go#L90>)
+### func \(\*Config\) QueueIDs
 
 ```go
 func (c *Config) QueueIDs() ([]uint16, error)
@@ -1164,7 +1228,15 @@ func (c *Config) QueueIDs() ([]uint16, error)
 
 QueueIDs получает queue\_ids, который задаётся в виде разделённых через запятую интов \(см. CSVRegex\). Если задан пустой список \(пустая строка\), ошибкой это не считается \(требуется холостой запуск, либо остановка всех запущенных очередей\)
 
-### func \(\*Config\) [UpdateBatchSize](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/settings.go#L214>)
+### func \(\*Config\) SlotsCount
+
+```go
+func (c *Config) SlotsCount(ctx context.Context) (int, error)
+```
+
+SlotsCount получает slots\_count
+
+### func \(\*Config\) UpdateBatchSize
 
 ```go
 func (c *Config) UpdateBatchSize(ctx context.Context, queueID uint16) int
@@ -1172,7 +1244,7 @@ func (c *Config) UpdateBatchSize(ctx context.Context, queueID uint16) int
 
 UpdateBatchSize возвращает update\_batch\_size для указанной очереди. Если оно не задано, возвращается DefaultUpdateBatchSize
 
-### func \(\*Config\) [WorkersCount](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/settings.go#L147>)
+### func \(\*Config\) WorkersCount
 
 ```go
 func (c *Config) WorkersCount(ctx context.Context, queueID uint16) (int, error)
@@ -1180,7 +1252,7 @@ func (c *Config) WorkersCount(ctx context.Context, queueID uint16) (int, error)
 
 WorkersCount получает workers для указанной очереди, но не больше workers\_max\_per\_queue
 
-### func \(\*Config\) [WorkersMaxCount](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queueconfig/settings.go#L70>)
+### func \(\*Config\) WorkersMaxCount
 
 ```go
 func (c *Config) WorkersMaxCount(ctx context.Context) (int, error)
@@ -1304,7 +1376,7 @@ var (
 )
 ```
 
-## func [GetPID](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/getpid.go#L21>)
+## func GetPID
 
 ```go
 func GetPID(conf oconf.OnlineConf) (uint32, error)
@@ -1316,7 +1388,7 @@ GetPID \- хак для получения ID, обеспечивающего у
 
 Чтобы генерить рандомный "pid" всегда, можно задать в онлайнконфе /queueds/main/min\_pid больше максимально возможного pid для платформы \(32768 для linux, 99999 для \*bsd \- поэтому лучше вписывать "совсем много", если планируется тестировать на макбуках без докера\)
 
-## type [ErrMulti](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/error.go#L34>)
+## type ErrMulti
 
 ErrMulti \- набор ошибок от нескольких шардов.
 
@@ -1330,7 +1402,7 @@ TODO мультикаст\-запрос с разными айдишниками
 type ErrMulti []error
 ```
 
-### func \(\*ErrMulti\) [Append](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/error.go#L50>)
+### func \(\*ErrMulti\) Append
 
 ```go
 func (errs *ErrMulti) Append(err error)
@@ -1338,7 +1410,7 @@ func (errs *ErrMulti) Append(err error)
 
 Append добавляет ошибку в список.
 
-### func \(ErrMulti\) [Error](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/error.go#L39>)
+### func \(ErrMulti\) Error
 
 ```go
 func (errs ErrMulti) Error() string
@@ -1346,7 +1418,7 @@ func (errs ErrMulti) Error() string
 
 Error возвращает список ошибок через запятую.
 
-### func \(ErrMulti\) [ToError](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/error.go#L55>)
+### func \(ErrMulti\) ToError
 
 ```go
 func (errs ErrMulti) ToError() error
@@ -1354,7 +1426,7 @@ func (errs ErrMulti) ToError() error
 
 ToError преобразует мульти\-ошибку в стандартный тип error. Если ошибок 0 \- возвращается nil.
 
-## type [QueuedClient](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/client.go#L64-L69>)
+## type QueuedClient
 
 QueuedClient \- низкоуровневый клиент queued
 
@@ -1365,7 +1437,7 @@ type QueuedClient struct {
 }
 ```
 
-### func [Dial](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/client.go#L72>)
+### func Dial
 
 ```go
 func Dial(ctx context.Context, conf *queueconfig.Config) (*QueuedClient, error)
@@ -1373,7 +1445,7 @@ func Dial(ctx context.Context, conf *queueconfig.Config) (*QueuedClient, error)
 
 Dial открывает соединения к серверам queued, указанным в онлайнконфе
 
-### func \(\*QueuedClient\) [Defer](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/api.go#L154>)
+### func \(\*QueuedClient\) Defer
 
 ```go
 func (qc *QueuedClient) Defer(ctx context.Context, queueID uint16, delay time.Duration, eventIDs []queuedproto.EventID) error
@@ -1385,7 +1457,7 @@ Defer устанавливает задержку для указанных со
 
 Обновления производятся пачками по update\_batch\_size событий.
 
-### func \(\*QueuedClient\) [Delete](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/api.go#L127>)
+### func \(\*QueuedClient\) Delete
 
 ```go
 func (qc *QueuedClient) Delete(ctx context.Context, queueID uint16, eventIDs []queuedproto.EventID) error
@@ -1393,7 +1465,7 @@ func (qc *QueuedClient) Delete(ctx context.Context, queueID uint16, eventIDs []q
 
 Delete удаляет указанные события параллельно изо всех необходимых шардов пачками по update\_batch\_size событий. TODO может быть, игнорить ErrItemLocked и просто писать его в лог?
 
-### func \(\*QueuedClient\) [GetActive](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/api.go#L23>)
+### func \(\*QueuedClient\) GetActive
 
 ```go
 func (qc *QueuedClient) GetActive(ctx context.Context, queueID uint16, count int) (queuedproto.ItemList, error)
@@ -1407,7 +1479,7 @@ GetActive получает активные события из очереди q
 
 Ретраи в случае ошибок не производятся.
 
-### func \(\*QueuedClient\) [GetByIDs](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/api.go#L106>)
+### func \(\*QueuedClient\) GetByIDs
 
 ```go
 func (qc *QueuedClient) GetByIDs(ctx context.Context, queueID uint16, eventIDs []queuedproto.EventID) (queuedproto.ItemList, error)
@@ -1417,7 +1489,7 @@ GetByIDs запрашивает события из очереди queueID с у
 
 Ретраи в случае ошибок не производятся.
 
-### func \(\*QueuedClient\) [GetByIDsBroadcast](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/api.go#L45>)
+### func \(\*QueuedClient\) GetByIDsBroadcast
 
 ```go
 func (qc *QueuedClient) GetByIDsBroadcast(ctx context.Context, queueID uint16, eventIDs []uint64) (queuedproto.ItemList, error)
@@ -1429,7 +1501,7 @@ GetByIDsBroadcast запрашивает события из очереди queu
 
 Ретраи в случае ошибок не производятся.
 
-### func \(\*QueuedClient\) [MakeBroadcastRequest](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/request.go#L108>)
+### func \(\*QueuedClient\) MakeBroadcastRequest
 
 ```go
 func (qc *QueuedClient) MakeBroadcastRequest(ctx context.Context, req queuedproto.Request, resFunc ResultFunc) error
@@ -1445,7 +1517,7 @@ resFunc вызывается из разных горутин и должна б
 
 TODO раскопипастить broad/multicast запросы \- когда полностью определимся с их логикой. Возможно, использовать общее с box решение, после перевода его на easygo/iproto.
 
-### func \(\*QueuedClient\) [MakeMulticastRequest](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/request.go#L185>)
+### func \(\*QueuedClient\) MakeMulticastRequest
 
 ```go
 func (qc *QueuedClient) MakeMulticastRequest(ctx context.Context, batchSize int, eventIDs []queuedproto.EventID, reqFunc RequestFunc, resFunc ResultFunc) error
@@ -1461,7 +1533,7 @@ resFunc вызывается из разных горутин и должна б
 
 Возврат ошибки не говорит о том, что запрос не выполнен нигде \- кол\-во успешно выполненных запросов \(и полученных данных\) следует осуществлять в resFunc.
 
-### func \(\*QueuedClient\) [MakeUnicastRequest](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/request.go#L42>)
+### func \(\*QueuedClient\) MakeUnicastRequest
 
 ```go
 func (qc *QueuedClient) MakeUnicastRequest(ctx context.Context, shard uint, req queuedproto.Request) (usedShard uint, respBytes []byte, err error)
@@ -1473,7 +1545,7 @@ MakeUnicastRequest посылает запрос req к указанному ш�
 
 Если задан shard == BalanceShard, шард выбирается по round robin. В этом случае, каждый ретрай посылается в следующий шард.
 
-### func \(\*QueuedClient\) [Publish](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/api.go#L205>)
+### func \(\*QueuedClient\) Publish
 
 ```go
 func (qc *QueuedClient) Publish(ctx context.Context, queueID uint16, eventID queuedproto.EventID, flags uint32, eventData []byte) (queuedproto.EventID, error)
@@ -1491,7 +1563,7 @@ ID запроса \(queuedproto.ReqAddItem.ReqID\) для всех ретрае�
 
 Ошибки обработки результата \(iproto.Unpack\) не приводят к ретраям, т.к., скорее всего, являются ошибками прикладного уровня.
 
-### func \(\*QueuedClient\) [ShardNum](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/client.go#L127>)
+### func \(\*QueuedClient\) ShardNum
 
 ```go
 func (qc *QueuedClient) ShardNum() uint
@@ -1499,7 +1571,7 @@ func (qc *QueuedClient) ShardNum() uint
 
 ShardNum возвращает количество шардов, указанных в /queueds/multi.
 
-## type [RequestFunc](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/request.go#L19>)
+## type RequestFunc
 
 RequestFunc вызывается функцией MakeMulticastRequest для формирования запроса для указанных ID \(относящихся к одному шарду\)
 
@@ -1507,7 +1579,7 @@ RequestFunc вызывается функцией MakeMulticastRequest для ф
 type RequestFunc func(eventIDs []uint64) queuedproto.Request
 ```
 
-## type [ResultFunc](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/queuedclient/request.go#L25>)
+## type ResultFunc
 
 ResultFunc вызывается функциями MakeBroadcastRequest и MakeMulticastRequest для сохранения результата, полученного из указанного шарда. Результат надо сохранять либо через замыкание \- либо передавать в качестве этой функции bound method объекта, куда сохраняются данные.
 
@@ -1516,6 +1588,140 @@ ResultFunc вызывается функциями MakeBroadcastRequest и MakeM
 ```go
 type ResultFunc func(shard uint, result []byte) error
 ```
+
+# slotpool
+
+```go
+import "gitlab.corp.mail.ru/mygo/tp.git/slotpool"
+```
+
+## Index
+
+- [Variables](<#variables>)
+- [type Pool](<#type-pool>)
+  - [func New(slotsCount int) *Pool](<#func-new>)
+  - [func (p *Pool) AddSlot()](<#func-pool-addslot>)
+  - [func (p *Pool) AssignSlot(id uint32, w Work) error](<#func-pool-assignslot>)
+  - [func (p *Pool) Finish()](<#func-pool-finish>)
+  - [func (p *Pool) ReleaseSlot(id uint32) error](<#func-pool-releaseslot>)
+  - [func (p *Pool) RemoveSlot()](<#func-pool-removeslot>)
+  - [func (p *Pool) SlotStates() []SlotState](<#func-pool-slotstates>)
+- [type SlotState](<#type-slotstate>)
+- [type Work](<#type-work>)
+
+
+## Variables
+
+```go
+var (
+    ErrSlotNotFound = errors.New("slot not found")
+)
+```
+
+## type Pool
+
+```go
+type Pool struct {
+    // contains filtered or unexported fields
+}
+```
+
+### func New
+
+```go
+func New(slotsCount int) *Pool
+```
+
+New starts a pool of slotsCount slots
+
+### func \(\*Pool\) AddSlot
+
+```go
+func (p *Pool) AddSlot()
+```
+
+AddSlot adds new slot to the pool.
+
+### func \(\*Pool\) AssignSlot
+
+```go
+func (p *Pool) AssignSlot(id uint32, w Work) error
+```
+
+AssignSlot adds work for the slot.
+
+AssignSlot drops pending work and exectue new one after the current work is completed.
+
+### func \(\*Pool\) Finish
+
+```go
+func (p *Pool) Finish()
+```
+
+Finish stops pool
+
+### func \(\*Pool\) ReleaseSlot
+
+```go
+func (p *Pool) ReleaseSlot(id uint32) error
+```
+
+ReleaseSlot removes work from the slot.
+
+### func \(\*Pool\) RemoveSlot
+
+```go
+func (p *Pool) RemoveSlot()
+```
+
+RemoveSlot releases last slot and remove it.
+
+### func \(\*Pool\) SlotStates
+
+```go
+func (p *Pool) SlotStates() []SlotState
+```
+
+## type SlotState
+
+```go
+type SlotState struct {
+    StartedAt     uint32
+    UpdatedAt     uint32
+    WorkID        uint32
+    PendingWorkID uint32
+}
+```
+
+## type Work
+
+```go
+type Work struct {
+    ID  uint32
+    Do  func()
+}
+```
+
+# tptest
+
+```go
+import "gitlab.corp.mail.ru/mygo/tp.git/test"
+```
+
+Package tptest contains integration tests
+
+## Index
+
+- [func ConfigDir() string](<#func-configdir>)
+
+
+## func ConfigDir
+
+```go
+func ConfigDir() string
+```
+
+ConfigDir returns path to directory with TREE.cdb file.
 
 # workerpool
 
@@ -1538,12 +1744,13 @@ Package workerpool \- абстрактный пул воркеров.
 - [type Worker](<#type-worker>)
 - [type WorkerPool](<#type-workerpool>)
   - [func New(poller Poller, logger *zerolog.Logger) *WorkerPool](<#func-new>)
-  - [func (wp *WorkerPool) Manage()](<#func-workerpool-manage>)
+  - [func (wp *WorkerPool) Run()](<#func-workerpool-run>)
   - [func (wp *WorkerPool) SetDryPollDelay(dryPollDelay time.Duration)](<#func-workerpool-setdrypolldelay>)
   - [func (wp *WorkerPool) SetIdleDelay(idleDelay time.Duration)](<#func-workerpool-setidledelay>)
   - [func (wp *WorkerPool) SetMaxDryPolls(maxDryPolls int)](<#func-workerpool-setmaxdrypolls>)
   - [func (wp *WorkerPool) SetWorkerCount(jobID JobTypeID, count int)](<#func-workerpool-setworkercount>)
   - [func (wp *WorkerPool) Stop()](<#func-workerpool-stop>)
+- [type WorkerStat](<#type-workerstat>)
 
 
 ## Constants
@@ -1565,7 +1772,7 @@ const (
 )
 ```
 
-## type [JobTypeID](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/workerpool/pool.go#L38>)
+## type JobTypeID
 
 JobTypeID \- здесь работой называется очередь, на случай выноса функцонала пула воркеров из проекта очередей.
 
@@ -1573,7 +1780,7 @@ JobTypeID \- здесь работой называется очередь, на
 type JobTypeID = uint16
 ```
 
-## type [Poller](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/workerpool/pool.go#L46-L49>)
+## type Poller
 
 Poller используется для опроса ресурса с указанным ID.
 
@@ -1588,7 +1795,7 @@ type Poller interface {
 }
 ```
 
-## type [Stopper](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/workerpool/pool.go#L54-L56>)
+## type Stopper
 
 Stopper \- если poller поддерживает также этот интерфейс, при запросе остановки вызывается метод Stop.
 
@@ -1600,7 +1807,7 @@ type Stopper interface {
 }
 ```
 
-## type [Worker](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/workerpool/pool.go#L61-L63>)
+## type Worker
 
 Worker возвращается методом Poller.Poll, метод Work осуществляет выполнение задания.
 
@@ -1609,10 +1816,11 @@ Worker возвращается методом Poller.Poll, метод Work ос
 ```go
 type Worker interface {
     Work()
+    Stat() WorkerStat
 }
 ```
 
-## type [WorkerPool](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/workerpool/pool.go#L87-L107>)
+## type WorkerPool
 
 WorkerPool \- управляемый пул воркеров
 
@@ -1623,7 +1831,7 @@ type WorkerPool struct {
 }
 ```
 
-### func [New](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/workerpool/pool.go#L111>)
+### func New
 
 ```go
 func New(poller Poller, logger *zerolog.Logger) *WorkerPool
@@ -1631,15 +1839,15 @@ func New(poller Poller, logger *zerolog.Logger) *WorkerPool
 
 New создаёт новый пул воркеров
 
-### func \(\*WorkerPool\) [Manage](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/workerpool/manage.go#L13>)
+### func \(\*WorkerPool\) Run
 
 ```go
-func (wp *WorkerPool) Manage()
+func (wp *WorkerPool) Run()
 ```
 
-Manage управляет запуском заданий. Метод не возвращается, в случае паники об этом пишется в лог, и обработка возобновляется.
+Run управляет запуском заданий. Метод не возвращается, в случае паники об этом пишется в лог, и обработка возобновляется.
 
-### func \(\*WorkerPool\) [SetDryPollDelay](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/workerpool/api.go#L28>)
+### func \(\*WorkerPool\) SetDryPollDelay
 
 ```go
 func (wp *WorkerPool) SetDryPollDelay(dryPollDelay time.Duration)
@@ -1647,7 +1855,7 @@ func (wp *WorkerPool) SetDryPollDelay(dryPollDelay time.Duration)
 
 SetDryPollDelay \- устанавливает задержку после maxDryPolls пустых запросов \(не вернувших новые записи\) \(default: 50 мсек\)
 
-### func \(\*WorkerPool\) [SetIdleDelay](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/workerpool/api.go#L33>)
+### func \(\*WorkerPool\) SetIdleDelay
 
 ```go
 func (wp *WorkerPool) SetIdleDelay(idleDelay time.Duration)
@@ -1655,7 +1863,7 @@ func (wp *WorkerPool) SetIdleDelay(idleDelay time.Duration)
 
 SetIdleDelay \- устанавливает задержку опроса по умолчанию, если других задержек нет \(default: 5 секунд\)
 
-### func \(\*WorkerPool\) [SetMaxDryPolls](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/workerpool/api.go#L23>)
+### func \(\*WorkerPool\) SetMaxDryPolls
 
 ```go
 func (wp *WorkerPool) SetMaxDryPolls(maxDryPolls int)
@@ -1663,7 +1871,7 @@ func (wp *WorkerPool) SetMaxDryPolls(maxDryPolls int)
 
 SetMaxDryPolls \- устанавливает максимальное кол\-во пустых опросов очереди, после которых будет осуществлена задержка опроса этой очереди на dryPollDelay \(default: 20 раз\)
 
-### func \(\*WorkerPool\) [SetWorkerCount](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/workerpool/api.go#L15>)
+### func \(\*WorkerPool\) SetWorkerCount
 
 ```go
 func (wp *WorkerPool) SetWorkerCount(jobID JobTypeID, count int)
@@ -1671,13 +1879,3318 @@ func (wp *WorkerPool) SetWorkerCount(jobID JobTypeID, count int)
 
 SetWorkerCount устанавливает кол\-во воркеров count для работы jobID. Если горутин для выполнения работ всех типов не хватает \- новые запускаются сразу, если есть лишние \- горутины выходят, только если есть простаивающие горутины. Если за время выполнения работы горутины перестали быть "лишними" \(вызвали SetWorkerCount с новыми параметрами\), выходить они не будут \(условие выхода проверяется по завершении работы\).
 
-### func \(\*WorkerPool\) [Stop](<https://gitlab.corp.mail.ru/mygo/tp/blob/master/workerpool/api.go#L38>)
+### func \(\*WorkerPool\) Stop
 
 ```go
 func (wp *WorkerPool) Stop()
 ```
 
-Stop останавливает обработку. После выхода всех работающих обработчиков событий, метод Manage возвращается
+Stop останавливает обработку. После выхода всех работающих обработчиков событий, метод Manage возвращается. Можно вызывать этот метод более одного раза.
+
+## type WorkerStat
+
+```go
+type WorkerStat interface {
+    Processed() uint32
+    Errors() uint32
+}
+```
+
+# queued\-stresser
+
+```go
+import "gitlab.corp.mail.ru/mygo/tp.git/cmd/queued-stresser"
+```
+
+queued\-stresser \- parallel and asynchronous queued stress test.
+
+## Index
+
+- [Constants](<#constants>)
+- [func SleepContext(ctx context.Context, delay time.Duration)](<#func-sleepcontext>)
+- [type Admin](<#type-admin>)
+  - [func NewAdmin(ctx context.Context, opt *Options) (Admin, error)](<#func-newadmin>)
+  - [func (adm Admin) Close()](<#func-admin-close>)
+  - [func (adm Admin) DestroyStorage(_ context.Context, queueID int) error](<#func-admin-destroystorage>)
+- [type ConnPool](<#type-connpool>)
+  - [func NewConnPool(opt *Options) *ConnPool](<#func-newconnpool>)
+  - [func (cp *ConnPool) GetDelay() time.Duration](<#func-connpool-getdelay>)
+  - [func (cp *ConnPool) Run(ctx context.Context)](<#func-connpool-run>)
+  - [func (cp *ConnPool) SampleDuration() (time.Duration, time.Duration)](<#func-connpool-sampleduration>)
+  - [func (cp *ConnPool) SampleSize() uint64](<#func-connpool-samplesize>)
+  - [func (cp *ConnPool) SetDelay(delay time.Duration)](<#func-connpool-setdelay>)
+  - [func (cp *ConnPool) TotalCount() uint32](<#func-connpool-totalcount>)
+- [type Options](<#type-options>)
+
+
+## Constants
+
+AdminRespOK \- successful admin port response.
+
+```go
+const AdminRespOK = "Ok"
+```
+
+## func SleepContext
+
+```go
+func SleepContext(ctx context.Context, delay time.Duration)
+```
+
+SleepContext should be moved to myutils or even to the official time package \)
+
+## type Admin
+
+Admin \- queued admin port client.
+
+```go
+type Admin struct {
+    // contains filtered or unexported fields
+}
+```
+
+### func NewAdmin
+
+```go
+func NewAdmin(ctx context.Context, opt *Options) (Admin, error)
+```
+
+NewAdmin connects opt.AdminPort.
+
+### func \(Admin\) Close
+
+```go
+func (adm Admin) Close()
+```
+
+Close calls the underlying Close call ignoring the result.
+
+### func \(Admin\) DestroyStorage
+
+```go
+func (adm Admin) DestroyStorage(_ context.Context, queueID int) error
+```
+
+DestroyStorage performs the \`set destroy\_storage\` command. TODO handle context cancellation
+
+## type ConnPool
+
+ConnPool represents stress test connection pool state.
+
+```go
+type ConnPool struct {
+    // contains filtered or unexported fields
+}
+```
+
+### func NewConnPool
+
+```go
+func NewConnPool(opt *Options) *ConnPool
+```
+
+NewConnPool initializes ConnPool. Each new pool comes with the unique random pid.
+
+### func \(\*ConnPool\) GetDelay
+
+```go
+func (cp *ConnPool) GetDelay() time.Duration
+```
+
+GetDelay returns the current duration of delay performed after each request.
+
+### func \(\*ConnPool\) Run
+
+```go
+func (cp *ConnPool) Run(ctx context.Context)
+```
+
+Run the connection pool until the context is cancelled. Connections are restarted on protocol\- and connection\-level errors.
+
+### func \(\*ConnPool\) SampleDuration
+
+```go
+func (cp *ConnPool) SampleDuration() (time.Duration, time.Duration)
+```
+
+SampleDuration returns the total/maximum durations of all requests sent since the previous SampleDuration call.
+
+### func \(\*ConnPool\) SampleSize
+
+```go
+func (cp *ConnPool) SampleSize() uint64
+```
+
+SampleSize returns the total size of all requests sent since the previous SampleSize call.
+
+### func \(\*ConnPool\) SetDelay
+
+```go
+func (cp *ConnPool) SetDelay(delay time.Duration)
+```
+
+SetDelay sets the duration of delay performed after each request.
+
+### func \(\*ConnPool\) TotalCount
+
+```go
+func (cp *ConnPool) TotalCount() uint32
+```
+
+TotalCount atomically reads current request ID \(i.e. total request count\).
+
+## type Options
+
+Options represents command line options.
+
+```go
+type Options struct {
+    MasterPort  string `yaml:"master"`
+    AdminPort   string `yaml:"admin"`
+    QueueID     int    `yaml:"queue"`
+    Connections int    `yaml:"conn"`
+    Pipeline    int
+    Size        int
+    Timeout     time.Duration
+    Duration    time.Duration
+    Refresh     time.Duration
+    RPS         float64
+    Debug       bool
+}
+```
+
+# managedmaster
+
+```go
+import "gitlab.corp.mail.ru/mygo/tp.git/managed/master"
+```
+
+## Index
+
+- [type ManagedMaster](<#type-managedmaster>)
+  - [func NewManagedMaster(queue Queue, pool Pool, poller workerpool.Poller, logger *zerolog.Logger) *ManagedMaster](<#func-newmanagedmaster>)
+  - [func (mm *ManagedMaster) AssignSlot(slotID, queueID uint32) error](<#func-managedmaster-assignslot>)
+  - [func (mm *ManagedMaster) Stats() qmclient.StatsData](<#func-managedmaster-stats>)
+- [type Pool](<#type-pool>)
+- [type Queue](<#type-queue>)
+- [type SlotStat](<#type-slotstat>)
+
+
+## type ManagedMaster
+
+```go
+type ManagedMaster struct {
+    // contains filtered or unexported fields
+}
+```
+
+### func NewManagedMaster
+
+```go
+func NewManagedMaster(queue Queue, pool Pool, poller workerpool.Poller, logger *zerolog.Logger) *ManagedMaster
+```
+
+### func \(\*ManagedMaster\) AssignSlot
+
+```go
+func (mm *ManagedMaster) AssignSlot(slotID, queueID uint32) error
+```
+
+### func \(\*ManagedMaster\) Stats
+
+```go
+func (mm *ManagedMaster) Stats() qmclient.StatsData
+```
+
+## type Pool
+
+```go
+type Pool interface {
+    AddSlot()
+    AssignSlot(id uint32, w slotpool.Work) error
+    Finish()
+    ReleaseSlot(id uint32) error
+    RemoveSlot()
+    SlotStates() []slotpool.SlotState
+}
+```
+
+## type Queue
+
+```go
+type Queue interface {
+    Encode(data tp.Handler) (eventData []byte, err error)
+    GetActiveEvents(ctx context.Context, queueID uint16, count int) (*tp.EventList, error)
+    GetEventsByIDs(ctx context.Context, queueID uint16, eventIDs []queuedproto.EventID) (*tp.EventList, error)
+    IsRegistered(queueID uint16) bool
+    NewPoller(logger *zerolog.Logger) workerpool.Poller
+    Publish(ctx context.Context, event tp.Handler) (eventID queuedproto.EventID, err error)
+    Queued() *queuedclient.QueuedClient
+    Register(queueID uint16, valueExample tp.Handler, autofill tp.MarshalerDisabled) error
+}
+```
+
+## type SlotStat
+
+```go
+type SlotStat interface {
+    AddQueueWaitTime(queueID uint32, t float64)
+    AddQueueWorkTime(queueID uint32, t float64)
+    AddQueueProcessed(queueID, n uint32)
+    AddQueueErrors(queueID, n uint32)
+    IncrementQueueLoop(queueID uint32)
+    IncrementSlotError()
+    SetQueueID(id uint32)
+    SetState(state stats.State)
+    Stat() stats.SlotStat
+}
+```
+
+# qmclient
+
+```go
+import "gitlab.corp.mail.ru/mygo/tp.git/managed/qmclient"
+```
+
+## Index
+
+- [type Client](<#type-client>)
+  - [func NewClient(endpoint string, assignSlot func(slotID, queueID uint32) error, stats func() StatsData) *Client](<#func-newclient>)
+  - [func (c *Client) Run(ctx context.Context)](<#func-client-run>)
+  - [func (c *Client) ServeIProto(ctx context.Context, conn iproto.Conn, packet iproto.Packet)](<#func-client-serveiproto>)
+- [type Connection](<#type-connection>)
+- [type QueueExtendedStat](<#type-queueextendedstat>)
+- [type QueueStat](<#type-queuestat>)
+- [type SetQueue](<#type-setqueue>)
+- [type SetQueueRequest](<#type-setqueuerequest>)
+- [type SetQueueResponse](<#type-setqueueresponse>)
+- [type SlotStat](<#type-slotstat>)
+- [type StatsData](<#type-statsdata>)
+- [type StatsResponse](<#type-statsresponse>)
+
+
+## type Client
+
+```go
+type Client struct {
+    // contains filtered or unexported fields
+}
+```
+
+### func NewClient
+
+```go
+func NewClient(endpoint string, assignSlot func(slotID, queueID uint32) error, stats func() StatsData) *Client
+```
+
+### func \(\*Client\) Run
+
+```go
+func (c *Client) Run(ctx context.Context)
+```
+
+### func \(\*Client\) ServeIProto
+
+```go
+func (c *Client) ServeIProto(ctx context.Context, conn iproto.Conn, packet iproto.Packet)
+```
+
+## type Connection
+
+```go
+type Connection interface {
+    RemoteAddr() net.Addr
+    LocalAddr() net.Addr
+    Call(ctx context.Context, message uint32, data []byte) ([]byte, error)
+    Notify(ctx context.Context, message uint32, data []byte) error
+    Send(ctx context.Context, packet iproto.Packet) error
+    Close()
+    Shutdown()
+    Done() <-chan struct{}
+    OnClose(func())
+    GetBytes(n int) []byte
+    PutBytes(p []byte)
+}
+```
+
+## type QueueExtendedStat
+
+```go
+type QueueExtendedStat struct {
+    QueueID   uint32
+    Flags     uint32
+    StartedAt uint32
+    StoppedAt uint32
+    Current   QueueStat
+    Total     QueueStat
+}
+```
+
+## type QueueStat
+
+```go
+type QueueStat struct {
+    EvalErrors uint32
+    Processed  uint32
+    Errors     uint32
+    Loops      uint32
+    WorkTime   float64
+    WaitTime   float64
+    Started    uint32
+    Stopped    uint32
+}
+```
+
+## type SetQueue
+
+```go
+type SetQueue struct {
+    Slot    uint32
+    QueueID uint32
+    Flags   uint32
+}
+```
+
+## type SetQueueRequest
+
+```go
+type SetQueueRequest struct {
+    Queues []SetQueue `iproto:"u32"`
+}
+```
+
+## type SetQueueResponse
+
+```go
+type SetQueueResponse struct {
+    Status           uint32
+    SetQueueStatuses []uint32 `iproto:"u32"`
+    Stats            StatsResponse
+}
+```
+
+## type SlotStat
+
+```go
+type SlotStat struct {
+    UpdateTime     uint32
+    StartTime      uint32
+    Status         uint32
+    PID            uint32
+    SlotNumber     uint32
+    State          uint32
+    LoadErrors     uint32
+    Switches       uint32
+    Interval       float64
+    Overall        QueueStat
+    QueueStat      QueueExtendedStat
+    NextQueueID    uint32
+    NextQueueFlags uint32
+    ArchivedQueues []QueueExtendedStat `iproto:"u32"`
+}
+```
+
+## type StatsData
+
+```go
+type StatsData struct {
+    PID                   uint32
+    StartedAt             uint32
+    LastSlotStatUpdatedAt uint32
+    TotalSlots            uint32
+    UnknownSlots          uint32
+    AdminConsolePort      uint32
+    Slots                 []SlotStat `iproto:"u32"`
+}
+```
+
+## type StatsResponse
+
+```go
+type StatsResponse struct {
+    Status  uint32
+    Data    StatsData
+    Cluster string `iproto:"u32"`
+}
+```
+
+# stats
+
+```go
+import "gitlab.corp.mail.ru/mygo/tp.git/managed/stats"
+```
+
+Package stats provides functionality for tracking and managing statistical data related to queues and slots.
+
+## Index
+
+- [type QueueCounters](<#type-queuecounters>)
+- [type QueueStat](<#type-queuestat>)
+- [type Slot](<#type-slot>)
+  - [func New(id uint32) *Slot](<#func-new>)
+  - [func (s *Slot) AddQueueErrors(queueID, n uint32)](<#func-slot-addqueueerrors>)
+  - [func (s *Slot) AddQueueProcessed(queueID, n uint32)](<#func-slot-addqueueprocessed>)
+  - [func (s *Slot) AddQueueWaitTime(queueID uint32, t float64)](<#func-slot-addqueuewaittime>)
+  - [func (s *Slot) AddQueueWorkTime(queueID uint32, t float64)](<#func-slot-addqueueworktime>)
+  - [func (s *Slot) IncrementQueueLoop(queueID uint32)](<#func-slot-incrementqueueloop>)
+  - [func (s *Slot) IncrementSlotError()](<#func-slot-incrementsloterror>)
+  - [func (s *Slot) SetQueueID(id uint32)](<#func-slot-setqueueid>)
+  - [func (s *Slot) SetState(state State)](<#func-slot-setstate>)
+  - [func (s *Slot) Stat() SlotStat](<#func-slot-stat>)
+- [type SlotStat](<#type-slotstat>)
+- [type State](<#type-state>)
+
+
+## type QueueCounters
+
+```go
+type QueueCounters struct {
+    Processed uint32
+    Errors    uint32
+    Loops     uint32
+    WorkTime  float64
+    WaitTime  float64
+    Started   uint32
+    Stopped   uint32
+}
+```
+
+## type QueueStat
+
+QueueStat represents the statistics of a queue.
+
+```go
+type QueueStat struct {
+    ID        uint32
+    StartedAt uint32
+    StoppedAt uint32
+
+    Current QueueCounters
+    Total   QueueCounters
+}
+```
+
+## type Slot
+
+Slot represents a slot and its associated statistics.
+
+```go
+type Slot struct {
+    // contains filtered or unexported fields
+}
+```
+
+### func New
+
+```go
+func New(id uint32) *Slot
+```
+
+New creates a new slot with the given ID and initializes its parameters.
+
+### func \(\*Slot\) AddQueueErrors
+
+```go
+func (s *Slot) AddQueueErrors(queueID, n uint32)
+```
+
+AddQueueErrors adds the provided number to the queue errors.
+
+### func \(\*Slot\) AddQueueProcessed
+
+```go
+func (s *Slot) AddQueueProcessed(queueID, n uint32)
+```
+
+AddQueueProcessed adds the provided number to the queue processed.
+
+### func \(\*Slot\) AddQueueWaitTime
+
+```go
+func (s *Slot) AddQueueWaitTime(queueID uint32, t float64)
+```
+
+AddQueueWaitTime adds the provided time to the queue waitTime.
+
+### func \(\*Slot\) AddQueueWorkTime
+
+```go
+func (s *Slot) AddQueueWorkTime(queueID uint32, t float64)
+```
+
+AddQueueWaitTime adds the provided time to the queue workTime.
+
+### func \(\*Slot\) IncrementQueueLoop
+
+```go
+func (s *Slot) IncrementQueueLoop(queueID uint32)
+```
+
+IncrementQueueLoop increments the slot loop count by 1.
+
+### func \(\*Slot\) IncrementSlotError
+
+```go
+func (s *Slot) IncrementSlotError()
+```
+
+IncrementSlotError increments the slot error count by 1.
+
+### func \(\*Slot\) SetQueueID
+
+```go
+func (s *Slot) SetQueueID(id uint32)
+```
+
+SetQueueID sets the queue ID for the slot and handles queue switching logic.
+
+### func \(\*Slot\) SetState
+
+```go
+func (s *Slot) SetState(state State)
+```
+
+SetState sets the state of the slot.
+
+### func \(\*Slot\) Stat
+
+```go
+func (s *Slot) Stat() SlotStat
+```
+
+Stat returns the current statistics of the slot, including its queues.
+
+## type SlotStat
+
+SlotStat represents the statistics of a slot.
+
+```go
+type SlotStat struct {
+    ID         uint32
+    PID        uint32
+    StartedAt  uint32
+    State      State
+    QueueID    uint32
+    Switches   int
+    SlotErrors int
+    Queues     []QueueStat
+}
+```
+
+## type State
+
+State represents the state of a slot.
+
+```go
+type State uint32
+```
+
+```go
+const (
+    Idle      State = 1
+    Working   State = 2
+    Switching State = 3
+    Sleeping  State = 7
+)
+```
+
+# examples
+
+```go
+import "gitlab.corp.mail.ru/mygo/tp.git/test/examples"
+```
+
+## Index
+
+- [Constants](<#constants>)
+- [type Service](<#type-service>)
+- [type SimpleEvent](<#type-simpleevent>)
+  - [func (ev *SimpleEvent) Handle(ctx context.Context) error](<#func-simpleevent-handle>)
+  - [func (*SimpleEvent) Version() uint8](<#func-simpleevent-version>)
+
+
+## Constants
+
+```go
+const SimpleQueueID = 1122
+```
+
+## type Service
+
+```go
+type Service struct {
+    tp.DisableMarshaler
+    DatabaseConnection any
+}
+```
+
+## type SimpleEvent
+
+```go
+type SimpleEvent struct {
+    tp.Event
+
+    ID   uint32
+    Name string
+
+    Service *Service `iproto:"-"` // поля с этим тэгом игнорируются при сериализации
+}
+```
+
+### func \(\*SimpleEvent\) Handle
+
+```go
+func (ev *SimpleEvent) Handle(ctx context.Context) error
+```
+
+### func \(\*SimpleEvent\) Version
+
+```go
+func (*SimpleEvent) Version() uint8
+```
+
+# rootpath
+
+```go
+import "gitlab.corp.mail.ru/mygo/tp.git/test/rootpath"
+```
+
+Package rootpath provides root path of the project.
+
+## Index
+
+- [Variables](<#variables>)
+
+
+## Variables
+
+```go
+var (
+
+    // Root contains absolute path of the project
+    Root = filepath.Join(filepath.Dir(b), "../..")
+)
+```
+
+# mock\_iproto
+
+```go
+import "gitlab.corp.mail.ru/mygo/tp.git/test/mock/iproto"
+```
+
+Code generated by MockGen. DO NOT EDIT. Source: gitlab.corp.mail.ru/mygo/tp.git/managed/qmclient \(interfaces: Connection\)
+
+Generated by this command:
+
+```
+mockgen -destination test/mock/iproto/mock_iproto.go -typed -package mock_iproto gitlab.corp.mail.ru/mygo/tp.git/managed/qmclient Connection
+```
+
+Package mock\_iproto is a generated GoMock package.
+
+## Index
+
+- [type ConnectionCallCall](<#type-connectioncallcall>)
+  - [func (c *ConnectionCallCall) Do(f func(context.Context, uint32, []byte) ([]byte, error)) *ConnectionCallCall](<#func-connectioncallcall-do>)
+  - [func (c *ConnectionCallCall) DoAndReturn(f func(context.Context, uint32, []byte) ([]byte, error)) *ConnectionCallCall](<#func-connectioncallcall-doandreturn>)
+  - [func (c *ConnectionCallCall) Return(arg0 []byte, arg1 error) *ConnectionCallCall](<#func-connectioncallcall-return>)
+- [type ConnectionCloseCall](<#type-connectionclosecall>)
+  - [func (c *ConnectionCloseCall) Do(f func()) *ConnectionCloseCall](<#func-connectionclosecall-do>)
+  - [func (c *ConnectionCloseCall) DoAndReturn(f func()) *ConnectionCloseCall](<#func-connectionclosecall-doandreturn>)
+  - [func (c *ConnectionCloseCall) Return() *ConnectionCloseCall](<#func-connectionclosecall-return>)
+- [type ConnectionDoneCall](<#type-connectiondonecall>)
+  - [func (c *ConnectionDoneCall) Do(f func() <-chan struct{}) *ConnectionDoneCall](<#func-connectiondonecall-do>)
+  - [func (c *ConnectionDoneCall) DoAndReturn(f func() <-chan struct{}) *ConnectionDoneCall](<#func-connectiondonecall-doandreturn>)
+  - [func (c *ConnectionDoneCall) Return(arg0 <-chan struct{}) *ConnectionDoneCall](<#func-connectiondonecall-return>)
+- [type ConnectionGetBytesCall](<#type-connectiongetbytescall>)
+  - [func (c *ConnectionGetBytesCall) Do(f func(int) []byte) *ConnectionGetBytesCall](<#func-connectiongetbytescall-do>)
+  - [func (c *ConnectionGetBytesCall) DoAndReturn(f func(int) []byte) *ConnectionGetBytesCall](<#func-connectiongetbytescall-doandreturn>)
+  - [func (c *ConnectionGetBytesCall) Return(arg0 []byte) *ConnectionGetBytesCall](<#func-connectiongetbytescall-return>)
+- [type ConnectionLocalAddrCall](<#type-connectionlocaladdrcall>)
+  - [func (c *ConnectionLocalAddrCall) Do(f func() net.Addr) *ConnectionLocalAddrCall](<#func-connectionlocaladdrcall-do>)
+  - [func (c *ConnectionLocalAddrCall) DoAndReturn(f func() net.Addr) *ConnectionLocalAddrCall](<#func-connectionlocaladdrcall-doandreturn>)
+  - [func (c *ConnectionLocalAddrCall) Return(arg0 net.Addr) *ConnectionLocalAddrCall](<#func-connectionlocaladdrcall-return>)
+- [type ConnectionNotifyCall](<#type-connectionnotifycall>)
+  - [func (c *ConnectionNotifyCall) Do(f func(context.Context, uint32, []byte) error) *ConnectionNotifyCall](<#func-connectionnotifycall-do>)
+  - [func (c *ConnectionNotifyCall) DoAndReturn(f func(context.Context, uint32, []byte) error) *ConnectionNotifyCall](<#func-connectionnotifycall-doandreturn>)
+  - [func (c *ConnectionNotifyCall) Return(arg0 error) *ConnectionNotifyCall](<#func-connectionnotifycall-return>)
+- [type ConnectionOnCloseCall](<#type-connectiononclosecall>)
+  - [func (c *ConnectionOnCloseCall) Do(f func(func())) *ConnectionOnCloseCall](<#func-connectiononclosecall-do>)
+  - [func (c *ConnectionOnCloseCall) DoAndReturn(f func(func())) *ConnectionOnCloseCall](<#func-connectiononclosecall-doandreturn>)
+  - [func (c *ConnectionOnCloseCall) Return() *ConnectionOnCloseCall](<#func-connectiononclosecall-return>)
+- [type ConnectionPutBytesCall](<#type-connectionputbytescall>)
+  - [func (c *ConnectionPutBytesCall) Do(f func([]byte)) *ConnectionPutBytesCall](<#func-connectionputbytescall-do>)
+  - [func (c *ConnectionPutBytesCall) DoAndReturn(f func([]byte)) *ConnectionPutBytesCall](<#func-connectionputbytescall-doandreturn>)
+  - [func (c *ConnectionPutBytesCall) Return() *ConnectionPutBytesCall](<#func-connectionputbytescall-return>)
+- [type ConnectionRemoteAddrCall](<#type-connectionremoteaddrcall>)
+  - [func (c *ConnectionRemoteAddrCall) Do(f func() net.Addr) *ConnectionRemoteAddrCall](<#func-connectionremoteaddrcall-do>)
+  - [func (c *ConnectionRemoteAddrCall) DoAndReturn(f func() net.Addr) *ConnectionRemoteAddrCall](<#func-connectionremoteaddrcall-doandreturn>)
+  - [func (c *ConnectionRemoteAddrCall) Return(arg0 net.Addr) *ConnectionRemoteAddrCall](<#func-connectionremoteaddrcall-return>)
+- [type ConnectionSendCall](<#type-connectionsendcall>)
+  - [func (c *ConnectionSendCall) Do(f func(context.Context, iproto.Packet) error) *ConnectionSendCall](<#func-connectionsendcall-do>)
+  - [func (c *ConnectionSendCall) DoAndReturn(f func(context.Context, iproto.Packet) error) *ConnectionSendCall](<#func-connectionsendcall-doandreturn>)
+  - [func (c *ConnectionSendCall) Return(arg0 error) *ConnectionSendCall](<#func-connectionsendcall-return>)
+- [type ConnectionShutdownCall](<#type-connectionshutdowncall>)
+  - [func (c *ConnectionShutdownCall) Do(f func()) *ConnectionShutdownCall](<#func-connectionshutdowncall-do>)
+  - [func (c *ConnectionShutdownCall) DoAndReturn(f func()) *ConnectionShutdownCall](<#func-connectionshutdowncall-doandreturn>)
+  - [func (c *ConnectionShutdownCall) Return() *ConnectionShutdownCall](<#func-connectionshutdowncall-return>)
+- [type MockConnection](<#type-mockconnection>)
+  - [func NewMockConnection(ctrl *gomock.Controller) *MockConnection](<#func-newmockconnection>)
+  - [func (m *MockConnection) Call(arg0 context.Context, arg1 uint32, arg2 []byte) ([]byte, error)](<#func-mockconnection-call>)
+  - [func (m *MockConnection) Close()](<#func-mockconnection-close>)
+  - [func (m *MockConnection) Done() <-chan struct{}](<#func-mockconnection-done>)
+  - [func (m *MockConnection) EXPECT() *MockConnectionMockRecorder](<#func-mockconnection-expect>)
+  - [func (m *MockConnection) GetBytes(arg0 int) []byte](<#func-mockconnection-getbytes>)
+  - [func (m *MockConnection) LocalAddr() net.Addr](<#func-mockconnection-localaddr>)
+  - [func (m *MockConnection) Notify(arg0 context.Context, arg1 uint32, arg2 []byte) error](<#func-mockconnection-notify>)
+  - [func (m *MockConnection) OnClose(arg0 func())](<#func-mockconnection-onclose>)
+  - [func (m *MockConnection) PutBytes(arg0 []byte)](<#func-mockconnection-putbytes>)
+  - [func (m *MockConnection) RemoteAddr() net.Addr](<#func-mockconnection-remoteaddr>)
+  - [func (m *MockConnection) Send(arg0 context.Context, arg1 iproto.Packet) error](<#func-mockconnection-send>)
+  - [func (m *MockConnection) Shutdown()](<#func-mockconnection-shutdown>)
+- [type MockConnectionMockRecorder](<#type-mockconnectionmockrecorder>)
+  - [func (mr *MockConnectionMockRecorder) Call(arg0, arg1, arg2 any) *ConnectionCallCall](<#func-mockconnectionmockrecorder-call>)
+  - [func (mr *MockConnectionMockRecorder) Close() *ConnectionCloseCall](<#func-mockconnectionmockrecorder-close>)
+  - [func (mr *MockConnectionMockRecorder) Done() *ConnectionDoneCall](<#func-mockconnectionmockrecorder-done>)
+  - [func (mr *MockConnectionMockRecorder) GetBytes(arg0 any) *ConnectionGetBytesCall](<#func-mockconnectionmockrecorder-getbytes>)
+  - [func (mr *MockConnectionMockRecorder) LocalAddr() *ConnectionLocalAddrCall](<#func-mockconnectionmockrecorder-localaddr>)
+  - [func (mr *MockConnectionMockRecorder) Notify(arg0, arg1, arg2 any) *ConnectionNotifyCall](<#func-mockconnectionmockrecorder-notify>)
+  - [func (mr *MockConnectionMockRecorder) OnClose(arg0 any) *ConnectionOnCloseCall](<#func-mockconnectionmockrecorder-onclose>)
+  - [func (mr *MockConnectionMockRecorder) PutBytes(arg0 any) *ConnectionPutBytesCall](<#func-mockconnectionmockrecorder-putbytes>)
+  - [func (mr *MockConnectionMockRecorder) RemoteAddr() *ConnectionRemoteAddrCall](<#func-mockconnectionmockrecorder-remoteaddr>)
+  - [func (mr *MockConnectionMockRecorder) Send(arg0, arg1 any) *ConnectionSendCall](<#func-mockconnectionmockrecorder-send>)
+  - [func (mr *MockConnectionMockRecorder) Shutdown() *ConnectionShutdownCall](<#func-mockconnectionmockrecorder-shutdown>)
+
+
+## type ConnectionCallCall
+
+ConnectionCallCall wrap \*gomock.Call
+
+```go
+type ConnectionCallCall struct {
+    *gomock.Call
+}
+```
+
+### func \(\*ConnectionCallCall\) Do
+
+```go
+func (c *ConnectionCallCall) Do(f func(context.Context, uint32, []byte) ([]byte, error)) *ConnectionCallCall
+```
+
+Do rewrite \*gomock.Call.Do
+
+### func \(\*ConnectionCallCall\) DoAndReturn
+
+```go
+func (c *ConnectionCallCall) DoAndReturn(f func(context.Context, uint32, []byte) ([]byte, error)) *ConnectionCallCall
+```
+
+DoAndReturn rewrite \*gomock.Call.DoAndReturn
+
+### func \(\*ConnectionCallCall\) Return
+
+```go
+func (c *ConnectionCallCall) Return(arg0 []byte, arg1 error) *ConnectionCallCall
+```
+
+Return rewrite \*gomock.Call.Return
+
+## type ConnectionCloseCall
+
+ConnectionCloseCall wrap \*gomock.Call
+
+```go
+type ConnectionCloseCall struct {
+    *gomock.Call
+}
+```
+
+### func \(\*ConnectionCloseCall\) Do
+
+```go
+func (c *ConnectionCloseCall) Do(f func()) *ConnectionCloseCall
+```
+
+Do rewrite \*gomock.Call.Do
+
+### func \(\*ConnectionCloseCall\) DoAndReturn
+
+```go
+func (c *ConnectionCloseCall) DoAndReturn(f func()) *ConnectionCloseCall
+```
+
+DoAndReturn rewrite \*gomock.Call.DoAndReturn
+
+### func \(\*ConnectionCloseCall\) Return
+
+```go
+func (c *ConnectionCloseCall) Return() *ConnectionCloseCall
+```
+
+Return rewrite \*gomock.Call.Return
+
+## type ConnectionDoneCall
+
+ConnectionDoneCall wrap \*gomock.Call
+
+```go
+type ConnectionDoneCall struct {
+    *gomock.Call
+}
+```
+
+### func \(\*ConnectionDoneCall\) Do
+
+```go
+func (c *ConnectionDoneCall) Do(f func() <-chan struct{}) *ConnectionDoneCall
+```
+
+Do rewrite \*gomock.Call.Do
+
+### func \(\*ConnectionDoneCall\) DoAndReturn
+
+```go
+func (c *ConnectionDoneCall) DoAndReturn(f func() <-chan struct{}) *ConnectionDoneCall
+```
+
+DoAndReturn rewrite \*gomock.Call.DoAndReturn
+
+### func \(\*ConnectionDoneCall\) Return
+
+```go
+func (c *ConnectionDoneCall) Return(arg0 <-chan struct{}) *ConnectionDoneCall
+```
+
+Return rewrite \*gomock.Call.Return
+
+## type ConnectionGetBytesCall
+
+ConnectionGetBytesCall wrap \*gomock.Call
+
+```go
+type ConnectionGetBytesCall struct {
+    *gomock.Call
+}
+```
+
+### func \(\*ConnectionGetBytesCall\) Do
+
+```go
+func (c *ConnectionGetBytesCall) Do(f func(int) []byte) *ConnectionGetBytesCall
+```
+
+Do rewrite \*gomock.Call.Do
+
+### func \(\*ConnectionGetBytesCall\) DoAndReturn
+
+```go
+func (c *ConnectionGetBytesCall) DoAndReturn(f func(int) []byte) *ConnectionGetBytesCall
+```
+
+DoAndReturn rewrite \*gomock.Call.DoAndReturn
+
+### func \(\*ConnectionGetBytesCall\) Return
+
+```go
+func (c *ConnectionGetBytesCall) Return(arg0 []byte) *ConnectionGetBytesCall
+```
+
+Return rewrite \*gomock.Call.Return
+
+## type ConnectionLocalAddrCall
+
+ConnectionLocalAddrCall wrap \*gomock.Call
+
+```go
+type ConnectionLocalAddrCall struct {
+    *gomock.Call
+}
+```
+
+### func \(\*ConnectionLocalAddrCall\) Do
+
+```go
+func (c *ConnectionLocalAddrCall) Do(f func() net.Addr) *ConnectionLocalAddrCall
+```
+
+Do rewrite \*gomock.Call.Do
+
+### func \(\*ConnectionLocalAddrCall\) DoAndReturn
+
+```go
+func (c *ConnectionLocalAddrCall) DoAndReturn(f func() net.Addr) *ConnectionLocalAddrCall
+```
+
+DoAndReturn rewrite \*gomock.Call.DoAndReturn
+
+### func \(\*ConnectionLocalAddrCall\) Return
+
+```go
+func (c *ConnectionLocalAddrCall) Return(arg0 net.Addr) *ConnectionLocalAddrCall
+```
+
+Return rewrite \*gomock.Call.Return
+
+## type ConnectionNotifyCall
+
+ConnectionNotifyCall wrap \*gomock.Call
+
+```go
+type ConnectionNotifyCall struct {
+    *gomock.Call
+}
+```
+
+### func \(\*ConnectionNotifyCall\) Do
+
+```go
+func (c *ConnectionNotifyCall) Do(f func(context.Context, uint32, []byte) error) *ConnectionNotifyCall
+```
+
+Do rewrite \*gomock.Call.Do
+
+### func \(\*ConnectionNotifyCall\) DoAndReturn
+
+```go
+func (c *ConnectionNotifyCall) DoAndReturn(f func(context.Context, uint32, []byte) error) *ConnectionNotifyCall
+```
+
+DoAndReturn rewrite \*gomock.Call.DoAndReturn
+
+### func \(\*ConnectionNotifyCall\) Return
+
+```go
+func (c *ConnectionNotifyCall) Return(arg0 error) *ConnectionNotifyCall
+```
+
+Return rewrite \*gomock.Call.Return
+
+## type ConnectionOnCloseCall
+
+ConnectionOnCloseCall wrap \*gomock.Call
+
+```go
+type ConnectionOnCloseCall struct {
+    *gomock.Call
+}
+```
+
+### func \(\*ConnectionOnCloseCall\) Do
+
+```go
+func (c *ConnectionOnCloseCall) Do(f func(func())) *ConnectionOnCloseCall
+```
+
+Do rewrite \*gomock.Call.Do
+
+### func \(\*ConnectionOnCloseCall\) DoAndReturn
+
+```go
+func (c *ConnectionOnCloseCall) DoAndReturn(f func(func())) *ConnectionOnCloseCall
+```
+
+DoAndReturn rewrite \*gomock.Call.DoAndReturn
+
+### func \(\*ConnectionOnCloseCall\) Return
+
+```go
+func (c *ConnectionOnCloseCall) Return() *ConnectionOnCloseCall
+```
+
+Return rewrite \*gomock.Call.Return
+
+## type ConnectionPutBytesCall
+
+ConnectionPutBytesCall wrap \*gomock.Call
+
+```go
+type ConnectionPutBytesCall struct {
+    *gomock.Call
+}
+```
+
+### func \(\*ConnectionPutBytesCall\) Do
+
+```go
+func (c *ConnectionPutBytesCall) Do(f func([]byte)) *ConnectionPutBytesCall
+```
+
+Do rewrite \*gomock.Call.Do
+
+### func \(\*ConnectionPutBytesCall\) DoAndReturn
+
+```go
+func (c *ConnectionPutBytesCall) DoAndReturn(f func([]byte)) *ConnectionPutBytesCall
+```
+
+DoAndReturn rewrite \*gomock.Call.DoAndReturn
+
+### func \(\*ConnectionPutBytesCall\) Return
+
+```go
+func (c *ConnectionPutBytesCall) Return() *ConnectionPutBytesCall
+```
+
+Return rewrite \*gomock.Call.Return
+
+## type ConnectionRemoteAddrCall
+
+ConnectionRemoteAddrCall wrap \*gomock.Call
+
+```go
+type ConnectionRemoteAddrCall struct {
+    *gomock.Call
+}
+```
+
+### func \(\*ConnectionRemoteAddrCall\) Do
+
+```go
+func (c *ConnectionRemoteAddrCall) Do(f func() net.Addr) *ConnectionRemoteAddrCall
+```
+
+Do rewrite \*gomock.Call.Do
+
+### func \(\*ConnectionRemoteAddrCall\) DoAndReturn
+
+```go
+func (c *ConnectionRemoteAddrCall) DoAndReturn(f func() net.Addr) *ConnectionRemoteAddrCall
+```
+
+DoAndReturn rewrite \*gomock.Call.DoAndReturn
+
+### func \(\*ConnectionRemoteAddrCall\) Return
+
+```go
+func (c *ConnectionRemoteAddrCall) Return(arg0 net.Addr) *ConnectionRemoteAddrCall
+```
+
+Return rewrite \*gomock.Call.Return
+
+## type ConnectionSendCall
+
+ConnectionSendCall wrap \*gomock.Call
+
+```go
+type ConnectionSendCall struct {
+    *gomock.Call
+}
+```
+
+### func \(\*ConnectionSendCall\) Do
+
+```go
+func (c *ConnectionSendCall) Do(f func(context.Context, iproto.Packet) error) *ConnectionSendCall
+```
+
+Do rewrite \*gomock.Call.Do
+
+### func \(\*ConnectionSendCall\) DoAndReturn
+
+```go
+func (c *ConnectionSendCall) DoAndReturn(f func(context.Context, iproto.Packet) error) *ConnectionSendCall
+```
+
+DoAndReturn rewrite \*gomock.Call.DoAndReturn
+
+### func \(\*ConnectionSendCall\) Return
+
+```go
+func (c *ConnectionSendCall) Return(arg0 error) *ConnectionSendCall
+```
+
+Return rewrite \*gomock.Call.Return
+
+## type ConnectionShutdownCall
+
+ConnectionShutdownCall wrap \*gomock.Call
+
+```go
+type ConnectionShutdownCall struct {
+    *gomock.Call
+}
+```
+
+### func \(\*ConnectionShutdownCall\) Do
+
+```go
+func (c *ConnectionShutdownCall) Do(f func()) *ConnectionShutdownCall
+```
+
+Do rewrite \*gomock.Call.Do
+
+### func \(\*ConnectionShutdownCall\) DoAndReturn
+
+```go
+func (c *ConnectionShutdownCall) DoAndReturn(f func()) *ConnectionShutdownCall
+```
+
+DoAndReturn rewrite \*gomock.Call.DoAndReturn
+
+### func \(\*ConnectionShutdownCall\) Return
+
+```go
+func (c *ConnectionShutdownCall) Return() *ConnectionShutdownCall
+```
+
+Return rewrite \*gomock.Call.Return
+
+## type MockConnection
+
+MockConnection is a mock of Connection interface.
+
+```go
+type MockConnection struct {
+    // contains filtered or unexported fields
+}
+```
+
+### func NewMockConnection
+
+```go
+func NewMockConnection(ctrl *gomock.Controller) *MockConnection
+```
+
+NewMockConnection creates a new mock instance.
+
+### func \(\*MockConnection\) Call
+
+```go
+func (m *MockConnection) Call(arg0 context.Context, arg1 uint32, arg2 []byte) ([]byte, error)
+```
+
+Call mocks base method.
+
+### func \(\*MockConnection\) Close
+
+```go
+func (m *MockConnection) Close()
+```
+
+Close mocks base method.
+
+### func \(\*MockConnection\) Done
+
+```go
+func (m *MockConnection) Done() <-chan struct{}
+```
+
+Done mocks base method.
+
+### func \(\*MockConnection\) EXPECT
+
+```go
+func (m *MockConnection) EXPECT() *MockConnectionMockRecorder
+```
+
+EXPECT returns an object that allows the caller to indicate expected use.
+
+### func \(\*MockConnection\) GetBytes
+
+```go
+func (m *MockConnection) GetBytes(arg0 int) []byte
+```
+
+GetBytes mocks base method.
+
+### func \(\*MockConnection\) LocalAddr
+
+```go
+func (m *MockConnection) LocalAddr() net.Addr
+```
+
+LocalAddr mocks base method.
+
+### func \(\*MockConnection\) Notify
+
+```go
+func (m *MockConnection) Notify(arg0 context.Context, arg1 uint32, arg2 []byte) error
+```
+
+Notify mocks base method.
+
+### func \(\*MockConnection\) OnClose
+
+```go
+func (m *MockConnection) OnClose(arg0 func())
+```
+
+OnClose mocks base method.
+
+### func \(\*MockConnection\) PutBytes
+
+```go
+func (m *MockConnection) PutBytes(arg0 []byte)
+```
+
+PutBytes mocks base method.
+
+### func \(\*MockConnection\) RemoteAddr
+
+```go
+func (m *MockConnection) RemoteAddr() net.Addr
+```
+
+RemoteAddr mocks base method.
+
+### func \(\*MockConnection\) Send
+
+```go
+func (m *MockConnection) Send(arg0 context.Context, arg1 iproto.Packet) error
+```
+
+Send mocks base method.
+
+### func \(\*MockConnection\) Shutdown
+
+```go
+func (m *MockConnection) Shutdown()
+```
+
+Shutdown mocks base method.
+
+## type MockConnectionMockRecorder
+
+MockConnectionMockRecorder is the mock recorder for MockConnection.
+
+```go
+type MockConnectionMockRecorder struct {
+    // contains filtered or unexported fields
+}
+```
+
+### func \(\*MockConnectionMockRecorder\) Call
+
+```go
+func (mr *MockConnectionMockRecorder) Call(arg0, arg1, arg2 any) *ConnectionCallCall
+```
+
+Call indicates an expected call of Call.
+
+### func \(\*MockConnectionMockRecorder\) Close
+
+```go
+func (mr *MockConnectionMockRecorder) Close() *ConnectionCloseCall
+```
+
+Close indicates an expected call of Close.
+
+### func \(\*MockConnectionMockRecorder\) Done
+
+```go
+func (mr *MockConnectionMockRecorder) Done() *ConnectionDoneCall
+```
+
+Done indicates an expected call of Done.
+
+### func \(\*MockConnectionMockRecorder\) GetBytes
+
+```go
+func (mr *MockConnectionMockRecorder) GetBytes(arg0 any) *ConnectionGetBytesCall
+```
+
+GetBytes indicates an expected call of GetBytes.
+
+### func \(\*MockConnectionMockRecorder\) LocalAddr
+
+```go
+func (mr *MockConnectionMockRecorder) LocalAddr() *ConnectionLocalAddrCall
+```
+
+LocalAddr indicates an expected call of LocalAddr.
+
+### func \(\*MockConnectionMockRecorder\) Notify
+
+```go
+func (mr *MockConnectionMockRecorder) Notify(arg0, arg1, arg2 any) *ConnectionNotifyCall
+```
+
+Notify indicates an expected call of Notify.
+
+### func \(\*MockConnectionMockRecorder\) OnClose
+
+```go
+func (mr *MockConnectionMockRecorder) OnClose(arg0 any) *ConnectionOnCloseCall
+```
+
+OnClose indicates an expected call of OnClose.
+
+### func \(\*MockConnectionMockRecorder\) PutBytes
+
+```go
+func (mr *MockConnectionMockRecorder) PutBytes(arg0 any) *ConnectionPutBytesCall
+```
+
+PutBytes indicates an expected call of PutBytes.
+
+### func \(\*MockConnectionMockRecorder\) RemoteAddr
+
+```go
+func (mr *MockConnectionMockRecorder) RemoteAddr() *ConnectionRemoteAddrCall
+```
+
+RemoteAddr indicates an expected call of RemoteAddr.
+
+### func \(\*MockConnectionMockRecorder\) Send
+
+```go
+func (mr *MockConnectionMockRecorder) Send(arg0, arg1 any) *ConnectionSendCall
+```
+
+Send indicates an expected call of Send.
+
+### func \(\*MockConnectionMockRecorder\) Shutdown
+
+```go
+func (mr *MockConnectionMockRecorder) Shutdown() *ConnectionShutdownCall
+```
+
+Shutdown indicates an expected call of Shutdown.
+
+# mock\_poller
+
+```go
+import "gitlab.corp.mail.ru/mygo/tp.git/test/mock/poller"
+```
+
+Code generated by MockGen. DO NOT EDIT. Source: gitlab.corp.mail.ru/mygo/tp.git/workerpool \(interfaces: Poller,Worker,WorkerStat\)
+
+Generated by this command:
+
+```
+mockgen -destination test/mock/poller/mock_poller.go -typed -package mock_poller gitlab.corp.mail.ru/mygo/tp.git/workerpool Poller,Worker,WorkerStat
+```
+
+Package mock\_poller is a generated GoMock package.
+
+## Index
+
+- [type MockPoller](<#type-mockpoller>)
+  - [func NewMockPoller(ctrl *gomock.Controller) *MockPoller](<#func-newmockpoller>)
+  - [func (m *MockPoller) EXPECT() *MockPollerMockRecorder](<#func-mockpoller-expect>)
+  - [func (m *MockPoller) EntityIDName() string](<#func-mockpoller-entityidname>)
+  - [func (m *MockPoller) Poll(arg0 uint16) workerpool.Worker](<#func-mockpoller-poll>)
+- [type MockPollerMockRecorder](<#type-mockpollermockrecorder>)
+  - [func (mr *MockPollerMockRecorder) EntityIDName() *PollerEntityIDNameCall](<#func-mockpollermockrecorder-entityidname>)
+  - [func (mr *MockPollerMockRecorder) Poll(arg0 any) *PollerPollCall](<#func-mockpollermockrecorder-poll>)
+- [type MockWorker](<#type-mockworker>)
+  - [func NewMockWorker(ctrl *gomock.Controller) *MockWorker](<#func-newmockworker>)
+  - [func (m *MockWorker) EXPECT() *MockWorkerMockRecorder](<#func-mockworker-expect>)
+  - [func (m *MockWorker) Stat() workerpool.WorkerStat](<#func-mockworker-stat>)
+  - [func (m *MockWorker) Work()](<#func-mockworker-work>)
+- [type MockWorkerMockRecorder](<#type-mockworkermockrecorder>)
+  - [func (mr *MockWorkerMockRecorder) Stat() *WorkerStatCall](<#func-mockworkermockrecorder-stat>)
+  - [func (mr *MockWorkerMockRecorder) Work() *WorkerWorkCall](<#func-mockworkermockrecorder-work>)
+- [type MockWorkerStat](<#type-mockworkerstat>)
+  - [func NewMockWorkerStat(ctrl *gomock.Controller) *MockWorkerStat](<#func-newmockworkerstat>)
+  - [func (m *MockWorkerStat) EXPECT() *MockWorkerStatMockRecorder](<#func-mockworkerstat-expect>)
+  - [func (m *MockWorkerStat) Errors() uint32](<#func-mockworkerstat-errors>)
+  - [func (m *MockWorkerStat) Processed() uint32](<#func-mockworkerstat-processed>)
+- [type MockWorkerStatMockRecorder](<#type-mockworkerstatmockrecorder>)
+  - [func (mr *MockWorkerStatMockRecorder) Errors() *WorkerStatErrorsCall](<#func-mockworkerstatmockrecorder-errors>)
+  - [func (mr *MockWorkerStatMockRecorder) Processed() *WorkerStatProcessedCall](<#func-mockworkerstatmockrecorder-processed>)
+- [type PollerEntityIDNameCall](<#type-pollerentityidnamecall>)
+  - [func (c *PollerEntityIDNameCall) Do(f func() string) *PollerEntityIDNameCall](<#func-pollerentityidnamecall-do>)
+  - [func (c *PollerEntityIDNameCall) DoAndReturn(f func() string) *PollerEntityIDNameCall](<#func-pollerentityidnamecall-doandreturn>)
+  - [func (c *PollerEntityIDNameCall) Return(arg0 string) *PollerEntityIDNameCall](<#func-pollerentityidnamecall-return>)
+- [type PollerPollCall](<#type-pollerpollcall>)
+  - [func (c *PollerPollCall) Do(f func(uint16) workerpool.Worker) *PollerPollCall](<#func-pollerpollcall-do>)
+  - [func (c *PollerPollCall) DoAndReturn(f func(uint16) workerpool.Worker) *PollerPollCall](<#func-pollerpollcall-doandreturn>)
+  - [func (c *PollerPollCall) Return(arg0 workerpool.Worker) *PollerPollCall](<#func-pollerpollcall-return>)
+- [type WorkerStatCall](<#type-workerstatcall>)
+  - [func (c *WorkerStatCall) Do(f func() workerpool.WorkerStat) *WorkerStatCall](<#func-workerstatcall-do>)
+  - [func (c *WorkerStatCall) DoAndReturn(f func() workerpool.WorkerStat) *WorkerStatCall](<#func-workerstatcall-doandreturn>)
+  - [func (c *WorkerStatCall) Return(arg0 workerpool.WorkerStat) *WorkerStatCall](<#func-workerstatcall-return>)
+- [type WorkerStatErrorsCall](<#type-workerstaterrorscall>)
+  - [func (c *WorkerStatErrorsCall) Do(f func() uint32) *WorkerStatErrorsCall](<#func-workerstaterrorscall-do>)
+  - [func (c *WorkerStatErrorsCall) DoAndReturn(f func() uint32) *WorkerStatErrorsCall](<#func-workerstaterrorscall-doandreturn>)
+  - [func (c *WorkerStatErrorsCall) Return(arg0 uint32) *WorkerStatErrorsCall](<#func-workerstaterrorscall-return>)
+- [type WorkerStatProcessedCall](<#type-workerstatprocessedcall>)
+  - [func (c *WorkerStatProcessedCall) Do(f func() uint32) *WorkerStatProcessedCall](<#func-workerstatprocessedcall-do>)
+  - [func (c *WorkerStatProcessedCall) DoAndReturn(f func() uint32) *WorkerStatProcessedCall](<#func-workerstatprocessedcall-doandreturn>)
+  - [func (c *WorkerStatProcessedCall) Return(arg0 uint32) *WorkerStatProcessedCall](<#func-workerstatprocessedcall-return>)
+- [type WorkerWorkCall](<#type-workerworkcall>)
+  - [func (c *WorkerWorkCall) Do(f func()) *WorkerWorkCall](<#func-workerworkcall-do>)
+  - [func (c *WorkerWorkCall) DoAndReturn(f func()) *WorkerWorkCall](<#func-workerworkcall-doandreturn>)
+  - [func (c *WorkerWorkCall) Return() *WorkerWorkCall](<#func-workerworkcall-return>)
+
+
+## type MockPoller
+
+MockPoller is a mock of Poller interface.
+
+```go
+type MockPoller struct {
+    // contains filtered or unexported fields
+}
+```
+
+### func NewMockPoller
+
+```go
+func NewMockPoller(ctrl *gomock.Controller) *MockPoller
+```
+
+NewMockPoller creates a new mock instance.
+
+### func \(\*MockPoller\) EXPECT
+
+```go
+func (m *MockPoller) EXPECT() *MockPollerMockRecorder
+```
+
+EXPECT returns an object that allows the caller to indicate expected use.
+
+### func \(\*MockPoller\) EntityIDName
+
+```go
+func (m *MockPoller) EntityIDName() string
+```
+
+EntityIDName mocks base method.
+
+### func \(\*MockPoller\) Poll
+
+```go
+func (m *MockPoller) Poll(arg0 uint16) workerpool.Worker
+```
+
+Poll mocks base method.
+
+## type MockPollerMockRecorder
+
+MockPollerMockRecorder is the mock recorder for MockPoller.
+
+```go
+type MockPollerMockRecorder struct {
+    // contains filtered or unexported fields
+}
+```
+
+### func \(\*MockPollerMockRecorder\) EntityIDName
+
+```go
+func (mr *MockPollerMockRecorder) EntityIDName() *PollerEntityIDNameCall
+```
+
+EntityIDName indicates an expected call of EntityIDName.
+
+### func \(\*MockPollerMockRecorder\) Poll
+
+```go
+func (mr *MockPollerMockRecorder) Poll(arg0 any) *PollerPollCall
+```
+
+Poll indicates an expected call of Poll.
+
+## type MockWorker
+
+MockWorker is a mock of Worker interface.
+
+```go
+type MockWorker struct {
+    // contains filtered or unexported fields
+}
+```
+
+### func NewMockWorker
+
+```go
+func NewMockWorker(ctrl *gomock.Controller) *MockWorker
+```
+
+NewMockWorker creates a new mock instance.
+
+### func \(\*MockWorker\) EXPECT
+
+```go
+func (m *MockWorker) EXPECT() *MockWorkerMockRecorder
+```
+
+EXPECT returns an object that allows the caller to indicate expected use.
+
+### func \(\*MockWorker\) Stat
+
+```go
+func (m *MockWorker) Stat() workerpool.WorkerStat
+```
+
+Stat mocks base method.
+
+### func \(\*MockWorker\) Work
+
+```go
+func (m *MockWorker) Work()
+```
+
+Work mocks base method.
+
+## type MockWorkerMockRecorder
+
+MockWorkerMockRecorder is the mock recorder for MockWorker.
+
+```go
+type MockWorkerMockRecorder struct {
+    // contains filtered or unexported fields
+}
+```
+
+### func \(\*MockWorkerMockRecorder\) Stat
+
+```go
+func (mr *MockWorkerMockRecorder) Stat() *WorkerStatCall
+```
+
+Stat indicates an expected call of Stat.
+
+### func \(\*MockWorkerMockRecorder\) Work
+
+```go
+func (mr *MockWorkerMockRecorder) Work() *WorkerWorkCall
+```
+
+Work indicates an expected call of Work.
+
+## type MockWorkerStat
+
+MockWorkerStat is a mock of WorkerStat interface.
+
+```go
+type MockWorkerStat struct {
+    // contains filtered or unexported fields
+}
+```
+
+### func NewMockWorkerStat
+
+```go
+func NewMockWorkerStat(ctrl *gomock.Controller) *MockWorkerStat
+```
+
+NewMockWorkerStat creates a new mock instance.
+
+### func \(\*MockWorkerStat\) EXPECT
+
+```go
+func (m *MockWorkerStat) EXPECT() *MockWorkerStatMockRecorder
+```
+
+EXPECT returns an object that allows the caller to indicate expected use.
+
+### func \(\*MockWorkerStat\) Errors
+
+```go
+func (m *MockWorkerStat) Errors() uint32
+```
+
+Errors mocks base method.
+
+### func \(\*MockWorkerStat\) Processed
+
+```go
+func (m *MockWorkerStat) Processed() uint32
+```
+
+Processed mocks base method.
+
+## type MockWorkerStatMockRecorder
+
+MockWorkerStatMockRecorder is the mock recorder for MockWorkerStat.
+
+```go
+type MockWorkerStatMockRecorder struct {
+    // contains filtered or unexported fields
+}
+```
+
+### func \(\*MockWorkerStatMockRecorder\) Errors
+
+```go
+func (mr *MockWorkerStatMockRecorder) Errors() *WorkerStatErrorsCall
+```
+
+Errors indicates an expected call of Errors.
+
+### func \(\*MockWorkerStatMockRecorder\) Processed
+
+```go
+func (mr *MockWorkerStatMockRecorder) Processed() *WorkerStatProcessedCall
+```
+
+Processed indicates an expected call of Processed.
+
+## type PollerEntityIDNameCall
+
+PollerEntityIDNameCall wrap \*gomock.Call
+
+```go
+type PollerEntityIDNameCall struct {
+    *gomock.Call
+}
+```
+
+### func \(\*PollerEntityIDNameCall\) Do
+
+```go
+func (c *PollerEntityIDNameCall) Do(f func() string) *PollerEntityIDNameCall
+```
+
+Do rewrite \*gomock.Call.Do
+
+### func \(\*PollerEntityIDNameCall\) DoAndReturn
+
+```go
+func (c *PollerEntityIDNameCall) DoAndReturn(f func() string) *PollerEntityIDNameCall
+```
+
+DoAndReturn rewrite \*gomock.Call.DoAndReturn
+
+### func \(\*PollerEntityIDNameCall\) Return
+
+```go
+func (c *PollerEntityIDNameCall) Return(arg0 string) *PollerEntityIDNameCall
+```
+
+Return rewrite \*gomock.Call.Return
+
+## type PollerPollCall
+
+PollerPollCall wrap \*gomock.Call
+
+```go
+type PollerPollCall struct {
+    *gomock.Call
+}
+```
+
+### func \(\*PollerPollCall\) Do
+
+```go
+func (c *PollerPollCall) Do(f func(uint16) workerpool.Worker) *PollerPollCall
+```
+
+Do rewrite \*gomock.Call.Do
+
+### func \(\*PollerPollCall\) DoAndReturn
+
+```go
+func (c *PollerPollCall) DoAndReturn(f func(uint16) workerpool.Worker) *PollerPollCall
+```
+
+DoAndReturn rewrite \*gomock.Call.DoAndReturn
+
+### func \(\*PollerPollCall\) Return
+
+```go
+func (c *PollerPollCall) Return(arg0 workerpool.Worker) *PollerPollCall
+```
+
+Return rewrite \*gomock.Call.Return
+
+## type WorkerStatCall
+
+WorkerStatCall wrap \*gomock.Call
+
+```go
+type WorkerStatCall struct {
+    *gomock.Call
+}
+```
+
+### func \(\*WorkerStatCall\) Do
+
+```go
+func (c *WorkerStatCall) Do(f func() workerpool.WorkerStat) *WorkerStatCall
+```
+
+Do rewrite \*gomock.Call.Do
+
+### func \(\*WorkerStatCall\) DoAndReturn
+
+```go
+func (c *WorkerStatCall) DoAndReturn(f func() workerpool.WorkerStat) *WorkerStatCall
+```
+
+DoAndReturn rewrite \*gomock.Call.DoAndReturn
+
+### func \(\*WorkerStatCall\) Return
+
+```go
+func (c *WorkerStatCall) Return(arg0 workerpool.WorkerStat) *WorkerStatCall
+```
+
+Return rewrite \*gomock.Call.Return
+
+## type WorkerStatErrorsCall
+
+WorkerStatErrorsCall wrap \*gomock.Call
+
+```go
+type WorkerStatErrorsCall struct {
+    *gomock.Call
+}
+```
+
+### func \(\*WorkerStatErrorsCall\) Do
+
+```go
+func (c *WorkerStatErrorsCall) Do(f func() uint32) *WorkerStatErrorsCall
+```
+
+Do rewrite \*gomock.Call.Do
+
+### func \(\*WorkerStatErrorsCall\) DoAndReturn
+
+```go
+func (c *WorkerStatErrorsCall) DoAndReturn(f func() uint32) *WorkerStatErrorsCall
+```
+
+DoAndReturn rewrite \*gomock.Call.DoAndReturn
+
+### func \(\*WorkerStatErrorsCall\) Return
+
+```go
+func (c *WorkerStatErrorsCall) Return(arg0 uint32) *WorkerStatErrorsCall
+```
+
+Return rewrite \*gomock.Call.Return
+
+## type WorkerStatProcessedCall
+
+WorkerStatProcessedCall wrap \*gomock.Call
+
+```go
+type WorkerStatProcessedCall struct {
+    *gomock.Call
+}
+```
+
+### func \(\*WorkerStatProcessedCall\) Do
+
+```go
+func (c *WorkerStatProcessedCall) Do(f func() uint32) *WorkerStatProcessedCall
+```
+
+Do rewrite \*gomock.Call.Do
+
+### func \(\*WorkerStatProcessedCall\) DoAndReturn
+
+```go
+func (c *WorkerStatProcessedCall) DoAndReturn(f func() uint32) *WorkerStatProcessedCall
+```
+
+DoAndReturn rewrite \*gomock.Call.DoAndReturn
+
+### func \(\*WorkerStatProcessedCall\) Return
+
+```go
+func (c *WorkerStatProcessedCall) Return(arg0 uint32) *WorkerStatProcessedCall
+```
+
+Return rewrite \*gomock.Call.Return
+
+## type WorkerWorkCall
+
+WorkerWorkCall wrap \*gomock.Call
+
+```go
+type WorkerWorkCall struct {
+    *gomock.Call
+}
+```
+
+### func \(\*WorkerWorkCall\) Do
+
+```go
+func (c *WorkerWorkCall) Do(f func()) *WorkerWorkCall
+```
+
+Do rewrite \*gomock.Call.Do
+
+### func \(\*WorkerWorkCall\) DoAndReturn
+
+```go
+func (c *WorkerWorkCall) DoAndReturn(f func()) *WorkerWorkCall
+```
+
+DoAndReturn rewrite \*gomock.Call.DoAndReturn
+
+### func \(\*WorkerWorkCall\) Return
+
+```go
+func (c *WorkerWorkCall) Return() *WorkerWorkCall
+```
+
+Return rewrite \*gomock.Call.Return
+
+# mock\_queue
+
+```go
+import "gitlab.corp.mail.ru/mygo/tp.git/test/mock/queue"
+```
+
+Code generated by MockGen. DO NOT EDIT. Source: gitlab.corp.mail.ru/mygo/tp.git/managed/master \(interfaces: Queue\)
+
+Generated by this command:
+
+```
+mockgen -destination test/mock/queue/mock_queue.go -typed -package mock_queue gitlab.corp.mail.ru/mygo/tp.git/managed/master Queue
+```
+
+Package mock\_queue is a generated GoMock package.
+
+## Index
+
+- [type MockQueue](<#type-mockqueue>)
+  - [func NewMockQueue(ctrl *gomock.Controller) *MockQueue](<#func-newmockqueue>)
+  - [func (m *MockQueue) EXPECT() *MockQueueMockRecorder](<#func-mockqueue-expect>)
+  - [func (m *MockQueue) Encode(arg0 tp.Handler) ([]byte, error)](<#func-mockqueue-encode>)
+  - [func (m *MockQueue) GetActiveEvents(arg0 context.Context, arg1 uint16, arg2 int) (*tp.EventList, error)](<#func-mockqueue-getactiveevents>)
+  - [func (m *MockQueue) GetEventsByIDs(arg0 context.Context, arg1 uint16, arg2 []queuedproto.EventID) (*tp.EventList, error)](<#func-mockqueue-geteventsbyids>)
+  - [func (m *MockQueue) IsRegistered(arg0 uint16) bool](<#func-mockqueue-isregistered>)
+  - [func (m *MockQueue) NewPoller(arg0 *zerolog.Logger) workerpool.Poller](<#func-mockqueue-newpoller>)
+  - [func (m *MockQueue) Publish(arg0 context.Context, arg1 tp.Handler) (queuedproto.EventID, error)](<#func-mockqueue-publish>)
+  - [func (m *MockQueue) Queued() *queuedclient.QueuedClient](<#func-mockqueue-queued>)
+  - [func (m *MockQueue) Register(arg0 uint16, arg1 tp.Handler, arg2 tp.MarshalerDisabled) error](<#func-mockqueue-register>)
+- [type MockQueueMockRecorder](<#type-mockqueuemockrecorder>)
+  - [func (mr *MockQueueMockRecorder) Encode(arg0 any) *QueueEncodeCall](<#func-mockqueuemockrecorder-encode>)
+  - [func (mr *MockQueueMockRecorder) GetActiveEvents(arg0, arg1, arg2 any) *QueueGetActiveEventsCall](<#func-mockqueuemockrecorder-getactiveevents>)
+  - [func (mr *MockQueueMockRecorder) GetEventsByIDs(arg0, arg1, arg2 any) *QueueGetEventsByIDsCall](<#func-mockqueuemockrecorder-geteventsbyids>)
+  - [func (mr *MockQueueMockRecorder) IsRegistered(arg0 any) *QueueIsRegisteredCall](<#func-mockqueuemockrecorder-isregistered>)
+  - [func (mr *MockQueueMockRecorder) NewPoller(arg0 any) *QueueNewPollerCall](<#func-mockqueuemockrecorder-newpoller>)
+  - [func (mr *MockQueueMockRecorder) Publish(arg0, arg1 any) *QueuePublishCall](<#func-mockqueuemockrecorder-publish>)
+  - [func (mr *MockQueueMockRecorder) Queued() *QueueQueuedCall](<#func-mockqueuemockrecorder-queued>)
+  - [func (mr *MockQueueMockRecorder) Register(arg0, arg1, arg2 any) *QueueRegisterCall](<#func-mockqueuemockrecorder-register>)
+- [type QueueEncodeCall](<#type-queueencodecall>)
+  - [func (c *QueueEncodeCall) Do(f func(tp.Handler) ([]byte, error)) *QueueEncodeCall](<#func-queueencodecall-do>)
+  - [func (c *QueueEncodeCall) DoAndReturn(f func(tp.Handler) ([]byte, error)) *QueueEncodeCall](<#func-queueencodecall-doandreturn>)
+  - [func (c *QueueEncodeCall) Return(arg0 []byte, arg1 error) *QueueEncodeCall](<#func-queueencodecall-return>)
+- [type QueueGetActiveEventsCall](<#type-queuegetactiveeventscall>)
+  - [func (c *QueueGetActiveEventsCall) Do(f func(context.Context, uint16, int) (*tp.EventList, error)) *QueueGetActiveEventsCall](<#func-queuegetactiveeventscall-do>)
+  - [func (c *QueueGetActiveEventsCall) DoAndReturn(f func(context.Context, uint16, int) (*tp.EventList, error)) *QueueGetActiveEventsCall](<#func-queuegetactiveeventscall-doandreturn>)
+  - [func (c *QueueGetActiveEventsCall) Return(arg0 *tp.EventList, arg1 error) *QueueGetActiveEventsCall](<#func-queuegetactiveeventscall-return>)
+- [type QueueGetEventsByIDsCall](<#type-queuegeteventsbyidscall>)
+  - [func (c *QueueGetEventsByIDsCall) Do(f func(context.Context, uint16, []queuedproto.EventID) (*tp.EventList, error)) *QueueGetEventsByIDsCall](<#func-queuegeteventsbyidscall-do>)
+  - [func (c *QueueGetEventsByIDsCall) DoAndReturn(f func(context.Context, uint16, []queuedproto.EventID) (*tp.EventList, error)) *QueueGetEventsByIDsCall](<#func-queuegeteventsbyidscall-doandreturn>)
+  - [func (c *QueueGetEventsByIDsCall) Return(arg0 *tp.EventList, arg1 error) *QueueGetEventsByIDsCall](<#func-queuegeteventsbyidscall-return>)
+- [type QueueIsRegisteredCall](<#type-queueisregisteredcall>)
+  - [func (c *QueueIsRegisteredCall) Do(f func(uint16) bool) *QueueIsRegisteredCall](<#func-queueisregisteredcall-do>)
+  - [func (c *QueueIsRegisteredCall) DoAndReturn(f func(uint16) bool) *QueueIsRegisteredCall](<#func-queueisregisteredcall-doandreturn>)
+  - [func (c *QueueIsRegisteredCall) Return(arg0 bool) *QueueIsRegisteredCall](<#func-queueisregisteredcall-return>)
+- [type QueueNewPollerCall](<#type-queuenewpollercall>)
+  - [func (c *QueueNewPollerCall) Do(f func(*zerolog.Logger) workerpool.Poller) *QueueNewPollerCall](<#func-queuenewpollercall-do>)
+  - [func (c *QueueNewPollerCall) DoAndReturn(f func(*zerolog.Logger) workerpool.Poller) *QueueNewPollerCall](<#func-queuenewpollercall-doandreturn>)
+  - [func (c *QueueNewPollerCall) Return(arg0 workerpool.Poller) *QueueNewPollerCall](<#func-queuenewpollercall-return>)
+- [type QueuePublishCall](<#type-queuepublishcall>)
+  - [func (c *QueuePublishCall) Do(f func(context.Context, tp.Handler) (queuedproto.EventID, error)) *QueuePublishCall](<#func-queuepublishcall-do>)
+  - [func (c *QueuePublishCall) DoAndReturn(f func(context.Context, tp.Handler) (queuedproto.EventID, error)) *QueuePublishCall](<#func-queuepublishcall-doandreturn>)
+  - [func (c *QueuePublishCall) Return(arg0 queuedproto.EventID, arg1 error) *QueuePublishCall](<#func-queuepublishcall-return>)
+- [type QueueQueuedCall](<#type-queuequeuedcall>)
+  - [func (c *QueueQueuedCall) Do(f func() *queuedclient.QueuedClient) *QueueQueuedCall](<#func-queuequeuedcall-do>)
+  - [func (c *QueueQueuedCall) DoAndReturn(f func() *queuedclient.QueuedClient) *QueueQueuedCall](<#func-queuequeuedcall-doandreturn>)
+  - [func (c *QueueQueuedCall) Return(arg0 *queuedclient.QueuedClient) *QueueQueuedCall](<#func-queuequeuedcall-return>)
+- [type QueueRegisterCall](<#type-queueregistercall>)
+  - [func (c *QueueRegisterCall) Do(f func(uint16, tp.Handler, tp.MarshalerDisabled) error) *QueueRegisterCall](<#func-queueregistercall-do>)
+  - [func (c *QueueRegisterCall) DoAndReturn(f func(uint16, tp.Handler, tp.MarshalerDisabled) error) *QueueRegisterCall](<#func-queueregistercall-doandreturn>)
+  - [func (c *QueueRegisterCall) Return(arg0 error) *QueueRegisterCall](<#func-queueregistercall-return>)
+
+
+## type MockQueue
+
+MockQueue is a mock of Queue interface.
+
+```go
+type MockQueue struct {
+    // contains filtered or unexported fields
+}
+```
+
+### func NewMockQueue
+
+```go
+func NewMockQueue(ctrl *gomock.Controller) *MockQueue
+```
+
+NewMockQueue creates a new mock instance.
+
+### func \(\*MockQueue\) EXPECT
+
+```go
+func (m *MockQueue) EXPECT() *MockQueueMockRecorder
+```
+
+EXPECT returns an object that allows the caller to indicate expected use.
+
+### func \(\*MockQueue\) Encode
+
+```go
+func (m *MockQueue) Encode(arg0 tp.Handler) ([]byte, error)
+```
+
+Encode mocks base method.
+
+### func \(\*MockQueue\) GetActiveEvents
+
+```go
+func (m *MockQueue) GetActiveEvents(arg0 context.Context, arg1 uint16, arg2 int) (*tp.EventList, error)
+```
+
+GetActiveEvents mocks base method.
+
+### func \(\*MockQueue\) GetEventsByIDs
+
+```go
+func (m *MockQueue) GetEventsByIDs(arg0 context.Context, arg1 uint16, arg2 []queuedproto.EventID) (*tp.EventList, error)
+```
+
+GetEventsByIDs mocks base method.
+
+### func \(\*MockQueue\) IsRegistered
+
+```go
+func (m *MockQueue) IsRegistered(arg0 uint16) bool
+```
+
+IsRegistered mocks base method.
+
+### func \(\*MockQueue\) NewPoller
+
+```go
+func (m *MockQueue) NewPoller(arg0 *zerolog.Logger) workerpool.Poller
+```
+
+NewPoller mocks base method.
+
+### func \(\*MockQueue\) Publish
+
+```go
+func (m *MockQueue) Publish(arg0 context.Context, arg1 tp.Handler) (queuedproto.EventID, error)
+```
+
+Publish mocks base method.
+
+### func \(\*MockQueue\) Queued
+
+```go
+func (m *MockQueue) Queued() *queuedclient.QueuedClient
+```
+
+Queued mocks base method.
+
+### func \(\*MockQueue\) Register
+
+```go
+func (m *MockQueue) Register(arg0 uint16, arg1 tp.Handler, arg2 tp.MarshalerDisabled) error
+```
+
+Register mocks base method.
+
+## type MockQueueMockRecorder
+
+MockQueueMockRecorder is the mock recorder for MockQueue.
+
+```go
+type MockQueueMockRecorder struct {
+    // contains filtered or unexported fields
+}
+```
+
+### func \(\*MockQueueMockRecorder\) Encode
+
+```go
+func (mr *MockQueueMockRecorder) Encode(arg0 any) *QueueEncodeCall
+```
+
+Encode indicates an expected call of Encode.
+
+### func \(\*MockQueueMockRecorder\) GetActiveEvents
+
+```go
+func (mr *MockQueueMockRecorder) GetActiveEvents(arg0, arg1, arg2 any) *QueueGetActiveEventsCall
+```
+
+GetActiveEvents indicates an expected call of GetActiveEvents.
+
+### func \(\*MockQueueMockRecorder\) GetEventsByIDs
+
+```go
+func (mr *MockQueueMockRecorder) GetEventsByIDs(arg0, arg1, arg2 any) *QueueGetEventsByIDsCall
+```
+
+GetEventsByIDs indicates an expected call of GetEventsByIDs.
+
+### func \(\*MockQueueMockRecorder\) IsRegistered
+
+```go
+func (mr *MockQueueMockRecorder) IsRegistered(arg0 any) *QueueIsRegisteredCall
+```
+
+IsRegistered indicates an expected call of IsRegistered.
+
+### func \(\*MockQueueMockRecorder\) NewPoller
+
+```go
+func (mr *MockQueueMockRecorder) NewPoller(arg0 any) *QueueNewPollerCall
+```
+
+NewPoller indicates an expected call of NewPoller.
+
+### func \(\*MockQueueMockRecorder\) Publish
+
+```go
+func (mr *MockQueueMockRecorder) Publish(arg0, arg1 any) *QueuePublishCall
+```
+
+Publish indicates an expected call of Publish.
+
+### func \(\*MockQueueMockRecorder\) Queued
+
+```go
+func (mr *MockQueueMockRecorder) Queued() *QueueQueuedCall
+```
+
+Queued indicates an expected call of Queued.
+
+### func \(\*MockQueueMockRecorder\) Register
+
+```go
+func (mr *MockQueueMockRecorder) Register(arg0, arg1, arg2 any) *QueueRegisterCall
+```
+
+Register indicates an expected call of Register.
+
+## type QueueEncodeCall
+
+QueueEncodeCall wrap \*gomock.Call
+
+```go
+type QueueEncodeCall struct {
+    *gomock.Call
+}
+```
+
+### func \(\*QueueEncodeCall\) Do
+
+```go
+func (c *QueueEncodeCall) Do(f func(tp.Handler) ([]byte, error)) *QueueEncodeCall
+```
+
+Do rewrite \*gomock.Call.Do
+
+### func \(\*QueueEncodeCall\) DoAndReturn
+
+```go
+func (c *QueueEncodeCall) DoAndReturn(f func(tp.Handler) ([]byte, error)) *QueueEncodeCall
+```
+
+DoAndReturn rewrite \*gomock.Call.DoAndReturn
+
+### func \(\*QueueEncodeCall\) Return
+
+```go
+func (c *QueueEncodeCall) Return(arg0 []byte, arg1 error) *QueueEncodeCall
+```
+
+Return rewrite \*gomock.Call.Return
+
+## type QueueGetActiveEventsCall
+
+QueueGetActiveEventsCall wrap \*gomock.Call
+
+```go
+type QueueGetActiveEventsCall struct {
+    *gomock.Call
+}
+```
+
+### func \(\*QueueGetActiveEventsCall\) Do
+
+```go
+func (c *QueueGetActiveEventsCall) Do(f func(context.Context, uint16, int) (*tp.EventList, error)) *QueueGetActiveEventsCall
+```
+
+Do rewrite \*gomock.Call.Do
+
+### func \(\*QueueGetActiveEventsCall\) DoAndReturn
+
+```go
+func (c *QueueGetActiveEventsCall) DoAndReturn(f func(context.Context, uint16, int) (*tp.EventList, error)) *QueueGetActiveEventsCall
+```
+
+DoAndReturn rewrite \*gomock.Call.DoAndReturn
+
+### func \(\*QueueGetActiveEventsCall\) Return
+
+```go
+func (c *QueueGetActiveEventsCall) Return(arg0 *tp.EventList, arg1 error) *QueueGetActiveEventsCall
+```
+
+Return rewrite \*gomock.Call.Return
+
+## type QueueGetEventsByIDsCall
+
+QueueGetEventsByIDsCall wrap \*gomock.Call
+
+```go
+type QueueGetEventsByIDsCall struct {
+    *gomock.Call
+}
+```
+
+### func \(\*QueueGetEventsByIDsCall\) Do
+
+```go
+func (c *QueueGetEventsByIDsCall) Do(f func(context.Context, uint16, []queuedproto.EventID) (*tp.EventList, error)) *QueueGetEventsByIDsCall
+```
+
+Do rewrite \*gomock.Call.Do
+
+### func \(\*QueueGetEventsByIDsCall\) DoAndReturn
+
+```go
+func (c *QueueGetEventsByIDsCall) DoAndReturn(f func(context.Context, uint16, []queuedproto.EventID) (*tp.EventList, error)) *QueueGetEventsByIDsCall
+```
+
+DoAndReturn rewrite \*gomock.Call.DoAndReturn
+
+### func \(\*QueueGetEventsByIDsCall\) Return
+
+```go
+func (c *QueueGetEventsByIDsCall) Return(arg0 *tp.EventList, arg1 error) *QueueGetEventsByIDsCall
+```
+
+Return rewrite \*gomock.Call.Return
+
+## type QueueIsRegisteredCall
+
+QueueIsRegisteredCall wrap \*gomock.Call
+
+```go
+type QueueIsRegisteredCall struct {
+    *gomock.Call
+}
+```
+
+### func \(\*QueueIsRegisteredCall\) Do
+
+```go
+func (c *QueueIsRegisteredCall) Do(f func(uint16) bool) *QueueIsRegisteredCall
+```
+
+Do rewrite \*gomock.Call.Do
+
+### func \(\*QueueIsRegisteredCall\) DoAndReturn
+
+```go
+func (c *QueueIsRegisteredCall) DoAndReturn(f func(uint16) bool) *QueueIsRegisteredCall
+```
+
+DoAndReturn rewrite \*gomock.Call.DoAndReturn
+
+### func \(\*QueueIsRegisteredCall\) Return
+
+```go
+func (c *QueueIsRegisteredCall) Return(arg0 bool) *QueueIsRegisteredCall
+```
+
+Return rewrite \*gomock.Call.Return
+
+## type QueueNewPollerCall
+
+QueueNewPollerCall wrap \*gomock.Call
+
+```go
+type QueueNewPollerCall struct {
+    *gomock.Call
+}
+```
+
+### func \(\*QueueNewPollerCall\) Do
+
+```go
+func (c *QueueNewPollerCall) Do(f func(*zerolog.Logger) workerpool.Poller) *QueueNewPollerCall
+```
+
+Do rewrite \*gomock.Call.Do
+
+### func \(\*QueueNewPollerCall\) DoAndReturn
+
+```go
+func (c *QueueNewPollerCall) DoAndReturn(f func(*zerolog.Logger) workerpool.Poller) *QueueNewPollerCall
+```
+
+DoAndReturn rewrite \*gomock.Call.DoAndReturn
+
+### func \(\*QueueNewPollerCall\) Return
+
+```go
+func (c *QueueNewPollerCall) Return(arg0 workerpool.Poller) *QueueNewPollerCall
+```
+
+Return rewrite \*gomock.Call.Return
+
+## type QueuePublishCall
+
+QueuePublishCall wrap \*gomock.Call
+
+```go
+type QueuePublishCall struct {
+    *gomock.Call
+}
+```
+
+### func \(\*QueuePublishCall\) Do
+
+```go
+func (c *QueuePublishCall) Do(f func(context.Context, tp.Handler) (queuedproto.EventID, error)) *QueuePublishCall
+```
+
+Do rewrite \*gomock.Call.Do
+
+### func \(\*QueuePublishCall\) DoAndReturn
+
+```go
+func (c *QueuePublishCall) DoAndReturn(f func(context.Context, tp.Handler) (queuedproto.EventID, error)) *QueuePublishCall
+```
+
+DoAndReturn rewrite \*gomock.Call.DoAndReturn
+
+### func \(\*QueuePublishCall\) Return
+
+```go
+func (c *QueuePublishCall) Return(arg0 queuedproto.EventID, arg1 error) *QueuePublishCall
+```
+
+Return rewrite \*gomock.Call.Return
+
+## type QueueQueuedCall
+
+QueueQueuedCall wrap \*gomock.Call
+
+```go
+type QueueQueuedCall struct {
+    *gomock.Call
+}
+```
+
+### func \(\*QueueQueuedCall\) Do
+
+```go
+func (c *QueueQueuedCall) Do(f func() *queuedclient.QueuedClient) *QueueQueuedCall
+```
+
+Do rewrite \*gomock.Call.Do
+
+### func \(\*QueueQueuedCall\) DoAndReturn
+
+```go
+func (c *QueueQueuedCall) DoAndReturn(f func() *queuedclient.QueuedClient) *QueueQueuedCall
+```
+
+DoAndReturn rewrite \*gomock.Call.DoAndReturn
+
+### func \(\*QueueQueuedCall\) Return
+
+```go
+func (c *QueueQueuedCall) Return(arg0 *queuedclient.QueuedClient) *QueueQueuedCall
+```
+
+Return rewrite \*gomock.Call.Return
+
+## type QueueRegisterCall
+
+QueueRegisterCall wrap \*gomock.Call
+
+```go
+type QueueRegisterCall struct {
+    *gomock.Call
+}
+```
+
+### func \(\*QueueRegisterCall\) Do
+
+```go
+func (c *QueueRegisterCall) Do(f func(uint16, tp.Handler, tp.MarshalerDisabled) error) *QueueRegisterCall
+```
+
+Do rewrite \*gomock.Call.Do
+
+### func \(\*QueueRegisterCall\) DoAndReturn
+
+```go
+func (c *QueueRegisterCall) DoAndReturn(f func(uint16, tp.Handler, tp.MarshalerDisabled) error) *QueueRegisterCall
+```
+
+DoAndReturn rewrite \*gomock.Call.DoAndReturn
+
+### func \(\*QueueRegisterCall\) Return
+
+```go
+func (c *QueueRegisterCall) Return(arg0 error) *QueueRegisterCall
+```
+
+Return rewrite \*gomock.Call.Return
+
+# mock\_slotpool
+
+```go
+import "gitlab.corp.mail.ru/mygo/tp.git/test/mock/slotpool"
+```
+
+Code generated by MockGen. DO NOT EDIT. Source: gitlab.corp.mail.ru/mygo/tp.git/managed/master \(interfaces: Pool\)
+
+Generated by this command:
+
+```
+mockgen -destination test/mock/slotpool/mock_slotpool.go -typed -package mock_slotpool gitlab.corp.mail.ru/mygo/tp.git/managed/master Pool
+```
+
+Package mock\_slotpool is a generated GoMock package.
+
+## Index
+
+- [type MockPool](<#type-mockpool>)
+  - [func NewMockPool(ctrl *gomock.Controller) *MockPool](<#func-newmockpool>)
+  - [func (m *MockPool) AddSlot()](<#func-mockpool-addslot>)
+  - [func (m *MockPool) AssignSlot(arg0 uint32, arg1 slotpool.Work) error](<#func-mockpool-assignslot>)
+  - [func (m *MockPool) EXPECT() *MockPoolMockRecorder](<#func-mockpool-expect>)
+  - [func (m *MockPool) Finish()](<#func-mockpool-finish>)
+  - [func (m *MockPool) ReleaseSlot(arg0 uint32) error](<#func-mockpool-releaseslot>)
+  - [func (m *MockPool) RemoveSlot()](<#func-mockpool-removeslot>)
+  - [func (m *MockPool) SlotStates() []slotpool.SlotState](<#func-mockpool-slotstates>)
+- [type MockPoolMockRecorder](<#type-mockpoolmockrecorder>)
+  - [func (mr *MockPoolMockRecorder) AddSlot() *PoolAddSlotCall](<#func-mockpoolmockrecorder-addslot>)
+  - [func (mr *MockPoolMockRecorder) AssignSlot(arg0, arg1 any) *PoolAssignSlotCall](<#func-mockpoolmockrecorder-assignslot>)
+  - [func (mr *MockPoolMockRecorder) Finish() *PoolFinishCall](<#func-mockpoolmockrecorder-finish>)
+  - [func (mr *MockPoolMockRecorder) ReleaseSlot(arg0 any) *PoolReleaseSlotCall](<#func-mockpoolmockrecorder-releaseslot>)
+  - [func (mr *MockPoolMockRecorder) RemoveSlot() *PoolRemoveSlotCall](<#func-mockpoolmockrecorder-removeslot>)
+  - [func (mr *MockPoolMockRecorder) SlotStates() *PoolSlotStatesCall](<#func-mockpoolmockrecorder-slotstates>)
+- [type PoolAddSlotCall](<#type-pooladdslotcall>)
+  - [func (c *PoolAddSlotCall) Do(f func()) *PoolAddSlotCall](<#func-pooladdslotcall-do>)
+  - [func (c *PoolAddSlotCall) DoAndReturn(f func()) *PoolAddSlotCall](<#func-pooladdslotcall-doandreturn>)
+  - [func (c *PoolAddSlotCall) Return() *PoolAddSlotCall](<#func-pooladdslotcall-return>)
+- [type PoolAssignSlotCall](<#type-poolassignslotcall>)
+  - [func (c *PoolAssignSlotCall) Do(f func(uint32, slotpool.Work) error) *PoolAssignSlotCall](<#func-poolassignslotcall-do>)
+  - [func (c *PoolAssignSlotCall) DoAndReturn(f func(uint32, slotpool.Work) error) *PoolAssignSlotCall](<#func-poolassignslotcall-doandreturn>)
+  - [func (c *PoolAssignSlotCall) Return(arg0 error) *PoolAssignSlotCall](<#func-poolassignslotcall-return>)
+- [type PoolFinishCall](<#type-poolfinishcall>)
+  - [func (c *PoolFinishCall) Do(f func()) *PoolFinishCall](<#func-poolfinishcall-do>)
+  - [func (c *PoolFinishCall) DoAndReturn(f func()) *PoolFinishCall](<#func-poolfinishcall-doandreturn>)
+  - [func (c *PoolFinishCall) Return() *PoolFinishCall](<#func-poolfinishcall-return>)
+- [type PoolReleaseSlotCall](<#type-poolreleaseslotcall>)
+  - [func (c *PoolReleaseSlotCall) Do(f func(uint32) error) *PoolReleaseSlotCall](<#func-poolreleaseslotcall-do>)
+  - [func (c *PoolReleaseSlotCall) DoAndReturn(f func(uint32) error) *PoolReleaseSlotCall](<#func-poolreleaseslotcall-doandreturn>)
+  - [func (c *PoolReleaseSlotCall) Return(arg0 error) *PoolReleaseSlotCall](<#func-poolreleaseslotcall-return>)
+- [type PoolRemoveSlotCall](<#type-poolremoveslotcall>)
+  - [func (c *PoolRemoveSlotCall) Do(f func()) *PoolRemoveSlotCall](<#func-poolremoveslotcall-do>)
+  - [func (c *PoolRemoveSlotCall) DoAndReturn(f func()) *PoolRemoveSlotCall](<#func-poolremoveslotcall-doandreturn>)
+  - [func (c *PoolRemoveSlotCall) Return() *PoolRemoveSlotCall](<#func-poolremoveslotcall-return>)
+- [type PoolSlotStatesCall](<#type-poolslotstatescall>)
+  - [func (c *PoolSlotStatesCall) Do(f func() []slotpool.SlotState) *PoolSlotStatesCall](<#func-poolslotstatescall-do>)
+  - [func (c *PoolSlotStatesCall) DoAndReturn(f func() []slotpool.SlotState) *PoolSlotStatesCall](<#func-poolslotstatescall-doandreturn>)
+  - [func (c *PoolSlotStatesCall) Return(arg0 []slotpool.SlotState) *PoolSlotStatesCall](<#func-poolslotstatescall-return>)
+
+
+## type MockPool
+
+MockPool is a mock of Pool interface.
+
+```go
+type MockPool struct {
+    // contains filtered or unexported fields
+}
+```
+
+### func NewMockPool
+
+```go
+func NewMockPool(ctrl *gomock.Controller) *MockPool
+```
+
+NewMockPool creates a new mock instance.
+
+### func \(\*MockPool\) AddSlot
+
+```go
+func (m *MockPool) AddSlot()
+```
+
+AddSlot mocks base method.
+
+### func \(\*MockPool\) AssignSlot
+
+```go
+func (m *MockPool) AssignSlot(arg0 uint32, arg1 slotpool.Work) error
+```
+
+AssignSlot mocks base method.
+
+### func \(\*MockPool\) EXPECT
+
+```go
+func (m *MockPool) EXPECT() *MockPoolMockRecorder
+```
+
+EXPECT returns an object that allows the caller to indicate expected use.
+
+### func \(\*MockPool\) Finish
+
+```go
+func (m *MockPool) Finish()
+```
+
+Finish mocks base method.
+
+### func \(\*MockPool\) ReleaseSlot
+
+```go
+func (m *MockPool) ReleaseSlot(arg0 uint32) error
+```
+
+ReleaseSlot mocks base method.
+
+### func \(\*MockPool\) RemoveSlot
+
+```go
+func (m *MockPool) RemoveSlot()
+```
+
+RemoveSlot mocks base method.
+
+### func \(\*MockPool\) SlotStates
+
+```go
+func (m *MockPool) SlotStates() []slotpool.SlotState
+```
+
+SlotStates mocks base method.
+
+## type MockPoolMockRecorder
+
+MockPoolMockRecorder is the mock recorder for MockPool.
+
+```go
+type MockPoolMockRecorder struct {
+    // contains filtered or unexported fields
+}
+```
+
+### func \(\*MockPoolMockRecorder\) AddSlot
+
+```go
+func (mr *MockPoolMockRecorder) AddSlot() *PoolAddSlotCall
+```
+
+AddSlot indicates an expected call of AddSlot.
+
+### func \(\*MockPoolMockRecorder\) AssignSlot
+
+```go
+func (mr *MockPoolMockRecorder) AssignSlot(arg0, arg1 any) *PoolAssignSlotCall
+```
+
+AssignSlot indicates an expected call of AssignSlot.
+
+### func \(\*MockPoolMockRecorder\) Finish
+
+```go
+func (mr *MockPoolMockRecorder) Finish() *PoolFinishCall
+```
+
+Finish indicates an expected call of Finish.
+
+### func \(\*MockPoolMockRecorder\) ReleaseSlot
+
+```go
+func (mr *MockPoolMockRecorder) ReleaseSlot(arg0 any) *PoolReleaseSlotCall
+```
+
+ReleaseSlot indicates an expected call of ReleaseSlot.
+
+### func \(\*MockPoolMockRecorder\) RemoveSlot
+
+```go
+func (mr *MockPoolMockRecorder) RemoveSlot() *PoolRemoveSlotCall
+```
+
+RemoveSlot indicates an expected call of RemoveSlot.
+
+### func \(\*MockPoolMockRecorder\) SlotStates
+
+```go
+func (mr *MockPoolMockRecorder) SlotStates() *PoolSlotStatesCall
+```
+
+SlotStates indicates an expected call of SlotStates.
+
+## type PoolAddSlotCall
+
+PoolAddSlotCall wrap \*gomock.Call
+
+```go
+type PoolAddSlotCall struct {
+    *gomock.Call
+}
+```
+
+### func \(\*PoolAddSlotCall\) Do
+
+```go
+func (c *PoolAddSlotCall) Do(f func()) *PoolAddSlotCall
+```
+
+Do rewrite \*gomock.Call.Do
+
+### func \(\*PoolAddSlotCall\) DoAndReturn
+
+```go
+func (c *PoolAddSlotCall) DoAndReturn(f func()) *PoolAddSlotCall
+```
+
+DoAndReturn rewrite \*gomock.Call.DoAndReturn
+
+### func \(\*PoolAddSlotCall\) Return
+
+```go
+func (c *PoolAddSlotCall) Return() *PoolAddSlotCall
+```
+
+Return rewrite \*gomock.Call.Return
+
+## type PoolAssignSlotCall
+
+PoolAssignSlotCall wrap \*gomock.Call
+
+```go
+type PoolAssignSlotCall struct {
+    *gomock.Call
+}
+```
+
+### func \(\*PoolAssignSlotCall\) Do
+
+```go
+func (c *PoolAssignSlotCall) Do(f func(uint32, slotpool.Work) error) *PoolAssignSlotCall
+```
+
+Do rewrite \*gomock.Call.Do
+
+### func \(\*PoolAssignSlotCall\) DoAndReturn
+
+```go
+func (c *PoolAssignSlotCall) DoAndReturn(f func(uint32, slotpool.Work) error) *PoolAssignSlotCall
+```
+
+DoAndReturn rewrite \*gomock.Call.DoAndReturn
+
+### func \(\*PoolAssignSlotCall\) Return
+
+```go
+func (c *PoolAssignSlotCall) Return(arg0 error) *PoolAssignSlotCall
+```
+
+Return rewrite \*gomock.Call.Return
+
+## type PoolFinishCall
+
+PoolFinishCall wrap \*gomock.Call
+
+```go
+type PoolFinishCall struct {
+    *gomock.Call
+}
+```
+
+### func \(\*PoolFinishCall\) Do
+
+```go
+func (c *PoolFinishCall) Do(f func()) *PoolFinishCall
+```
+
+Do rewrite \*gomock.Call.Do
+
+### func \(\*PoolFinishCall\) DoAndReturn
+
+```go
+func (c *PoolFinishCall) DoAndReturn(f func()) *PoolFinishCall
+```
+
+DoAndReturn rewrite \*gomock.Call.DoAndReturn
+
+### func \(\*PoolFinishCall\) Return
+
+```go
+func (c *PoolFinishCall) Return() *PoolFinishCall
+```
+
+Return rewrite \*gomock.Call.Return
+
+## type PoolReleaseSlotCall
+
+PoolReleaseSlotCall wrap \*gomock.Call
+
+```go
+type PoolReleaseSlotCall struct {
+    *gomock.Call
+}
+```
+
+### func \(\*PoolReleaseSlotCall\) Do
+
+```go
+func (c *PoolReleaseSlotCall) Do(f func(uint32) error) *PoolReleaseSlotCall
+```
+
+Do rewrite \*gomock.Call.Do
+
+### func \(\*PoolReleaseSlotCall\) DoAndReturn
+
+```go
+func (c *PoolReleaseSlotCall) DoAndReturn(f func(uint32) error) *PoolReleaseSlotCall
+```
+
+DoAndReturn rewrite \*gomock.Call.DoAndReturn
+
+### func \(\*PoolReleaseSlotCall\) Return
+
+```go
+func (c *PoolReleaseSlotCall) Return(arg0 error) *PoolReleaseSlotCall
+```
+
+Return rewrite \*gomock.Call.Return
+
+## type PoolRemoveSlotCall
+
+PoolRemoveSlotCall wrap \*gomock.Call
+
+```go
+type PoolRemoveSlotCall struct {
+    *gomock.Call
+}
+```
+
+### func \(\*PoolRemoveSlotCall\) Do
+
+```go
+func (c *PoolRemoveSlotCall) Do(f func()) *PoolRemoveSlotCall
+```
+
+Do rewrite \*gomock.Call.Do
+
+### func \(\*PoolRemoveSlotCall\) DoAndReturn
+
+```go
+func (c *PoolRemoveSlotCall) DoAndReturn(f func()) *PoolRemoveSlotCall
+```
+
+DoAndReturn rewrite \*gomock.Call.DoAndReturn
+
+### func \(\*PoolRemoveSlotCall\) Return
+
+```go
+func (c *PoolRemoveSlotCall) Return() *PoolRemoveSlotCall
+```
+
+Return rewrite \*gomock.Call.Return
+
+## type PoolSlotStatesCall
+
+PoolSlotStatesCall wrap \*gomock.Call
+
+```go
+type PoolSlotStatesCall struct {
+    *gomock.Call
+}
+```
+
+### func \(\*PoolSlotStatesCall\) Do
+
+```go
+func (c *PoolSlotStatesCall) Do(f func() []slotpool.SlotState) *PoolSlotStatesCall
+```
+
+Do rewrite \*gomock.Call.Do
+
+### func \(\*PoolSlotStatesCall\) DoAndReturn
+
+```go
+func (c *PoolSlotStatesCall) DoAndReturn(f func() []slotpool.SlotState) *PoolSlotStatesCall
+```
+
+DoAndReturn rewrite \*gomock.Call.DoAndReturn
+
+### func \(\*PoolSlotStatesCall\) Return
+
+```go
+func (c *PoolSlotStatesCall) Return(arg0 []slotpool.SlotState) *PoolSlotStatesCall
+```
+
+Return rewrite \*gomock.Call.Return
+
+# mock\_stat
+
+```go
+import "gitlab.corp.mail.ru/mygo/tp.git/test/mock/stats"
+```
+
+Code generated by MockGen. DO NOT EDIT. Source: gitlab.corp.mail.ru/mygo/tp.git/managed/master \(interfaces: SlotStat\)
+
+Generated by this command:
+
+```
+mockgen -destination test/mock/stats/mock_stat.go -typed -package mock_stat gitlab.corp.mail.ru/mygo/tp.git/managed/master SlotStat
+```
+
+Package mock\_stat is a generated GoMock package.
+
+## Index
+
+- [type MockSlotStat](<#type-mockslotstat>)
+  - [func NewMockSlotStat(ctrl *gomock.Controller) *MockSlotStat](<#func-newmockslotstat>)
+  - [func (m *MockSlotStat) AddQueueErrors(arg0, arg1 uint32)](<#func-mockslotstat-addqueueerrors>)
+  - [func (m *MockSlotStat) AddQueueProcessed(arg0, arg1 uint32)](<#func-mockslotstat-addqueueprocessed>)
+  - [func (m *MockSlotStat) AddQueueWaitTime(arg0 uint32, arg1 float64)](<#func-mockslotstat-addqueuewaittime>)
+  - [func (m *MockSlotStat) AddQueueWorkTime(arg0 uint32, arg1 float64)](<#func-mockslotstat-addqueueworktime>)
+  - [func (m *MockSlotStat) EXPECT() *MockSlotStatMockRecorder](<#func-mockslotstat-expect>)
+  - [func (m *MockSlotStat) IncrementQueueLoop(arg0 uint32)](<#func-mockslotstat-incrementqueueloop>)
+  - [func (m *MockSlotStat) IncrementSlotError()](<#func-mockslotstat-incrementsloterror>)
+  - [func (m *MockSlotStat) SetQueueID(arg0 uint32)](<#func-mockslotstat-setqueueid>)
+  - [func (m *MockSlotStat) SetState(arg0 stats.State)](<#func-mockslotstat-setstate>)
+  - [func (m *MockSlotStat) Stat() stats.SlotStat](<#func-mockslotstat-stat>)
+- [type MockSlotStatMockRecorder](<#type-mockslotstatmockrecorder>)
+  - [func (mr *MockSlotStatMockRecorder) AddQueueErrors(arg0, arg1 any) *SlotStatAddQueueErrorsCall](<#func-mockslotstatmockrecorder-addqueueerrors>)
+  - [func (mr *MockSlotStatMockRecorder) AddQueueProcessed(arg0, arg1 any) *SlotStatAddQueueProcessedCall](<#func-mockslotstatmockrecorder-addqueueprocessed>)
+  - [func (mr *MockSlotStatMockRecorder) AddQueueWaitTime(arg0, arg1 any) *SlotStatAddQueueWaitTimeCall](<#func-mockslotstatmockrecorder-addqueuewaittime>)
+  - [func (mr *MockSlotStatMockRecorder) AddQueueWorkTime(arg0, arg1 any) *SlotStatAddQueueWorkTimeCall](<#func-mockslotstatmockrecorder-addqueueworktime>)
+  - [func (mr *MockSlotStatMockRecorder) IncrementQueueLoop(arg0 any) *SlotStatIncrementQueueLoopCall](<#func-mockslotstatmockrecorder-incrementqueueloop>)
+  - [func (mr *MockSlotStatMockRecorder) IncrementSlotError() *SlotStatIncrementSlotErrorCall](<#func-mockslotstatmockrecorder-incrementsloterror>)
+  - [func (mr *MockSlotStatMockRecorder) SetQueueID(arg0 any) *SlotStatSetQueueIDCall](<#func-mockslotstatmockrecorder-setqueueid>)
+  - [func (mr *MockSlotStatMockRecorder) SetState(arg0 any) *SlotStatSetStateCall](<#func-mockslotstatmockrecorder-setstate>)
+  - [func (mr *MockSlotStatMockRecorder) Stat() *SlotStatStatCall](<#func-mockslotstatmockrecorder-stat>)
+- [type SlotStatAddQueueErrorsCall](<#type-slotstataddqueueerrorscall>)
+  - [func (c *SlotStatAddQueueErrorsCall) Do(f func(uint32, uint32)) *SlotStatAddQueueErrorsCall](<#func-slotstataddqueueerrorscall-do>)
+  - [func (c *SlotStatAddQueueErrorsCall) DoAndReturn(f func(uint32, uint32)) *SlotStatAddQueueErrorsCall](<#func-slotstataddqueueerrorscall-doandreturn>)
+  - [func (c *SlotStatAddQueueErrorsCall) Return() *SlotStatAddQueueErrorsCall](<#func-slotstataddqueueerrorscall-return>)
+- [type SlotStatAddQueueProcessedCall](<#type-slotstataddqueueprocessedcall>)
+  - [func (c *SlotStatAddQueueProcessedCall) Do(f func(uint32, uint32)) *SlotStatAddQueueProcessedCall](<#func-slotstataddqueueprocessedcall-do>)
+  - [func (c *SlotStatAddQueueProcessedCall) DoAndReturn(f func(uint32, uint32)) *SlotStatAddQueueProcessedCall](<#func-slotstataddqueueprocessedcall-doandreturn>)
+  - [func (c *SlotStatAddQueueProcessedCall) Return() *SlotStatAddQueueProcessedCall](<#func-slotstataddqueueprocessedcall-return>)
+- [type SlotStatAddQueueWaitTimeCall](<#type-slotstataddqueuewaittimecall>)
+  - [func (c *SlotStatAddQueueWaitTimeCall) Do(f func(uint32, float64)) *SlotStatAddQueueWaitTimeCall](<#func-slotstataddqueuewaittimecall-do>)
+  - [func (c *SlotStatAddQueueWaitTimeCall) DoAndReturn(f func(uint32, float64)) *SlotStatAddQueueWaitTimeCall](<#func-slotstataddqueuewaittimecall-doandreturn>)
+  - [func (c *SlotStatAddQueueWaitTimeCall) Return() *SlotStatAddQueueWaitTimeCall](<#func-slotstataddqueuewaittimecall-return>)
+- [type SlotStatAddQueueWorkTimeCall](<#type-slotstataddqueueworktimecall>)
+  - [func (c *SlotStatAddQueueWorkTimeCall) Do(f func(uint32, float64)) *SlotStatAddQueueWorkTimeCall](<#func-slotstataddqueueworktimecall-do>)
+  - [func (c *SlotStatAddQueueWorkTimeCall) DoAndReturn(f func(uint32, float64)) *SlotStatAddQueueWorkTimeCall](<#func-slotstataddqueueworktimecall-doandreturn>)
+  - [func (c *SlotStatAddQueueWorkTimeCall) Return() *SlotStatAddQueueWorkTimeCall](<#func-slotstataddqueueworktimecall-return>)
+- [type SlotStatIncrementQueueLoopCall](<#type-slotstatincrementqueueloopcall>)
+  - [func (c *SlotStatIncrementQueueLoopCall) Do(f func(uint32)) *SlotStatIncrementQueueLoopCall](<#func-slotstatincrementqueueloopcall-do>)
+  - [func (c *SlotStatIncrementQueueLoopCall) DoAndReturn(f func(uint32)) *SlotStatIncrementQueueLoopCall](<#func-slotstatincrementqueueloopcall-doandreturn>)
+  - [func (c *SlotStatIncrementQueueLoopCall) Return() *SlotStatIncrementQueueLoopCall](<#func-slotstatincrementqueueloopcall-return>)
+- [type SlotStatIncrementSlotErrorCall](<#type-slotstatincrementsloterrorcall>)
+  - [func (c *SlotStatIncrementSlotErrorCall) Do(f func()) *SlotStatIncrementSlotErrorCall](<#func-slotstatincrementsloterrorcall-do>)
+  - [func (c *SlotStatIncrementSlotErrorCall) DoAndReturn(f func()) *SlotStatIncrementSlotErrorCall](<#func-slotstatincrementsloterrorcall-doandreturn>)
+  - [func (c *SlotStatIncrementSlotErrorCall) Return() *SlotStatIncrementSlotErrorCall](<#func-slotstatincrementsloterrorcall-return>)
+- [type SlotStatSetQueueIDCall](<#type-slotstatsetqueueidcall>)
+  - [func (c *SlotStatSetQueueIDCall) Do(f func(uint32)) *SlotStatSetQueueIDCall](<#func-slotstatsetqueueidcall-do>)
+  - [func (c *SlotStatSetQueueIDCall) DoAndReturn(f func(uint32)) *SlotStatSetQueueIDCall](<#func-slotstatsetqueueidcall-doandreturn>)
+  - [func (c *SlotStatSetQueueIDCall) Return() *SlotStatSetQueueIDCall](<#func-slotstatsetqueueidcall-return>)
+- [type SlotStatSetStateCall](<#type-slotstatsetstatecall>)
+  - [func (c *SlotStatSetStateCall) Do(f func(stats.State)) *SlotStatSetStateCall](<#func-slotstatsetstatecall-do>)
+  - [func (c *SlotStatSetStateCall) DoAndReturn(f func(stats.State)) *SlotStatSetStateCall](<#func-slotstatsetstatecall-doandreturn>)
+  - [func (c *SlotStatSetStateCall) Return() *SlotStatSetStateCall](<#func-slotstatsetstatecall-return>)
+- [type SlotStatStatCall](<#type-slotstatstatcall>)
+  - [func (c *SlotStatStatCall) Do(f func() stats.SlotStat) *SlotStatStatCall](<#func-slotstatstatcall-do>)
+  - [func (c *SlotStatStatCall) DoAndReturn(f func() stats.SlotStat) *SlotStatStatCall](<#func-slotstatstatcall-doandreturn>)
+  - [func (c *SlotStatStatCall) Return(arg0 stats.SlotStat) *SlotStatStatCall](<#func-slotstatstatcall-return>)
+
+
+## type MockSlotStat
+
+MockSlotStat is a mock of SlotStat interface.
+
+```go
+type MockSlotStat struct {
+    // contains filtered or unexported fields
+}
+```
+
+### func NewMockSlotStat
+
+```go
+func NewMockSlotStat(ctrl *gomock.Controller) *MockSlotStat
+```
+
+NewMockSlotStat creates a new mock instance.
+
+### func \(\*MockSlotStat\) AddQueueErrors
+
+```go
+func (m *MockSlotStat) AddQueueErrors(arg0, arg1 uint32)
+```
+
+AddQueueErrors mocks base method.
+
+### func \(\*MockSlotStat\) AddQueueProcessed
+
+```go
+func (m *MockSlotStat) AddQueueProcessed(arg0, arg1 uint32)
+```
+
+AddQueueProcessed mocks base method.
+
+### func \(\*MockSlotStat\) AddQueueWaitTime
+
+```go
+func (m *MockSlotStat) AddQueueWaitTime(arg0 uint32, arg1 float64)
+```
+
+AddQueueWaitTime mocks base method.
+
+### func \(\*MockSlotStat\) AddQueueWorkTime
+
+```go
+func (m *MockSlotStat) AddQueueWorkTime(arg0 uint32, arg1 float64)
+```
+
+AddQueueWorkTime mocks base method.
+
+### func \(\*MockSlotStat\) EXPECT
+
+```go
+func (m *MockSlotStat) EXPECT() *MockSlotStatMockRecorder
+```
+
+EXPECT returns an object that allows the caller to indicate expected use.
+
+### func \(\*MockSlotStat\) IncrementQueueLoop
+
+```go
+func (m *MockSlotStat) IncrementQueueLoop(arg0 uint32)
+```
+
+IncrementQueueLoop mocks base method.
+
+### func \(\*MockSlotStat\) IncrementSlotError
+
+```go
+func (m *MockSlotStat) IncrementSlotError()
+```
+
+IncrementSlotError mocks base method.
+
+### func \(\*MockSlotStat\) SetQueueID
+
+```go
+func (m *MockSlotStat) SetQueueID(arg0 uint32)
+```
+
+SetQueueID mocks base method.
+
+### func \(\*MockSlotStat\) SetState
+
+```go
+func (m *MockSlotStat) SetState(arg0 stats.State)
+```
+
+SetState mocks base method.
+
+### func \(\*MockSlotStat\) Stat
+
+```go
+func (m *MockSlotStat) Stat() stats.SlotStat
+```
+
+Stat mocks base method.
+
+## type MockSlotStatMockRecorder
+
+MockSlotStatMockRecorder is the mock recorder for MockSlotStat.
+
+```go
+type MockSlotStatMockRecorder struct {
+    // contains filtered or unexported fields
+}
+```
+
+### func \(\*MockSlotStatMockRecorder\) AddQueueErrors
+
+```go
+func (mr *MockSlotStatMockRecorder) AddQueueErrors(arg0, arg1 any) *SlotStatAddQueueErrorsCall
+```
+
+AddQueueErrors indicates an expected call of AddQueueErrors.
+
+### func \(\*MockSlotStatMockRecorder\) AddQueueProcessed
+
+```go
+func (mr *MockSlotStatMockRecorder) AddQueueProcessed(arg0, arg1 any) *SlotStatAddQueueProcessedCall
+```
+
+AddQueueProcessed indicates an expected call of AddQueueProcessed.
+
+### func \(\*MockSlotStatMockRecorder\) AddQueueWaitTime
+
+```go
+func (mr *MockSlotStatMockRecorder) AddQueueWaitTime(arg0, arg1 any) *SlotStatAddQueueWaitTimeCall
+```
+
+AddQueueWaitTime indicates an expected call of AddQueueWaitTime.
+
+### func \(\*MockSlotStatMockRecorder\) AddQueueWorkTime
+
+```go
+func (mr *MockSlotStatMockRecorder) AddQueueWorkTime(arg0, arg1 any) *SlotStatAddQueueWorkTimeCall
+```
+
+AddQueueWorkTime indicates an expected call of AddQueueWorkTime.
+
+### func \(\*MockSlotStatMockRecorder\) IncrementQueueLoop
+
+```go
+func (mr *MockSlotStatMockRecorder) IncrementQueueLoop(arg0 any) *SlotStatIncrementQueueLoopCall
+```
+
+IncrementQueueLoop indicates an expected call of IncrementQueueLoop.
+
+### func \(\*MockSlotStatMockRecorder\) IncrementSlotError
+
+```go
+func (mr *MockSlotStatMockRecorder) IncrementSlotError() *SlotStatIncrementSlotErrorCall
+```
+
+IncrementSlotError indicates an expected call of IncrementSlotError.
+
+### func \(\*MockSlotStatMockRecorder\) SetQueueID
+
+```go
+func (mr *MockSlotStatMockRecorder) SetQueueID(arg0 any) *SlotStatSetQueueIDCall
+```
+
+SetQueueID indicates an expected call of SetQueueID.
+
+### func \(\*MockSlotStatMockRecorder\) SetState
+
+```go
+func (mr *MockSlotStatMockRecorder) SetState(arg0 any) *SlotStatSetStateCall
+```
+
+SetState indicates an expected call of SetState.
+
+### func \(\*MockSlotStatMockRecorder\) Stat
+
+```go
+func (mr *MockSlotStatMockRecorder) Stat() *SlotStatStatCall
+```
+
+Stat indicates an expected call of Stat.
+
+## type SlotStatAddQueueErrorsCall
+
+SlotStatAddQueueErrorsCall wrap \*gomock.Call
+
+```go
+type SlotStatAddQueueErrorsCall struct {
+    *gomock.Call
+}
+```
+
+### func \(\*SlotStatAddQueueErrorsCall\) Do
+
+```go
+func (c *SlotStatAddQueueErrorsCall) Do(f func(uint32, uint32)) *SlotStatAddQueueErrorsCall
+```
+
+Do rewrite \*gomock.Call.Do
+
+### func \(\*SlotStatAddQueueErrorsCall\) DoAndReturn
+
+```go
+func (c *SlotStatAddQueueErrorsCall) DoAndReturn(f func(uint32, uint32)) *SlotStatAddQueueErrorsCall
+```
+
+DoAndReturn rewrite \*gomock.Call.DoAndReturn
+
+### func \(\*SlotStatAddQueueErrorsCall\) Return
+
+```go
+func (c *SlotStatAddQueueErrorsCall) Return() *SlotStatAddQueueErrorsCall
+```
+
+Return rewrite \*gomock.Call.Return
+
+## type SlotStatAddQueueProcessedCall
+
+SlotStatAddQueueProcessedCall wrap \*gomock.Call
+
+```go
+type SlotStatAddQueueProcessedCall struct {
+    *gomock.Call
+}
+```
+
+### func \(\*SlotStatAddQueueProcessedCall\) Do
+
+```go
+func (c *SlotStatAddQueueProcessedCall) Do(f func(uint32, uint32)) *SlotStatAddQueueProcessedCall
+```
+
+Do rewrite \*gomock.Call.Do
+
+### func \(\*SlotStatAddQueueProcessedCall\) DoAndReturn
+
+```go
+func (c *SlotStatAddQueueProcessedCall) DoAndReturn(f func(uint32, uint32)) *SlotStatAddQueueProcessedCall
+```
+
+DoAndReturn rewrite \*gomock.Call.DoAndReturn
+
+### func \(\*SlotStatAddQueueProcessedCall\) Return
+
+```go
+func (c *SlotStatAddQueueProcessedCall) Return() *SlotStatAddQueueProcessedCall
+```
+
+Return rewrite \*gomock.Call.Return
+
+## type SlotStatAddQueueWaitTimeCall
+
+SlotStatAddQueueWaitTimeCall wrap \*gomock.Call
+
+```go
+type SlotStatAddQueueWaitTimeCall struct {
+    *gomock.Call
+}
+```
+
+### func \(\*SlotStatAddQueueWaitTimeCall\) Do
+
+```go
+func (c *SlotStatAddQueueWaitTimeCall) Do(f func(uint32, float64)) *SlotStatAddQueueWaitTimeCall
+```
+
+Do rewrite \*gomock.Call.Do
+
+### func \(\*SlotStatAddQueueWaitTimeCall\) DoAndReturn
+
+```go
+func (c *SlotStatAddQueueWaitTimeCall) DoAndReturn(f func(uint32, float64)) *SlotStatAddQueueWaitTimeCall
+```
+
+DoAndReturn rewrite \*gomock.Call.DoAndReturn
+
+### func \(\*SlotStatAddQueueWaitTimeCall\) Return
+
+```go
+func (c *SlotStatAddQueueWaitTimeCall) Return() *SlotStatAddQueueWaitTimeCall
+```
+
+Return rewrite \*gomock.Call.Return
+
+## type SlotStatAddQueueWorkTimeCall
+
+SlotStatAddQueueWorkTimeCall wrap \*gomock.Call
+
+```go
+type SlotStatAddQueueWorkTimeCall struct {
+    *gomock.Call
+}
+```
+
+### func \(\*SlotStatAddQueueWorkTimeCall\) Do
+
+```go
+func (c *SlotStatAddQueueWorkTimeCall) Do(f func(uint32, float64)) *SlotStatAddQueueWorkTimeCall
+```
+
+Do rewrite \*gomock.Call.Do
+
+### func \(\*SlotStatAddQueueWorkTimeCall\) DoAndReturn
+
+```go
+func (c *SlotStatAddQueueWorkTimeCall) DoAndReturn(f func(uint32, float64)) *SlotStatAddQueueWorkTimeCall
+```
+
+DoAndReturn rewrite \*gomock.Call.DoAndReturn
+
+### func \(\*SlotStatAddQueueWorkTimeCall\) Return
+
+```go
+func (c *SlotStatAddQueueWorkTimeCall) Return() *SlotStatAddQueueWorkTimeCall
+```
+
+Return rewrite \*gomock.Call.Return
+
+## type SlotStatIncrementQueueLoopCall
+
+SlotStatIncrementQueueLoopCall wrap \*gomock.Call
+
+```go
+type SlotStatIncrementQueueLoopCall struct {
+    *gomock.Call
+}
+```
+
+### func \(\*SlotStatIncrementQueueLoopCall\) Do
+
+```go
+func (c *SlotStatIncrementQueueLoopCall) Do(f func(uint32)) *SlotStatIncrementQueueLoopCall
+```
+
+Do rewrite \*gomock.Call.Do
+
+### func \(\*SlotStatIncrementQueueLoopCall\) DoAndReturn
+
+```go
+func (c *SlotStatIncrementQueueLoopCall) DoAndReturn(f func(uint32)) *SlotStatIncrementQueueLoopCall
+```
+
+DoAndReturn rewrite \*gomock.Call.DoAndReturn
+
+### func \(\*SlotStatIncrementQueueLoopCall\) Return
+
+```go
+func (c *SlotStatIncrementQueueLoopCall) Return() *SlotStatIncrementQueueLoopCall
+```
+
+Return rewrite \*gomock.Call.Return
+
+## type SlotStatIncrementSlotErrorCall
+
+SlotStatIncrementSlotErrorCall wrap \*gomock.Call
+
+```go
+type SlotStatIncrementSlotErrorCall struct {
+    *gomock.Call
+}
+```
+
+### func \(\*SlotStatIncrementSlotErrorCall\) Do
+
+```go
+func (c *SlotStatIncrementSlotErrorCall) Do(f func()) *SlotStatIncrementSlotErrorCall
+```
+
+Do rewrite \*gomock.Call.Do
+
+### func \(\*SlotStatIncrementSlotErrorCall\) DoAndReturn
+
+```go
+func (c *SlotStatIncrementSlotErrorCall) DoAndReturn(f func()) *SlotStatIncrementSlotErrorCall
+```
+
+DoAndReturn rewrite \*gomock.Call.DoAndReturn
+
+### func \(\*SlotStatIncrementSlotErrorCall\) Return
+
+```go
+func (c *SlotStatIncrementSlotErrorCall) Return() *SlotStatIncrementSlotErrorCall
+```
+
+Return rewrite \*gomock.Call.Return
+
+## type SlotStatSetQueueIDCall
+
+SlotStatSetQueueIDCall wrap \*gomock.Call
+
+```go
+type SlotStatSetQueueIDCall struct {
+    *gomock.Call
+}
+```
+
+### func \(\*SlotStatSetQueueIDCall\) Do
+
+```go
+func (c *SlotStatSetQueueIDCall) Do(f func(uint32)) *SlotStatSetQueueIDCall
+```
+
+Do rewrite \*gomock.Call.Do
+
+### func \(\*SlotStatSetQueueIDCall\) DoAndReturn
+
+```go
+func (c *SlotStatSetQueueIDCall) DoAndReturn(f func(uint32)) *SlotStatSetQueueIDCall
+```
+
+DoAndReturn rewrite \*gomock.Call.DoAndReturn
+
+### func \(\*SlotStatSetQueueIDCall\) Return
+
+```go
+func (c *SlotStatSetQueueIDCall) Return() *SlotStatSetQueueIDCall
+```
+
+Return rewrite \*gomock.Call.Return
+
+## type SlotStatSetStateCall
+
+SlotStatSetStateCall wrap \*gomock.Call
+
+```go
+type SlotStatSetStateCall struct {
+    *gomock.Call
+}
+```
+
+### func \(\*SlotStatSetStateCall\) Do
+
+```go
+func (c *SlotStatSetStateCall) Do(f func(stats.State)) *SlotStatSetStateCall
+```
+
+Do rewrite \*gomock.Call.Do
+
+### func \(\*SlotStatSetStateCall\) DoAndReturn
+
+```go
+func (c *SlotStatSetStateCall) DoAndReturn(f func(stats.State)) *SlotStatSetStateCall
+```
+
+DoAndReturn rewrite \*gomock.Call.DoAndReturn
+
+### func \(\*SlotStatSetStateCall\) Return
+
+```go
+func (c *SlotStatSetStateCall) Return() *SlotStatSetStateCall
+```
+
+Return rewrite \*gomock.Call.Return
+
+## type SlotStatStatCall
+
+SlotStatStatCall wrap \*gomock.Call
+
+```go
+type SlotStatStatCall struct {
+    *gomock.Call
+}
+```
+
+### func \(\*SlotStatStatCall\) Do
+
+```go
+func (c *SlotStatStatCall) Do(f func() stats.SlotStat) *SlotStatStatCall
+```
+
+Do rewrite \*gomock.Call.Do
+
+### func \(\*SlotStatStatCall\) DoAndReturn
+
+```go
+func (c *SlotStatStatCall) DoAndReturn(f func() stats.SlotStat) *SlotStatStatCall
+```
+
+DoAndReturn rewrite \*gomock.Call.DoAndReturn
+
+### func \(\*SlotStatStatCall\) Return
+
+```go
+func (c *SlotStatStatCall) Return(arg0 stats.SlotStat) *SlotStatStatCall
+```
+
+Return rewrite \*gomock.Call.Return
 
 
 

@@ -153,6 +153,7 @@ func (qw *queueWorker) Work() {
 			// TODO cancel?
 			evLog.Err(err).Send() // Msg тут не нужен - чтобы из логов нагрепывали реальную причину, а не эту строку
 		}
+
 		qw.stat.processed++
 	}
 }

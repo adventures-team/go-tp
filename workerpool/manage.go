@@ -98,6 +98,7 @@ func (wp *WorkerPool) scheduleJobs(jobs jobMap) time.Duration {
 		}
 
 		wp.jobChan <- jobID
+
 		job.running++
 
 		if job.dryCount > atomic.LoadInt32(&wp.maxDryPolls) {

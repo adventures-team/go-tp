@@ -5,9 +5,10 @@ import (
 	"testing"
 
 	"github.com/go-faker/faker/v4"
+	"go.uber.org/mock/gomock"
+
 	"gitlab.corp.mail.ru/mygo/easygo.git/iproto"
 	mock_iproto "gitlab.corp.mail.ru/mygo/tp.git/test/mock/iproto"
-	"go.uber.org/mock/gomock"
 )
 
 func TestServeIProto_cmdStat(t *testing.T) {

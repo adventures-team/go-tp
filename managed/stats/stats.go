@@ -96,6 +96,7 @@ func New(id uint32) *Slot {
 func (s *Slot) IncrementSlotError() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	s.slotErrors++
 }
 

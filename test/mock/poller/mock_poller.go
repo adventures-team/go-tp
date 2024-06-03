@@ -11,8 +11,9 @@ package mock_poller
 import (
 	reflect "reflect"
 
-	workerpool "gitlab.corp.mail.ru/mygo/tp.git/workerpool"
 	gomock "go.uber.org/mock/gomock"
+
+	workerpool "gitlab.corp.mail.ru/mygo/tp.git/workerpool"
 )
 
 // MockPoller is a mock of Poller interface.

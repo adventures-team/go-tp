@@ -8,6 +8,8 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/rs/zerolog"
+	"go.uber.org/mock/gomock"
+
 	"gitlab.corp.mail.ru/mygo/tp.git"
 	"gitlab.corp.mail.ru/mygo/tp.git/managed/qmclient"
 	"gitlab.corp.mail.ru/mygo/tp.git/managed/stats"
@@ -16,7 +18,6 @@ import (
 	mock_queue "gitlab.corp.mail.ru/mygo/tp.git/test/mock/queue"
 	mock_slotpool "gitlab.corp.mail.ru/mygo/tp.git/test/mock/slotpool"
 	mock_stat "gitlab.corp.mail.ru/mygo/tp.git/test/mock/stats"
-	"go.uber.org/mock/gomock"
 )
 
 func TestAssignSlot(t *testing.T) {

@@ -11,8 +11,9 @@ package mock_stat
 import (
 	reflect "reflect"
 
-	stats "gitlab.corp.mail.ru/mygo/tp.git/managed/stats"
 	gomock "go.uber.org/mock/gomock"
+
+	stats "gitlab.corp.mail.ru/mygo/tp.git/managed/stats"
 )
 
 // MockSlotStat is a mock of SlotStat interface.

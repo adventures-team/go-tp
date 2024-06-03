@@ -11,8 +11,9 @@ package mock_slotpool
 import (
 	reflect "reflect"
 
-	slotpool "gitlab.corp.mail.ru/mygo/tp.git/slotpool"
 	gomock "go.uber.org/mock/gomock"
+
+	slotpool "gitlab.corp.mail.ru/mygo/tp.git/slotpool"
 )
 
 // MockPool is a mock of Pool interface.

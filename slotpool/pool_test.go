@@ -243,7 +243,7 @@ func TestAssignSlot(t *testing.T) {
 
 		v := <-n
 		if v != 2 {
-			t.Errorf("work must be executed twice: got %d", n)
+			t.Errorf("work must be executed twice: got %d", v)
 		}
 	})
 
