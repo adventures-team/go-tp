@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/rs/zerolog"
+
 	"gitlab.corp.mail.ru/mygo/queuedproto.git"
 	"gitlab.corp.mail.ru/mygo/tp.git"
 	"gitlab.corp.mail.ru/mygo/tp.git/managed/qmclient"

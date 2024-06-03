@@ -13,11 +13,12 @@ import (
 	reflect "reflect"
 
 	zerolog "github.com/rs/zerolog"
+	gomock "go.uber.org/mock/gomock"
+
 	queuedproto "gitlab.corp.mail.ru/mygo/queuedproto.git"
 	tp "gitlab.corp.mail.ru/mygo/tp.git"
 	queuedclient "gitlab.corp.mail.ru/mygo/tp.git/queuedclient"
 	workerpool "gitlab.corp.mail.ru/mygo/tp.git/workerpool"
-	gomock "go.uber.org/mock/gomock"
 )
 
 // MockQueue is a mock of Queue interface.

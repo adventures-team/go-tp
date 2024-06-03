@@ -13,8 +13,9 @@ import (
 	net "net"
 	reflect "reflect"
 
-	iproto "gitlab.corp.mail.ru/mygo/easygo.git/iproto"
 	gomock "go.uber.org/mock/gomock"
+
+	iproto "gitlab.corp.mail.ru/mygo/easygo.git/iproto"
 )
 
 // MockConnection is a mock of Connection interface.
