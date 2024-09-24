@@ -236,10 +236,10 @@ func TestAssignSlot(t *testing.T) {
 		if err := p.AssignSlot(0, work1); err != nil {
 			t.Errorf("got unexpected error: %v", err)
 		}
-		runtime.Gosched()
 
 		wait <- struct{}{}
-		runtime.Gosched()
+		<-sem1
+		<-sem1
 
 		v := <-n
 		if v != 2 {
@@ -255,12 +255,12 @@ func TestAssignSlot(t *testing.T) {
 		var first, second sync.WaitGroup
 
 		work1 := Work{Do: func() {
-			n1 = n1 + 1
+			n1++
 			first.Done()
 			<-wait
 		}}
 		work2 := Work{Do: func() {
-			n2 = n2 + 10
+			n2 += 10
 			second.Done()
 			<-wait
 		}}

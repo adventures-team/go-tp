@@ -20,12 +20,13 @@ type (
 	}
 
 	Stat struct {
-		processed uint32
-		errors    uint32
+		processed atomic.Uint32
+		errors    atomic.Uint32
 	}
 
 	queueWorker struct {
 		*Queue
+		queueID   QueueIDType
 		events    *EventList
 		ctx       context.Context
 		isStopped *int32
@@ -39,12 +40,12 @@ var (
 	_ workerpool.Worker  = &queueWorker{}
 )
 
-func (s Stat) Processed() uint32 {
-	return s.processed
+func (s *Stat) Processed() uint32 {
+	return s.processed.Load()
 }
 
-func (s Stat) Errors() uint32 {
-	return s.errors
+func (s *Stat) Errors() uint32 {
+	return s.errors.Load()
 }
 
 // NewPoller возвращает объект для опроса новых событий из WorkerPool
@@ -94,13 +95,14 @@ func (qp *queuePoller) Poll(queueID QueueIDType) workerpool.Worker {
 		}
 	}
 
-	if len(events.events) == 0 {
+	if len(events.baseEvents) == 0 {
 		logger.Trace().Msg("no events received")
 		return nil
 	}
 
 	return &queueWorker{
 		Queue:     qp.Queue,
+		queueID:   queueID,
 		events:    events,
 		ctx:       ctx,
 		isStopped: &qp.isStopped,
@@ -116,45 +118,49 @@ func (qw *queueWorker) Work() {
 	logger := logFromCtx(qw.ctx)
 
 	defer func() { // TODO даже без обработки паник, хотя бы страхуемся обновлением всех обработанных событий и деферим необработанные
-		if err := qw.events.commit(qw.ctx); err != nil {
+		if err := qw.events.commit(qw.ctx, qw.stat); err != nil {
 			logger.Err(err).Msg("failed to apply events processing status")
 		}
 	}()
 
-	if logger.GetLevel() <= zerolog.DebugLevel {
-		eventIDs := make([]string, len(qw.events.events))
-		for i, handler := range qw.events.events {
-			eventIDs[i] = handler.GetEvent().EventID.String()
-		}
-
-		logger.Debug().Int("events_count", len(qw.events.events)).Strs("event_ids", eventIDs).Msg("queue poll status")
+	handlersByVersion, ok := qw.handlerMap[qw.queueID]
+	if !ok {
+		logger.Error().Uint16("queue_id", qw.queueID).Msg("queue_id isn't registered")
+		return
 	}
 
-	for _, handler := range qw.events.events {
+	if logger.GetLevel() <= zerolog.DebugLevel {
+		eventIDs := make([]string, len(qw.events.baseEvents))
+		for i, ev := range qw.events.baseEvents {
+			eventIDs[i] = ev.EventID.String()
+		}
+
+		logger.Debug().Int("events_count", len(qw.events.baseEvents)).Strs("event_ids", eventIDs).Msg("queue poll status")
+	}
+
+	for version, events := range qw.events.eventsByVersion {
 		if atomic.LoadInt32(qw.isStopped) != 0 {
 			logger.Debug().Msg("stopping queueWorker.Work() loop")
 			break
 		}
 
-		event := handler.GetEvent() // TODO подумать, вытащить ли апи событий в интерфейс Handler. учитывая, что обработчик и так всё это видит (т.к. является методом своей структуры), наверно, оверхед (компилера/человека, возможно, рантайма) превысит пользу.
-		if event.flags&evIsProcessed != 0 {
+		if events == nil { // TODO remove if an array is replaced with a map
 			continue
 		}
 
-		evLog := logger.With().Stringer("event_id", event.EventID).Logger()
-		evCtx := evLog.WithContext(qw.ctx) // TODO cancel? timeouts?
-		// TODO handle panics, cancel context
-
-		evLog.Debug().Interface("event", handler).Msg("new event received")
-
-		err := handler.Handle(evCtx)
-		if err != nil {
-			qw.stat.errors++
-			// TODO cancel?
-			evLog.Err(err).Send() // Msg тут не нужен - чтобы из логов нагрепывали реальную причину, а не эту строку
+		hInfo, ok := handlersByVersion[uint8(version)]
+		if !ok {
+			logger.Error().Int("version", version).Msg("version isn't registered")
+			continue
 		}
 
-		qw.stat.processed++
+		logger.Debug().Interface("events", events).Msg("new events received")
+
+		err := hInfo.handler(qw.ctx, events)
+		if err != nil {
+			// TODO cancel?
+			logger.Err(err).Send() // Msg тут не нужен - чтобы из логов нагрепывали реальную причину, а не эту строку
+		}
 	}
 }
 

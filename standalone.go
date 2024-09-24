@@ -93,7 +93,7 @@ func (qm *StandaloneMaster) applyConfig(ctx context.Context) error {
 	queueWorkers := make([]queueIDWorkers, 0, len(confQueueIDs))
 
 	for _, queueID := range confQueueIDs {
-		if _, ok := qm.incoming[queueID]; !ok {
+		if _, ok := qm.handlerMap[queueID]; !ok {
 			qm.logger.Err(ErrUnknownQueue).Uint16("queue_id", queueID).Send()
 			continue
 		}

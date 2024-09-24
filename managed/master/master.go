@@ -1,17 +1,14 @@
 package managedmaster
 
 import (
-	"context"
 	"os"
 	"time"
 
 	"github.com/rs/zerolog"
 
-	"gitlab.corp.mail.ru/mygo/queuedproto.git"
 	"gitlab.corp.mail.ru/mygo/tp.git"
 	"gitlab.corp.mail.ru/mygo/tp.git/managed/qmclient"
 	"gitlab.corp.mail.ru/mygo/tp.git/managed/stats"
-	"gitlab.corp.mail.ru/mygo/tp.git/queuedclient"
 	"gitlab.corp.mail.ru/mygo/tp.git/slotpool"
 	"gitlab.corp.mail.ru/mygo/tp.git/workerpool"
 )
@@ -24,14 +21,7 @@ const (
 )
 
 type Queue interface {
-	Encode(data tp.Handler) (eventData []byte, err error)
-	GetActiveEvents(ctx context.Context, queueID uint16, count int) (*tp.EventList, error)
-	GetEventsByIDs(ctx context.Context, queueID uint16, eventIDs []queuedproto.EventID) (*tp.EventList, error)
 	IsRegistered(queueID uint16) bool
-	NewPoller(logger *zerolog.Logger) workerpool.Poller
-	Publish(ctx context.Context, event tp.Handler) (eventID queuedproto.EventID, err error)
-	Queued() *queuedclient.QueuedClient
-	Register(queueID uint16, valueExample tp.Handler, autofill tp.MarshalerDisabled) error
 }
 
 type Pool interface {
@@ -166,7 +156,7 @@ func (mm *ManagedMaster) delay(queueID uint32) float64 {
 		delays[queueID] = initialDelay
 		delay = initialDelay
 	} else {
-		delay = delay * delayFactor
+		delay *= delayFactor
 		if delay <= maxDelay {
 			delays[queueID] = delay
 		} else {

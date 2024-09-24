@@ -45,7 +45,7 @@ func (m *MockQueue) EXPECT() *MockQueueMockRecorder {
 }
 
 // Encode mocks base method.
-func (m *MockQueue) Encode(arg0 tp.Handler) ([]byte, error) {
+func (m *MockQueue) Encode(arg0 tp.Event) ([]byte, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Encode", arg0)
 	ret0, _ := ret[0].([]byte)
@@ -72,13 +72,13 @@ func (c *QueueEncodeCall) Return(arg0 []byte, arg1 error) *QueueEncodeCall {
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *QueueEncodeCall) Do(f func(tp.Handler) ([]byte, error)) *QueueEncodeCall {
+func (c *QueueEncodeCall) Do(f func(tp.Event) ([]byte, error)) *QueueEncodeCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *QueueEncodeCall) DoAndReturn(f func(tp.Handler) ([]byte, error)) *QueueEncodeCall {
+func (c *QueueEncodeCall) DoAndReturn(f func(tp.Event) ([]byte, error)) *QueueEncodeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -238,7 +238,7 @@ func (c *QueueNewPollerCall) DoAndReturn(f func(*zerolog.Logger) workerpool.Poll
 }
 
 // Publish mocks base method.
-func (m *MockQueue) Publish(arg0 context.Context, arg1 tp.Handler) (queuedproto.EventID, error) {
+func (m *MockQueue) Publish(arg0 context.Context, arg1 tp.Event) (queuedproto.EventID, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Publish", arg0, arg1)
 	ret0, _ := ret[0].(queuedproto.EventID)
@@ -265,13 +265,13 @@ func (c *QueuePublishCall) Return(arg0 queuedproto.EventID, arg1 error) *QueuePu
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *QueuePublishCall) Do(f func(context.Context, tp.Handler) (queuedproto.EventID, error)) *QueuePublishCall {
+func (c *QueuePublishCall) Do(f func(context.Context, tp.Event) (queuedproto.EventID, error)) *QueuePublishCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *QueuePublishCall) DoAndReturn(f func(context.Context, tp.Handler) (queuedproto.EventID, error)) *QueuePublishCall {
+func (c *QueuePublishCall) DoAndReturn(f func(context.Context, tp.Event) (queuedproto.EventID, error)) *QueuePublishCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -310,44 +310,6 @@ func (c *QueueQueuedCall) Do(f func() *queuedclient.QueuedClient) *QueueQueuedCa
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *QueueQueuedCall) DoAndReturn(f func() *queuedclient.QueuedClient) *QueueQueuedCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// Register mocks base method.
-func (m *MockQueue) Register(arg0 uint16, arg1 tp.Handler, arg2 tp.MarshalerDisabled) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Register", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Register indicates an expected call of Register.
-func (mr *MockQueueMockRecorder) Register(arg0, arg1, arg2 any) *QueueRegisterCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Register", reflect.TypeOf((*MockQueue)(nil).Register), arg0, arg1, arg2)
-	return &QueueRegisterCall{Call: call}
-}
-
-// QueueRegisterCall wrap *gomock.Call
-type QueueRegisterCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *QueueRegisterCall) Return(arg0 error) *QueueRegisterCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *QueueRegisterCall) Do(f func(uint16, tp.Handler, tp.MarshalerDisabled) error) *QueueRegisterCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *QueueRegisterCall) DoAndReturn(f func(uint16, tp.Handler, tp.MarshalerDisabled) error) *QueueRegisterCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -1,7 +1,12 @@
 x-queued_shard: &queued_shard
-  image: queued
-  build: queued/build
-  pull_policy: never
+  image: queued:latest
+#  build: queued/build
+  volumes:
+   - ./queued-1.conf:/etc/queued/queued.conf
+  command:
+    - "/bin/sh"
+    - "-c"
+    - "cd /var/lib/queued; mkdir -p xlogs snaps logs; chown -R nonroot:nonroot .; exec /usr/sbin/queued -c /etc/queued/queued.conf"
 
 services:
   queued_shard0:
@@ -17,15 +22,15 @@ services:
     ports:
       - 20500:20000
       - 20510:20510
-  qm:
-    image: qm:master
-    ports:
-      - 7877:7877
-      - 7700:7700
-    volumes:
-      - ./qm/perl/QMProfile.pm:/usr/local/lib/project/Project/TP/QMProfile.pm:ro
-      - ./qm/conf/TREE.cdb:/usr/local/etc/onlineconf/TREE.cdb
-      - ./qm/conf/LOG.conf:/usr/local/etc/onlineconf/LOG.conf
-      - ./qm/conf/onlineconf.yaml:/usr/local/etc/onlineconf.yaml
-    platform: linux/amd64
-    command:  [ '/usr/bin/perl5.28', '/usr/local/sbin/project-qm/qm_manager', '--log_to_stderr', '1', '--mode', 'debug', '--profile', 'Project::TP::QMProfile', '--port', '7877', '--admin_console_port', '7700', '--tpmode', '1', '--start_collector_command', '/usr/local/sbin/project-qm/qm_job_collector' ]
+#  qm:
+#    image: qm:master
+#    ports:
+#      - 7877:7877
+#      - 7700:7700
+#    volumes:
+#      - ./qm/perl/QMProfile.pm:/usr/local/lib/project/Project/TP/QMProfile.pm:ro
+#      - ./qm/conf/TREE.cdb:/usr/local/etc/onlineconf/TREE.cdb
+#      - ./qm/conf/LOG.conf:/usr/local/etc/onlineconf/LOG.conf
+#      - ./qm/conf/onlineconf.yaml:/usr/local/etc/onlineconf.yaml
+#    platform: linux/amd64
+#    command:  [ '/usr/bin/perl5.28', '/usr/local/sbin/project-qm/qm_manager', '--log_to_stderr', '1', '--mode', 'debug', '--profile', 'Project::TP::QMProfile', '--port', '7877', '--admin_console_port', '7700', '--tpmode', '1', '--start_collector_command', '/usr/local/sbin/project-qm/qm_job_collector' ]

@@ -13,11 +13,7 @@ func sendData(id uint32, name string) {
 		Config: getConfig(),
 	}.InitProducer()
 
-	if err := queue.Register(SimpleQueueID, &SimpleEvent{}, nil); err != nil {
-		zLog.Fatal().Err(err).Msg("error registering queue")
-	}
-
-	eventID, err := queue.Publish(context.Background(), &SimpleEvent{ID: id, Name: name})
+	eventID, err := queue.Publish(context.Background(), &SimpleEvent{UserID: id, UserName: name})
 	if err != nil {
 		zLog.Fatal().Err(err).Msg("error publishing an event")
 	}

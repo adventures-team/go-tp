@@ -132,7 +132,7 @@ func getEventTypeAddons(event interface{}) (supportedAddons *eventTypeAddons) {
 
 	defer func() {
 		eventTypeAddonCache.Store(typ, supportedAddons)
-		eventTypeAddonCache.Store(reflect.PtrTo(typ), supportedAddons)
+		eventTypeAddonCache.Store(reflect.PointerTo(typ), supportedAddons)
 	}()
 
 	val := reflect.ValueOf(event) // используется только для вызова метода AddonID(), по данным не лазим

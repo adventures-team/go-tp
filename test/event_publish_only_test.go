@@ -22,14 +22,18 @@ func (u UUID) IprotoPack(payload []byte, _ iproto.PackMode) ([]byte, error) {
 
 // eventPublishOnly - без обработчика - публикуем и удаляем вручную
 type eventPublishOnly struct {
-	tp.NoHandler
+	tp.BaseEvent
 
 	TransientID uint64
 	UUID     UUID
 }
 
-var _ tp.Handler = &eventPublishOnly{}
+var _ tp.Event = &eventPublishOnly{}
 
 func (eventPublishOnly) Version() uint8 {
 	return 1
+}
+
+func (eventPublishOnly) QueueID() uint16 {
+	return testNoHandlerQueueID
 }

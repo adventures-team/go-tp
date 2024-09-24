@@ -1,6 +1,7 @@
 GO = go
 GOSRC = $(shell find . -type f -name '*.go')
 TEST_TIMEOUT = 10s
+LINT_TIMEOUT = 5m
 
 # Устанавливаем для gotip язык явно, чтобы для экспериментов с дженериками не приходилось править язык в go.mod.
 # 2022-06-08: перешли на go1.18, однако у коллег локально могут быть устаревшие версии, поэтому пока юзаем этот костыль.
@@ -30,8 +31,8 @@ deps:
 .PHONY: lint
 lint:
 	$(info #Running lint...)
-	golangci-lint run --build-tags=golangci --new-from-rev=origin/$(shell (grep -s DEFAULT_BRANCH: .gitlab-ci.yml | cut -d: -f2 | sed 's/^\s*$$/master/' | tr -d ' \t'; echo master) | head -n1) ./...
-	golangci-lint run --build-tags=golangci,integration --new-from-rev=origin/$(shell (grep -s DEFAULT_BRANCH: .gitlab-ci.yml | cut -d: -f2 | sed 's/^\s*$$/master/' | tr -d ' \t'; echo master) | head -n1) ./...
+	golangci-lint run --timeout=$(LINT_TIMEOUT) --build-tags=golangci --new-from-rev=origin/$(shell (grep -s DEFAULT_BRANCH: .gitlab-ci.yml | cut -d: -f2 | sed 's/^\s*$$/master/' | tr -d ' \t'; echo master) | head -n1) ./...
+	golangci-lint run --timeout=$(LINT_TIMEOUT) --build-tags=golangci,integration --new-from-rev=origin/$(shell (grep -s DEFAULT_BRANCH: .gitlab-ci.yml | cut -d: -f2 | sed 's/^\s*$$/master/' | tr -d ' \t'; echo master) | head -n1) ./...
 
 # Линт на весь код
 .PHONY: full-lint
@@ -64,7 +65,7 @@ test-integration: dev_env_start
 	    -covermode atomic                   \
 	    -coverprofile cover.integration.out \
 	    -coverpkg ./...                     \
-	    ./tests
+	    ./test
 	$(GO) tool cover -html cover.integration.out -o cover.integration.html
 
 .PHONY: bench

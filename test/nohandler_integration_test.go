@@ -28,10 +28,6 @@ func TestNoHandler(t *testing.T) {
 		t.Fatal("error initializing queue processor:", err)
 	}
 
-	if err = queue.Register(testNoHandlerQueueID, &eventPublishOnly{}, nil); err != nil {
-		t.Fatal("Register:", err)
-	}
-
 	uid, err := uuid.NewV7()
 	if err != nil {
 		t.Fatal("uuid.NewV7:", err)

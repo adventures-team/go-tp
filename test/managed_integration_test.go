@@ -42,8 +42,9 @@ func testManaged(t *testing.T, doTest func(*tp.StandaloneMaster, *counter, <-cha
 	zLog.Info().Int("pid", os.Getpid()).Send()
 
 	cnt := newCounter(0)
+	svc := testService{Counter: cnt}
 
-	err := qm.Register(testSleeperQueueID, &eventSleeper{}, cnt)
+	err := tp.Register(qm.Queue, svc.HandleSleeper)
 	if err != nil {
 		zLog.Fatal().Err(err).Msg("Queue.Register")
 	}

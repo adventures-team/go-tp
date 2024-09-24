@@ -14,7 +14,19 @@ TODO дока по архитектуре
 
 - [Constants](<#constants>)
 - [Variables](<#variables>)
-- [func Next[T Handler](ctxPtr *context.Context, evPtr *T) bool](<#func-next>)
+- [func CalcShard(eventID uint64, shardNum uint) uint](<#func-calcshard>)
+- [func Register[EvType Event](q *Queue, handler func(context.Context, []EvType) error) error](<#func-register>)
+- [type BaseEvent](<#type-baseevent>)
+  - [func (BaseEvent) AddonID(incompatible)](<#func-baseevent-addonid>)
+  - [func (ev *BaseEvent) Defer(ctx context.Context, delay time.Duration) error](<#func-baseevent-defer>)
+  - [func (ev *BaseEvent) Done()](<#func-baseevent-done>)
+  - [func (ev *BaseEvent) FromQueueID() QueueIDType](<#func-baseevent-fromqueueid>)
+  - [func (BaseEvent) IprotoPack(incompatible)](<#func-baseevent-iprotopack>)
+  - [func (BaseEvent) IprotoUnpack(incompatible)](<#func-baseevent-iprotounpack>)
+  - [func (BaseEvent) MarshalAddon(incompatible)](<#func-baseevent-marshaladdon>)
+  - [func (BaseEvent) MarshalerDisabled(incompatible)](<#func-baseevent-marshalerdisabled>)
+  - [func (ev *BaseEvent) Publish(ctx context.Context, data Event) (eventID queuedproto.EventID, err error)](<#func-baseevent-publish>)
+  - [func (BaseEvent) UnmarshalAddon(incompatible)](<#func-baseevent-unmarshaladdon>)
 - [type Builder](<#type-builder>)
 - [type Config](<#type-config>)
   - [func (conf Config) InitProcessor() *StandaloneMaster](<#func-config-initprocessor>)
@@ -24,53 +36,27 @@ TODO дока по архитектуре
   - [func (DisableMarshaler) IprotoUnpack(*bytes.Reader, iproto.PackMode) error](<#func-disablemarshaler-iprotounpack>)
   - [func (DisableMarshaler) MarshalerDisabled()](<#func-disablemarshaler-marshalerdisabled>)
 - [type Event](<#type-event>)
-  - [func (Event) AddonID(incompatible)](<#func-event-addonid>)
-  - [func (ev *Event) BatchLen() int](<#func-event-batchlen>)
-  - [func (ev *Event) Defer(ctx context.Context, delay time.Duration) error](<#func-event-defer>)
-  - [func (ev *Event) Done()](<#func-event-done>)
-  - [func (ev *Event) GetEvent() *Event](<#func-event-getevent>)
-  - [func (ev *Event) Hash() uint64](<#func-event-hash>)
-  - [func (Event) IprotoPack(incompatible)](<#func-event-iprotopack>)
-  - [func (Event) IprotoUnpack(incompatible)](<#func-event-iprotounpack>)
-  - [func (Event) MarshalAddon(incompatible)](<#func-event-marshaladdon>)
-  - [func (Event) MarshalerDisabled(incompatible)](<#func-event-marshalerdisabled>)
-  - [func (ev *Event) Publish(ctx context.Context, data Handler) (eventID queuedproto.EventID, err error)](<#func-event-publish>)
-  - [func (ev *Event) QueueID() QueueIDType](<#func-event-queueid>)
-  - [func (ev *Event) Shard(hash uint64) uint](<#func-event-shard>)
-  - [func (Event) UnmarshalAddon(incompatible)](<#func-event-unmarshaladdon>)
 - [type EventIDBuilder](<#type-eventidbuilder>)
 - [type EventList](<#type-eventlist>)
-- [type Handler](<#type-handler>)
-- [type Hasher](<#type-hasher>)
 - [type IgnoreDuplicateItems](<#type-ignoreduplicateitems>)
 - [type MarshalerDisabled](<#type-marshalerdisabled>)
-- [type NoHandler](<#type-nohandler>)
-  - [func (NoHandler) AddonID(incompatible)](<#func-nohandler-addonid>)
-  - [func (NoHandler) Handle(context.Context) error](<#func-nohandler-handle>)
-  - [func (NoHandler) IprotoPack(incompatible)](<#func-nohandler-iprotopack>)
-  - [func (NoHandler) IprotoUnpack(incompatible)](<#func-nohandler-iprotounpack>)
-  - [func (NoHandler) MarshalAddon(incompatible)](<#func-nohandler-marshaladdon>)
-  - [func (NoHandler) MarshalerDisabled(incompatible)](<#func-nohandler-marshalerdisabled>)
-  - [func (NoHandler) UnmarshalAddon(incompatible)](<#func-nohandler-unmarshaladdon>)
 - [type Queue](<#type-queue>)
   - [func Init(ctx context.Context, conf *queueconfig.Config) (*Queue, error)](<#func-init>)
-  - [func (q *Queue) Encode(data Handler) (eventData []byte, err error)](<#func-queue-encode>)
+  - [func (q *Queue) Encode(event Event) (eventData []byte, err error)](<#func-queue-encode>)
   - [func (queue *Queue) GetActiveEvents(ctx context.Context, queueID QueueIDType, count int) (*EventList, error)](<#func-queue-getactiveevents>)
   - [func (queue *Queue) GetEventsByIDs(ctx context.Context, queueID QueueIDType, eventIDs []queuedproto.EventID) (*EventList, error)](<#func-queue-geteventsbyids>)
   - [func (q *Queue) IsRegistered(queueID uint16) bool](<#func-queue-isregistered>)
   - [func (q *Queue) NewPoller(logger *zerolog.Logger) workerpool.Poller](<#func-queue-newpoller>)
-  - [func (queue *Queue) Publish(ctx context.Context, event Handler) (eventID queuedproto.EventID, err error)](<#func-queue-publish>)
+  - [func (queue *Queue) Publish(ctx context.Context, event Event) (eventID queuedproto.EventID, err error)](<#func-queue-publish>)
   - [func (queue *Queue) Queued() *queuedclient.QueuedClient](<#func-queue-queued>)
-  - [func (q *Queue) Register(queueID QueueIDType, valueExample Handler, autofill MarshalerDisabled) error](<#func-queue-register>)
 - [type QueueIDType](<#type-queueidtype>)
-- [type Sharder](<#type-sharder>)
 - [type StandaloneMaster](<#type-standalonemaster>)
   - [func NewStandaloneManager(queue *Queue, pool *workerpool.WorkerPool, logger *zerolog.Logger) *StandaloneMaster](<#func-newstandalonemanager>)
   - [func (qm *StandaloneMaster) Run()](<#func-standalonemaster-run>)
   - [func (qm *StandaloneMaster) Stop()](<#func-standalonemaster-stop>)
 - [type Stat](<#type-stat>)
-  - [func (s Stat) Errors() uint32](<#func-stat-errors>)
-  - [func (s Stat) Processed() uint32](<#func-stat-processed>)
+  - [func (s *Stat) Errors() uint32](<#func-stat-errors>)
+  - [func (s *Stat) Processed() uint32](<#func-stat-processed>)
 - [type Unpacker](<#type-unpacker>)
 - [type VersionType](<#type-versiontype>)
 
@@ -153,47 +139,115 @@ SignalsExit \- graceful exit \(дожидается завершения обр�
 var SignalsExit = [...]os.Signal{syscall.SIGTERM, syscall.SIGINT}
 ```
 
-## func Next
+## func CalcShard
 
 ```go
-func Next[T Handler](ctxPtr *context.Context, evPtr *T) bool
+func CalcShard(eventID uint64, shardNum uint) uint
 ```
 
-Next \- итерация по событиям одной версии, полученной в одной пачке.
+CalcShard распределяет события по шардам в зависимости от хеша от ID события. Совместимо с перлом \(алгоритм хеширования \- crc от строкового десятичного представления eventID, распределение по шардам \- остаток от деления\).
 
-Для высоконагруженных очередей может быть неплохой выигрыш от мульти\-обработки событий: мы можем запросить объекты по ID из коробки/базы одним запросом, более того, если набор ID небольшой \(например, все юзеры смотрят одну какую\-то очень популярную страницу\), экономия трафика/нагрузки на БД будет существенна.
+## func Register
 
+```go
+func Register[EvType Event](q *Queue, handler func(context.Context, []EvType) error) error
 ```
-func (ev *MyEvent) Handler(ctx context.Context) ... {
-	...
-	ids := make([]uint32, 0, ev.BatchLen())
 
-	for nctx, nev := ctx, ev; tp.Next(&nctx, &ev); {
-		zerolog.Ctx(nctx).Trace().Uint32("user_id", nev.UserID).Msg("fetching user info")
-		ids = append(ids, nev.UserID)
-	}
+Register регистрирует обработчик очереди для получения событий. Для отправки регистрация не требуется. handler принимает слайс событий, поддерживающих интерфейс Event \(конкретных типов \- не слайс интерфейсов\). ID очереди и версия события определяется методами QueueID и Version. Для одной очереди могут быть зарегистрированы обработчики событий нескольких версий.
 
-	... SelectMultiByUserID(ids)
-	// заполняем map по UserID
+## type BaseEvent
 
-	for {
-		zerolog.Ctx(ctx).Trace().Uint32("user_id", ev.UserID).Msg("processing user info")
-		Process(byUserID[ev.UserID])
-		ev.Done() // вызывать Done при использовании Next обязательно
-		if !tp.Next(&ctx, &ev) {
-			break
-		}
-	}
+BaseEvent \- базовый тип события, должен встраиваться в пользовательские типы событий.
 
-	return nil
+```go
+type BaseEvent struct {
+    // contains filtered or unexported fields
 }
 ```
 
-Вызывать метод Done для событий, полученных при помощи Next, обязательно.
+### func \(BaseEvent\) AddonID
 
-Логгировать надо через явное получение логгера из контекста при каждой итерации цикла. Можно было бы заставить юзера вручную логгировать event\_id, но это чревато очепятками \(строки же не проверяются ничем\), что может затруднить автоматическую обработку логов.
+```go
+func (BaseEvent) AddonID(incompatible)
+```
 
-Версия функции для go1.18\+ не кидает паники \- ErrPointerRequired невозможна \(возникнет ошибка при компиляции\), ErrEventTypesDiffer и ErrMisconstructedEvent менее вероятны, чем в рефлективной версии, но всё\-таки возможны при внутренних ошибках в tp. Если эти две паники не возникнут ни разу за время эксплуатации рефлективной версии \- можно их тут не обрабатывать.
+AddonID \- не поддерживается. Тип BaseEvent не предназначен для передачи по протоколу
+
+### func \(\*BaseEvent\) Defer
+
+```go
+func (ev *BaseEvent) Defer(ctx context.Context, delay time.Duration) error
+```
+
+Defer устанавливает задержку события.
+
+Время задержки устанавливается сразу же. По завершении цикла обработки событиям, для которых не был вызван метод Done либо Defer, проставляется задержка по умолчанию.
+
+Если событие было помечено как выполненное при помощи Done, а потом был вызван Defer, пометка на удаление снимается.
+
+### func \(\*BaseEvent\) Done
+
+```go
+func (ev *BaseEvent) Done()
+```
+
+Done помечает событие обработанным.
+
+События удаляются не сразу, а по завершении цикла обработки всех событий, полученных за один запрос из queued. В случае возникновения паник \(в т.ч. необработанных\), удаление все равно должно произойти до выхода из tp.Queue.Work
+
+### func \(\*BaseEvent\) FromQueueID
+
+```go
+func (ev *BaseEvent) FromQueueID() QueueIDType
+```
+
+FromQueueID \- ID очереди, из которой прилетело событие
+
+### func \(BaseEvent\) IprotoPack
+
+```go
+func (BaseEvent) IprotoPack(incompatible)
+```
+
+IprotoPack \- не поддерживается. Тип BaseEvent не предназначен для передачи по протоколу
+
+### func \(BaseEvent\) IprotoUnpack
+
+```go
+func (BaseEvent) IprotoUnpack(incompatible)
+```
+
+IprotoUnpack \- не поддерживается. Тип BaseEvent не предназначен для передачи по протоколу
+
+### func \(BaseEvent\) MarshalAddon
+
+```go
+func (BaseEvent) MarshalAddon(incompatible)
+```
+
+MarshalAddon \- не поддерживается. Тип BaseEvent не предназначен для передачи по протоколу
+
+### func \(BaseEvent\) MarshalerDisabled
+
+```go
+func (BaseEvent) MarshalerDisabled(incompatible)
+```
+
+### func \(\*BaseEvent\) Publish
+
+```go
+func (ev *BaseEvent) Publish(ctx context.Context, data Event) (eventID queuedproto.EventID, err error)
+```
+
+Publish \- враппер к Queue.Publish \(см. его доку для описания параметра и возвращаемого значения\). Отправляет новое событие в очередь, указанную при регистрации для этого типа методом Queue.Register
+
+### func \(BaseEvent\) UnmarshalAddon
+
+```go
+func (BaseEvent) UnmarshalAddon(incompatible)
+```
+
+UnmarshalAddon \- не поддерживается. Тип BaseEvent не предназначен для передачи по протоколу
 
 ## type Builder
 
@@ -322,140 +376,15 @@ func (DisableMarshaler) MarshalerDisabled()
 
 ## type Event
 
-Event \- высокоуровневое представление события. Предоставлены также врапперы к нужным частям API очередей.
+Event \- интерфейс обработчика очереди. Структура обработчика должна включать в себя тип BaseEvent
 
 ```go
-type Event struct {
-    // contains filtered or unexported fields
+type Event interface {
+    Version() VersionType // Возвращает версию события. Должен быть определён для типа события.
+    QueueID() QueueIDType // Возвращает ID очереди. должен быть определён для типа события.
+    // contains filtered or unexported methods
 }
 ```
-
-### func \(Event\) AddonID
-
-```go
-func (Event) AddonID(incompatible)
-```
-
-AddonID \- см. описание NoHandler.IprotoPack
-
-### func \(\*Event\) BatchLen
-
-```go
-func (ev *Event) BatchLen() int
-```
-
-BatchLen возвращает количество событий одинакового типа \(т.е. кол\-во раз, когда tp.Next\(&ev\) вернёт true \+ 1\). Если событие в пачке единственное \- возвращается 1.
-
-```
-ids := make([]uint32, 0, myev.BatchLen())
-for {
-	ids = append(ids, myev.UserID)
-
-	if !tp.Next(&myev) {
-		break
-	}
-}
-```
-
-### func \(\*Event\) Defer
-
-```go
-func (ev *Event) Defer(ctx context.Context, delay time.Duration) error
-```
-
-Defer устанавливает задержку события.
-
-Время задержки устанавливается сразу же. По завершении цикла обработки событиям, для которых не был вызван метод Done либо Defer, проставляется задержка по умолчанию.
-
-Если событие было помечено как выполненное при помощи Done, а потом был вызван Defer, пометка на удаление снимается.
-
-### func \(\*Event\) Done
-
-```go
-func (ev *Event) Done()
-```
-
-Done помечает событие обработанным.
-
-События удаляются не сразу, а по завершении цикла обработки всех событий, полученных за один запрос из queued. В случае возникновения паник \(в т.ч. необработанных\), удаление все равно должно произойти до выхода из tp.Queue.Work
-
-### func \(\*Event\) GetEvent
-
-```go
-func (ev *Event) GetEvent() *Event
-```
-
-GetEvent \- доступ к кишкам события из юзерской структуры
-
-### func \(\*Event\) Hash
-
-```go
-func (ev *Event) Hash() uint64
-```
-
-Hash \- возвращает хэш от ID события, совместимый с перловыми очередями \(crc32 от строкового десятичного представления ID\)
-
-### func \(Event\) IprotoPack
-
-```go
-func (Event) IprotoPack(incompatible)
-```
-
-IprotoPack \- см. описание NoHandler.IprotoPack
-
-### func \(Event\) IprotoUnpack
-
-```go
-func (Event) IprotoUnpack(incompatible)
-```
-
-IprotoUnpack \- см. описание NoHandler.IprotoPack
-
-### func \(Event\) MarshalAddon
-
-```go
-func (Event) MarshalAddon(incompatible)
-```
-
-MarshalAddon \- см. описание NoHandler.IprotoPack
-
-### func \(Event\) MarshalerDisabled
-
-```go
-func (Event) MarshalerDisabled(incompatible)
-```
-
-### func \(\*Event\) Publish
-
-```go
-func (ev *Event) Publish(ctx context.Context, data Handler) (eventID queuedproto.EventID, err error)
-```
-
-Publish \- враппер к Queue.Publish \(см. его доку для описания параметра и возвращаемого значения\). Отправляет новое событие в очередь, указанную при регистрации для этого типа методом Queue.Register
-
-### func \(\*Event\) QueueID
-
-```go
-func (ev *Event) QueueID() QueueIDType
-```
-
-QueueID \- ID очереди, из которой прилетело событие
-
-### func \(\*Event\) Shard
-
-```go
-func (ev *Event) Shard(hash uint64) uint
-```
-
-Shard \- распределяет событие по шардам в зависимости от хеша. Совместимая с перлом версия \(остаток от деления\).
-
-### func \(Event\) UnmarshalAddon
-
-```go
-func (Event) UnmarshalAddon(incompatible)
-```
-
-UnmarshalAddon \- см. описание NoHandler.IprotoPack
 
 ## type EventIDBuilder
 
@@ -469,36 +398,11 @@ type EventIDBuilder interface {
 
 ## type EventList
 
-EventList \- список событий, прилетающих из queued для одной очереди. В списке могут быть события разных версий.
+EventList \- список событий, прилетающих из queued для одной очереди. TODO подумать про перенос в internal, чтобы не путать разработчиков. Сущность внутренняя.
 
 ```go
 type EventList struct {
     // contains filtered or unexported fields
-}
-```
-
-## type Handler
-
-Handler \- интерфейс обработчика очереди. Структура обработчика должна включать в себя тип Event
-
-```go
-type Handler interface {
-    GetEvent() *Event             // Реализуется типом Event
-    Version() VersionType         // Возвращает версию события. Вызывается только при регистрации
-    Handle(context.Context) error // Реализуется юзером
-    // contains filtered or unexported methods
-}
-```
-
-## type Hasher
-
-Hasher \- переопределив метод Hash у своего типа события, можно задать произвольный алгоритм хеширования \(default: crc32 от строкового десятичного представления ID\)
-
-Hasher и Sharder используются только для типов событий, поддерживающих EventIDBuilder \(задающих ID события сами\). Иначе будет использовано балансирование между шардами \(даже если задать эти методы у себя\).
-
-```go
-type Hasher interface {
-    Hash() uint64
 }
 ```
 
@@ -522,78 +426,6 @@ type MarshalerDisabled interface {
 }
 ```
 
-## type NoHandler
-
-NoHandler \- если для очереди \(пока\) не предусмотрена обработка \(например, обработчик реализован на перле\), надо встроить в структуру события этот тип
-
-```go
-type NoHandler struct {
-    Event
-}
-```
-
-### func \(NoHandler\) AddonID
-
-```go
-func (NoHandler) AddonID(incompatible)
-```
-
-AddonID \- см. описание NoHandler.IprotoPack
-
-### func \(NoHandler\) Handle
-
-```go
-func (NoHandler) Handle(context.Context) error
-```
-
-Handle \- не делает ничего
-
-### func \(NoHandler\) IprotoPack
-
-```go
-func (NoHandler) IprotoPack(incompatible)
-```
-
-IprotoPack \- ломаем совместимость NoHandler с маршалерами, чтобы маршалер из вложенной структуры \(например, DisableMarshaler из структуры объектов API, вложенный в событие\), не повлиял на маршалинг события.
-
-Почему бы не объявить приватный тип с запрещёнными маршалерами, и не встроить его в типы NoHandler и Event? Зачем мозолить глаза разработчику, читающему доку?
-
-По правилам проброса встроенных полей в го: x.f denotes the field or method at the shallowest depth in T where there is such an f. If there is not exactly one f with shallowest depth, the selector expression is illegal.
-
-Т.е. если мы объявим "запрещающие" методы глубже \(структура, вложенная в структуру Event/NoHandler\) не перекроют методы, объявленные непосредственно у вложенной структуры 1го уровня.
-
-Если же всё\-таки зачем\-то потребуется объявить маршалеры для типа события \- это можно сделать, т.к. они перекроют "наследуемые" методы \(и с правильной, и с неправильной сигнатурой\).
-
-### func \(NoHandler\) IprotoUnpack
-
-```go
-func (NoHandler) IprotoUnpack(incompatible)
-```
-
-IprotoUnpack \- см. описание NoHandler.IprotoPack
-
-### func \(NoHandler\) MarshalAddon
-
-```go
-func (NoHandler) MarshalAddon(incompatible)
-```
-
-MarshalAddon \- см. описание NoHandler.IprotoPack
-
-### func \(NoHandler\) MarshalerDisabled
-
-```go
-func (NoHandler) MarshalerDisabled(incompatible)
-```
-
-### func \(NoHandler\) UnmarshalAddon
-
-```go
-func (NoHandler) UnmarshalAddon(incompatible)
-```
-
-UnmarshalAddon \- см. описание NoHandler.IprotoPack
-
 ## type Queue
 
 Queue \- высокоуровневое API очередей. Содержит информацию об обрабатываемых очередях \(см. Register\)
@@ -615,10 +447,12 @@ Init создаёт объект для высокоуровневой рабо�
 ### func \(\*Queue\) Encode
 
 ```go
-func (q *Queue) Encode(data Handler) (eventData []byte, err error)
+func (q *Queue) Encode(event Event) (eventData []byte, err error)
 ```
 
-Encode кодирует событие. Тип события должен быть зарегистрирован при помощи метода Register.
+Encode кодирует событие.
+
+Если нужно только отправлять события, регистрация не требуется \(в отличие от предыдущих версий tp\).
 
 При соответствии интерфейсам Builder и/или EventIDBuilder вызываются соответствующие методы.
 
@@ -652,6 +486,8 @@ func (queue *Queue) GetEventsByIDs(ctx context.Context, queueID QueueIDType, eve
 func (q *Queue) IsRegistered(queueID uint16) bool
 ```
 
+IsRegistered проверяет, зарегистрирован ли обработчик очереди.
+
 ### func \(\*Queue\) NewPoller
 
 ```go
@@ -663,7 +499,7 @@ NewPoller возвращает объект для опроса новых со�
 ### func \(\*Queue\) Publish
 
 ```go
-func (queue *Queue) Publish(ctx context.Context, event Handler) (eventID queuedproto.EventID, err error)
+func (queue *Queue) Publish(ctx context.Context, event Event) (eventID queuedproto.EventID, err error)
 ```
 
 Publish кодирует событие при помощи метода Encode, и отправляет его в очередь методом queuedclient.Publish. Клиент очередей должен быть проинициализирован.
@@ -682,25 +518,9 @@ Queued возвращает клиент очередей.
 
 Это \- API нижнего уровня, не стоит им пользоваться без необходимости.
 
-Для удаления событий из обработчиков стоит пользоваться методом Event.Done, для установки времени задержки \- Event.Defer.
+Для удаления событий из обработчиков стоит пользоваться методом BaseEvent.Done, для установки времени задержки \- BaseEvent.Defer.
 
 Если будут нужны какие\-то методы "среднего уровня", имеет смысл их добавить к типу Queue.
-
-### func \(\*Queue\) Register
-
-```go
-func (q *Queue) Register(queueID QueueIDType, valueExample Handler, autofill MarshalerDisabled) error
-```
-
-Register регистрирует тип valueExample \(используется только тип, значение игнорируется\) для версии version и очереди queueID. valueExample может быть как указателем, так и значением. Предполагается, что метод вызывается при инициализации, поэтому не поддерживает работу из параллельных горутин. Перед регистрацией типа события происходит попытка его закодировать, для обнаружения ошибок в определении структуры на раннем этапе \(при запуске сервиса\).
-
-Если в структуру valueExample встроен тип NoHandler, обработчики не регистрируются, и очередь можно использовать только для публикации новых событий \(например, если обработка осуществляется в перле\). Таким образом можно избежать случайного запуска обработки необрабатываемых событий при ошибке в конфиге.
-
-При обработки событий, параметр autofill будет записан в поле структуры события с таким же типом. Если полей с таким типом несколько, будет заполнено первое из них. В тип нужно встроить DisableMarshaler для избежания утечки содержимого. Use case \- проброс объектов "уровня приложения" \(доступ к базам, и т.д.\) обработчикам. Поле должно быть экспортируемым \(публичным\).
-
-Если такая фича не требуется \(таких объектов нет, либо используются глобальные переменные, либо очередь без обработчиков\), следует передавать autofill = nil.
-
-Повторная регистрация для той же очереди перезаписывает предыдущую, и не вызывает ошибку. Так сделано, чтобы не ломало регистрацию очередей из init\(\) библиотек \(что, тем не менее, делать не рекомендуется\).
 
 ## type QueueIDType
 
@@ -708,16 +528,6 @@ QueueIDType \- тип id очереди. Используем type alias \- пр
 
 ```go
 type QueueIDType = uint16
-```
-
-## type Sharder
-
-Sharder \- переопределив метод Shard у своего типа события, можно задать произвольный алгоритм шардирования \(default: остаток от деления\)
-
-```go
-type Sharder interface {
-    Shard(hash uint64) uint
-}
 ```
 
 ## type StandaloneMaster
@@ -767,16 +577,16 @@ type Stat struct {
 }
 ```
 
-### func \(Stat\) Errors
+### func \(\*Stat\) Errors
 
 ```go
-func (s Stat) Errors() uint32
+func (s *Stat) Errors() uint32
 ```
 
-### func \(Stat\) Processed
+### func \(\*Stat\) Processed
 
 ```go
-func (s Stat) Processed() uint32
+func (s *Stat) Processed() uint32
 ```
 
 ## type Unpacker
@@ -791,7 +601,7 @@ type Unpacker interface {
 
 ## type VersionType
 
-VersionType \- id версии событий. Тоже алиас.
+VersionType \- id версии событий.
 
 ```go
 type VersionType = uint8 // из-за флагов в номере версии в перле, максимальный номер версии - 31 (queuedproto.FlagEnableAddons-1).
@@ -2119,14 +1929,7 @@ type Pool interface {
 
 ```go
 type Queue interface {
-    Encode(data tp.Handler) (eventData []byte, err error)
-    GetActiveEvents(ctx context.Context, queueID uint16, count int) (*tp.EventList, error)
-    GetEventsByIDs(ctx context.Context, queueID uint16, eventIDs []queuedproto.EventID) (*tp.EventList, error)
     IsRegistered(queueID uint16) bool
-    NewPoller(logger *zerolog.Logger) workerpool.Poller
-    Publish(ctx context.Context, event tp.Handler) (eventID queuedproto.EventID, err error)
-    Queued() *queuedclient.QueuedClient
-    Register(queueID uint16, valueExample tp.Handler, autofill tp.MarshalerDisabled) error
 }
 ```
 
@@ -2504,9 +2307,10 @@ import "gitlab.corp.mail.ru/mygo/tp.git/test/examples"
 
 - [Constants](<#constants>)
 - [type Service](<#type-service>)
+  - [func (svc *Service) Handle(ctx context.Context, events []SimpleEvent) error](<#func-service-handle>)
 - [type SimpleEvent](<#type-simpleevent>)
-  - [func (ev *SimpleEvent) Handle(ctx context.Context) error](<#func-simpleevent-handle>)
-  - [func (*SimpleEvent) Version() uint8](<#func-simpleevent-version>)
+  - [func (SimpleEvent) QueueID() uint16](<#func-simpleevent-queueid>)
+  - [func (SimpleEvent) Version() uint8](<#func-simpleevent-version>)
 
 
 ## Constants
@@ -2519,34 +2323,37 @@ const SimpleQueueID = 1122
 
 ```go
 type Service struct {
-    tp.DisableMarshaler
     DatabaseConnection any
 }
+```
+
+### func \(\*Service\) Handle
+
+```go
+func (svc *Service) Handle(ctx context.Context, events []SimpleEvent) error
 ```
 
 ## type SimpleEvent
 
 ```go
 type SimpleEvent struct {
-    tp.Event
+    tp.BaseEvent
 
-    ID   uint32
-    Name string
-
-    Service *Service `iproto:"-"` // поля с этим тэгом игнорируются при сериализации
+    UserID   uint32
+    UserName string
 }
 ```
 
-### func \(\*SimpleEvent\) Handle
+### func \(SimpleEvent\) QueueID
 
 ```go
-func (ev *SimpleEvent) Handle(ctx context.Context) error
+func (SimpleEvent) QueueID() uint16
 ```
 
-### func \(\*SimpleEvent\) Version
+### func \(SimpleEvent\) Version
 
 ```go
-func (*SimpleEvent) Version() uint8
+func (SimpleEvent) Version() uint8
 ```
 
 # rootpath
@@ -3745,14 +3552,13 @@ Package mock\_queue is a generated GoMock package.
 - [type MockQueue](<#type-mockqueue>)
   - [func NewMockQueue(ctrl *gomock.Controller) *MockQueue](<#func-newmockqueue>)
   - [func (m *MockQueue) EXPECT() *MockQueueMockRecorder](<#func-mockqueue-expect>)
-  - [func (m *MockQueue) Encode(arg0 tp.Handler) ([]byte, error)](<#func-mockqueue-encode>)
+  - [func (m *MockQueue) Encode(arg0 tp.Event) ([]byte, error)](<#func-mockqueue-encode>)
   - [func (m *MockQueue) GetActiveEvents(arg0 context.Context, arg1 uint16, arg2 int) (*tp.EventList, error)](<#func-mockqueue-getactiveevents>)
   - [func (m *MockQueue) GetEventsByIDs(arg0 context.Context, arg1 uint16, arg2 []queuedproto.EventID) (*tp.EventList, error)](<#func-mockqueue-geteventsbyids>)
   - [func (m *MockQueue) IsRegistered(arg0 uint16) bool](<#func-mockqueue-isregistered>)
   - [func (m *MockQueue) NewPoller(arg0 *zerolog.Logger) workerpool.Poller](<#func-mockqueue-newpoller>)
-  - [func (m *MockQueue) Publish(arg0 context.Context, arg1 tp.Handler) (queuedproto.EventID, error)](<#func-mockqueue-publish>)
+  - [func (m *MockQueue) Publish(arg0 context.Context, arg1 tp.Event) (queuedproto.EventID, error)](<#func-mockqueue-publish>)
   - [func (m *MockQueue) Queued() *queuedclient.QueuedClient](<#func-mockqueue-queued>)
-  - [func (m *MockQueue) Register(arg0 uint16, arg1 tp.Handler, arg2 tp.MarshalerDisabled) error](<#func-mockqueue-register>)
 - [type MockQueueMockRecorder](<#type-mockqueuemockrecorder>)
   - [func (mr *MockQueueMockRecorder) Encode(arg0 any) *QueueEncodeCall](<#func-mockqueuemockrecorder-encode>)
   - [func (mr *MockQueueMockRecorder) GetActiveEvents(arg0, arg1, arg2 any) *QueueGetActiveEventsCall](<#func-mockqueuemockrecorder-getactiveevents>)
@@ -3761,10 +3567,9 @@ Package mock\_queue is a generated GoMock package.
   - [func (mr *MockQueueMockRecorder) NewPoller(arg0 any) *QueueNewPollerCall](<#func-mockqueuemockrecorder-newpoller>)
   - [func (mr *MockQueueMockRecorder) Publish(arg0, arg1 any) *QueuePublishCall](<#func-mockqueuemockrecorder-publish>)
   - [func (mr *MockQueueMockRecorder) Queued() *QueueQueuedCall](<#func-mockqueuemockrecorder-queued>)
-  - [func (mr *MockQueueMockRecorder) Register(arg0, arg1, arg2 any) *QueueRegisterCall](<#func-mockqueuemockrecorder-register>)
 - [type QueueEncodeCall](<#type-queueencodecall>)
-  - [func (c *QueueEncodeCall) Do(f func(tp.Handler) ([]byte, error)) *QueueEncodeCall](<#func-queueencodecall-do>)
-  - [func (c *QueueEncodeCall) DoAndReturn(f func(tp.Handler) ([]byte, error)) *QueueEncodeCall](<#func-queueencodecall-doandreturn>)
+  - [func (c *QueueEncodeCall) Do(f func(tp.Event) ([]byte, error)) *QueueEncodeCall](<#func-queueencodecall-do>)
+  - [func (c *QueueEncodeCall) DoAndReturn(f func(tp.Event) ([]byte, error)) *QueueEncodeCall](<#func-queueencodecall-doandreturn>)
   - [func (c *QueueEncodeCall) Return(arg0 []byte, arg1 error) *QueueEncodeCall](<#func-queueencodecall-return>)
 - [type QueueGetActiveEventsCall](<#type-queuegetactiveeventscall>)
   - [func (c *QueueGetActiveEventsCall) Do(f func(context.Context, uint16, int) (*tp.EventList, error)) *QueueGetActiveEventsCall](<#func-queuegetactiveeventscall-do>)
@@ -3783,17 +3588,13 @@ Package mock\_queue is a generated GoMock package.
   - [func (c *QueueNewPollerCall) DoAndReturn(f func(*zerolog.Logger) workerpool.Poller) *QueueNewPollerCall](<#func-queuenewpollercall-doandreturn>)
   - [func (c *QueueNewPollerCall) Return(arg0 workerpool.Poller) *QueueNewPollerCall](<#func-queuenewpollercall-return>)
 - [type QueuePublishCall](<#type-queuepublishcall>)
-  - [func (c *QueuePublishCall) Do(f func(context.Context, tp.Handler) (queuedproto.EventID, error)) *QueuePublishCall](<#func-queuepublishcall-do>)
-  - [func (c *QueuePublishCall) DoAndReturn(f func(context.Context, tp.Handler) (queuedproto.EventID, error)) *QueuePublishCall](<#func-queuepublishcall-doandreturn>)
+  - [func (c *QueuePublishCall) Do(f func(context.Context, tp.Event) (queuedproto.EventID, error)) *QueuePublishCall](<#func-queuepublishcall-do>)
+  - [func (c *QueuePublishCall) DoAndReturn(f func(context.Context, tp.Event) (queuedproto.EventID, error)) *QueuePublishCall](<#func-queuepublishcall-doandreturn>)
   - [func (c *QueuePublishCall) Return(arg0 queuedproto.EventID, arg1 error) *QueuePublishCall](<#func-queuepublishcall-return>)
 - [type QueueQueuedCall](<#type-queuequeuedcall>)
   - [func (c *QueueQueuedCall) Do(f func() *queuedclient.QueuedClient) *QueueQueuedCall](<#func-queuequeuedcall-do>)
   - [func (c *QueueQueuedCall) DoAndReturn(f func() *queuedclient.QueuedClient) *QueueQueuedCall](<#func-queuequeuedcall-doandreturn>)
   - [func (c *QueueQueuedCall) Return(arg0 *queuedclient.QueuedClient) *QueueQueuedCall](<#func-queuequeuedcall-return>)
-- [type QueueRegisterCall](<#type-queueregistercall>)
-  - [func (c *QueueRegisterCall) Do(f func(uint16, tp.Handler, tp.MarshalerDisabled) error) *QueueRegisterCall](<#func-queueregistercall-do>)
-  - [func (c *QueueRegisterCall) DoAndReturn(f func(uint16, tp.Handler, tp.MarshalerDisabled) error) *QueueRegisterCall](<#func-queueregistercall-doandreturn>)
-  - [func (c *QueueRegisterCall) Return(arg0 error) *QueueRegisterCall](<#func-queueregistercall-return>)
 
 
 ## type MockQueue
@@ -3825,7 +3626,7 @@ EXPECT returns an object that allows the caller to indicate expected use.
 ### func \(\*MockQueue\) Encode
 
 ```go
-func (m *MockQueue) Encode(arg0 tp.Handler) ([]byte, error)
+func (m *MockQueue) Encode(arg0 tp.Event) ([]byte, error)
 ```
 
 Encode mocks base method.
@@ -3865,7 +3666,7 @@ NewPoller mocks base method.
 ### func \(\*MockQueue\) Publish
 
 ```go
-func (m *MockQueue) Publish(arg0 context.Context, arg1 tp.Handler) (queuedproto.EventID, error)
+func (m *MockQueue) Publish(arg0 context.Context, arg1 tp.Event) (queuedproto.EventID, error)
 ```
 
 Publish mocks base method.
@@ -3877,14 +3678,6 @@ func (m *MockQueue) Queued() *queuedclient.QueuedClient
 ```
 
 Queued mocks base method.
-
-### func \(\*MockQueue\) Register
-
-```go
-func (m *MockQueue) Register(arg0 uint16, arg1 tp.Handler, arg2 tp.MarshalerDisabled) error
-```
-
-Register mocks base method.
 
 ## type MockQueueMockRecorder
 
@@ -3952,14 +3745,6 @@ func (mr *MockQueueMockRecorder) Queued() *QueueQueuedCall
 
 Queued indicates an expected call of Queued.
 
-### func \(\*MockQueueMockRecorder\) Register
-
-```go
-func (mr *MockQueueMockRecorder) Register(arg0, arg1, arg2 any) *QueueRegisterCall
-```
-
-Register indicates an expected call of Register.
-
 ## type QueueEncodeCall
 
 QueueEncodeCall wrap \*gomock.Call
@@ -3973,7 +3758,7 @@ type QueueEncodeCall struct {
 ### func \(\*QueueEncodeCall\) Do
 
 ```go
-func (c *QueueEncodeCall) Do(f func(tp.Handler) ([]byte, error)) *QueueEncodeCall
+func (c *QueueEncodeCall) Do(f func(tp.Event) ([]byte, error)) *QueueEncodeCall
 ```
 
 Do rewrite \*gomock.Call.Do
@@ -3981,7 +3766,7 @@ Do rewrite \*gomock.Call.Do
 ### func \(\*QueueEncodeCall\) DoAndReturn
 
 ```go
-func (c *QueueEncodeCall) DoAndReturn(f func(tp.Handler) ([]byte, error)) *QueueEncodeCall
+func (c *QueueEncodeCall) DoAndReturn(f func(tp.Event) ([]byte, error)) *QueueEncodeCall
 ```
 
 DoAndReturn rewrite \*gomock.Call.DoAndReturn
@@ -4143,7 +3928,7 @@ type QueuePublishCall struct {
 ### func \(\*QueuePublishCall\) Do
 
 ```go
-func (c *QueuePublishCall) Do(f func(context.Context, tp.Handler) (queuedproto.EventID, error)) *QueuePublishCall
+func (c *QueuePublishCall) Do(f func(context.Context, tp.Event) (queuedproto.EventID, error)) *QueuePublishCall
 ```
 
 Do rewrite \*gomock.Call.Do
@@ -4151,7 +3936,7 @@ Do rewrite \*gomock.Call.Do
 ### func \(\*QueuePublishCall\) DoAndReturn
 
 ```go
-func (c *QueuePublishCall) DoAndReturn(f func(context.Context, tp.Handler) (queuedproto.EventID, error)) *QueuePublishCall
+func (c *QueuePublishCall) DoAndReturn(f func(context.Context, tp.Event) (queuedproto.EventID, error)) *QueuePublishCall
 ```
 
 DoAndReturn rewrite \*gomock.Call.DoAndReturn
@@ -4194,40 +3979,6 @@ DoAndReturn rewrite \*gomock.Call.DoAndReturn
 
 ```go
 func (c *QueueQueuedCall) Return(arg0 *queuedclient.QueuedClient) *QueueQueuedCall
-```
-
-Return rewrite \*gomock.Call.Return
-
-## type QueueRegisterCall
-
-QueueRegisterCall wrap \*gomock.Call
-
-```go
-type QueueRegisterCall struct {
-    *gomock.Call
-}
-```
-
-### func \(\*QueueRegisterCall\) Do
-
-```go
-func (c *QueueRegisterCall) Do(f func(uint16, tp.Handler, tp.MarshalerDisabled) error) *QueueRegisterCall
-```
-
-Do rewrite \*gomock.Call.Do
-
-### func \(\*QueueRegisterCall\) DoAndReturn
-
-```go
-func (c *QueueRegisterCall) DoAndReturn(f func(uint16, tp.Handler, tp.MarshalerDisabled) error) *QueueRegisterCall
-```
-
-DoAndReturn rewrite \*gomock.Call.DoAndReturn
-
-### func \(\*QueueRegisterCall\) Return
-
-```go
-func (c *QueueRegisterCall) Return(arg0 error) *QueueRegisterCall
 ```
 
 Return rewrite \*gomock.Call.Return
