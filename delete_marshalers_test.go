@@ -23,7 +23,7 @@ type (
 	// testEvent - пример события с объектом API, которому отключён маршалер, но это не должно мешать отключению
 	// маршалинга всего события
 	testEvent struct {
-		tp.Event
+		tp.BaseEvent
 		TestAPI
 		UserID uint32
 	}
@@ -31,7 +31,7 @@ type (
 	// testUnhandledEvent - пример события только для публикации со встроенными аддонами, маршалеры которых
 	// не должны быть доступны для объекта события
 	testUnhandledEvent struct {
-		tp.NoHandler
+		tp.BaseEvent
 		addons.Retry
 		UserID uint32
 	}
@@ -39,23 +39,35 @@ type (
 	// testUnhandledEvent2 - то же самое, но у CreationTime по-другому вкорячены маршалеры (без встраивания)
 	// не должны быть доступны для объекта события
 	testUnhandledEvent2 struct {
-		tp.NoHandler
+		tp.BaseEvent
 		addons.CreationTime
 		UserID uint32
 	}
 )
 
 var (
-	_ tp.Handler = &testEvent{}
-	_ tp.Handler = &testUnhandledEvent{}
-	_ tp.Handler = &testUnhandledEvent2{}
+	_ tp.Event = &testEvent{}
+	_ tp.Event = &testUnhandledEvent{}
+	_ tp.Event = &testUnhandledEvent2{}
 )
+
+func (testEvent) QueueID() uint16 {
+	return 1
+}
 
 func (testEvent) Version() uint8 {
 	return 1
 }
 
+func (testUnhandledEvent) QueueID() uint16 {
+	return 1
+}
+
 func (testUnhandledEvent) Version() uint8 {
+	return 1
+}
+
+func (testUnhandledEvent2) QueueID() uint16 {
 	return 1
 }
 

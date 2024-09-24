@@ -12,26 +12,22 @@ import (
 	"gitlab.corp.mail.ru/mygo/tp.git"
 )
 
-func (*SimpleEvent) Version() uint8 {
-	return 1
-}
-
-func (ev *SimpleEvent) Handle(ctx context.Context) error {
-	zerolog.Ctx(ctx).Info().Uint32("id", ev.ID).Str("name", ev.Name).Interface("service", ev.Service).Msg("SimpleEvent received")
-	ev.Done()
+func (svc *Service) Handle(ctx context.Context, events []SimpleEvent) error {
+	for _, ev := range events {
+		zerolog.Ctx(ctx).Info().Uint32("user_id", ev.UserID).Str("user_name", ev.UserName).Msg("SimpleEvent received")
+		ev.Done()
+	}
 
 	return nil
 }
 
-func startHandler() {
+func startHandler(svc *Service) {
 	qm := tp.Config{
 		Config:       getConfig(),
 		InstanceName: "test-instance",
 	}.InitProcessor()
 
-	service := &Service{DatabaseConnection: "test connection"}
-
-	if err := qm.Register(SimpleQueueID, &SimpleEvent{}, service); err != nil {
+	if err := tp.Register(qm.Queue, svc.Handle); err != nil {
 		zLog.Fatal().Err(err).Msg("error registering queue")
 	}
 

@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"reflect"
+	"hash/crc32"
+	"strconv"
+	"sync/atomic"
 
 	"github.com/rs/zerolog"
 
@@ -15,19 +17,28 @@ import (
 	"gitlab.corp.mail.ru/mygo/tp.git/queuedclient"
 )
 
+// MaxVersion - максимальная версия события (в верхних битах хранятся флаги)
+const MaxVersion = queuedproto.VersionMask
+
 type (
+	// QueueIDType - тип id очереди. Используем type alias - просто для удобства восприятия, "настоящий" тип (с методами, и громоздким приведением типов) нам не нужен.
+	QueueIDType = uint16
+
+	// VersionType - id версии событий.
+	VersionType = uint8 // из-за флагов в номере версии в перле, максимальный номер версии - 31 (queuedproto.FlagEnableAddons-1).
+
 	// Queue - высокоуровневое API очередей. Содержит информацию об обрабатываемых очередях (см. Register)
 	Queue struct {
-		queueGroup
-		client *queuedclient.QueuedClient
+		handlerMap handlerMap
+		client     *queuedclient.QueuedClient
 	}
 
-	// Handler - интерфейс обработчика очереди. Структура обработчика должна включать в себя тип Event
-	Handler interface {
-		GetEvent() *Event             // Реализуется типом Event
-		Version() VersionType         // Возвращает версию события. Вызывается только при регистрации
-		Handle(context.Context) error // Реализуется юзером
-		enforceDictatorship()         // Заставляем разработчиков юзать определённые тут типы Event и NoHandler, чтобы не намудрили. насилие во благо
+	// Event - интерфейс обработчика очереди. Структура обработчика должна включать в себя тип BaseEvent
+	Event interface {
+		Version() VersionType // Возвращает версию события. Должен быть определён для типа события.
+		QueueID() QueueIDType // Возвращает ID очереди. должен быть определён для типа события.
+
+		getEventID() queuedproto.EventID
 	}
 
 	// Builder - при поддержке этого интерфейса типом события, метод Build вызывается при добавлении события в очередь.
@@ -56,19 +67,6 @@ type (
 		IgnoreDuplicateItems() bool
 	}
 
-	// Hasher - переопределив метод Hash у своего типа события, можно задать произвольный алгоритм хеширования (default: crc32 от строкового десятичного представления ID)
-	//
-	// Hasher и Sharder используются только для типов событий, поддерживающих EventIDBuilder (задающих ID события сами).
-	// Иначе будет использовано балансирование между шардами (даже если задать эти методы у себя).
-	Hasher interface {
-		Hash() uint64
-	}
-
-	// Sharder - переопределив метод Shard у своего типа события, можно задать произвольный алгоритм шардирования (default: остаток от деления)
-	Sharder interface {
-		Shard(hash uint64) uint
-	}
-
 	// DisableMarshaler - встраивание этого типа в структуру отключает сериализацию средствами iproto
 	DisableMarshaler struct{}
 
@@ -77,10 +75,21 @@ type (
 		MarshalerDisabled()
 	}
 
-	// Ломаем совместимость NoHandler и Event с маршалерами iproto и addons.
-	// В принципе, достаточно объявить методы с несовместмой сигнатурой, поэтому тип (приватный,
-	// да ещё и с таким названием) нужен лишь для устрашения разработчика.
+	// Ломаем совместимость [BaseEvent] с маршалерами iproto и addons.
+	// Достаточно объявить методы с несовместмой сигнатурой, тип так назван для лучшей читаемости.
 	incompatible struct{}
+
+	handlerMap map[QueueIDType]handlerVersionMap
+
+	handlerVersionMap map[VersionType]handlerInfo // TODO map для 32 значений? переделать на массив (не слайс)?
+
+	handlerInfo struct {
+		newEvents func(int) any // возвращает слайс событий указанной ёмкости (длина 0)
+		boundPtr  func(any) any // возвращает указатель на элемент, следующий после длины слайса. нельзя вызывать, если слайс наполнен целиком
+		grow      func(any) any // увеличивает длину слайса на 1
+		handler   func(context.Context, any) error
+		format    encodings.Format
+	}
 )
 
 // Init создаёт объект для высокоуровневой работы с API очередей. Инициализирует клиент очередей (queuedclient) с указанным конфигом.
@@ -99,7 +108,7 @@ func Init(ctx context.Context, conf *queueconfig.Config) (*Queue, error) {
 //
 // Это - API нижнего уровня, не стоит им пользоваться без необходимости.
 //
-// Для удаления событий из обработчиков стоит пользоваться методом Event.Done, для установки времени задержки - Event.Defer.
+// Для удаления событий из обработчиков стоит пользоваться методом BaseEvent.Done, для установки времени задержки - BaseEvent.Defer.
 //
 // Если будут нужны какие-то методы "среднего уровня", имеет смысл их добавить к типу Queue.
 func (queue *Queue) Queued() *queuedclient.QueuedClient {
@@ -113,7 +122,7 @@ func (queue *Queue) Queued() *queuedclient.QueuedClient {
 //
 // Если тип события поддерживает интерфейс IgnoreDuplicateItems, и метод IgnoreDuplicateItems возвращает true, дубли при
 // совпадении ID события игнорируются (также подавляется ошибка в логе queued флагом queuedproto.FlagIgnoreWrongItem).
-func (queue *Queue) Publish(ctx context.Context, event Handler) (eventID queuedproto.EventID, err error) {
+func (queue *Queue) Publish(ctx context.Context, event Event) (eventID queuedproto.EventID, err error) {
 	eventData, err := queue.Encode(event)
 	if err != nil {
 		return queuedproto.EventID{}, err
@@ -125,9 +134,27 @@ func (queue *Queue) Publish(ctx context.Context, event Handler) (eventID queuedp
 		flags |= queuedproto.FlagIgnoreWrongItem
 	}
 
-	ev := event.GetEvent() // кто будет отсюда копипастить )) для своего события получать Event методом GetEvent не надо, т.к. структура Event уже вложена в свой тип события. можно обращаться к EventID напрямую.
+	evID := event.getEventID()
+	origEvID := evID
 
-	return queue.client.Publish(ctx, ev.QueueID(), ev.EventID, flags, eventData)
+	if getEvID, ok := event.(EventIDBuilder); ok {
+		evID.ID = getEvID.BuildEventID()
+	}
+
+	if evID.ID == 0 {
+		evID.Shard = queuedclient.BalanceShard
+	} else {
+		evID.Shard = CalcShard(evID.ID, queue.client.ShardNum())
+	}
+
+	if evID != origEvID {
+		if getBaseEv, ok := event.(baseEventGetter); ok {
+			baseEvent := getBaseEv.getBaseEvent()
+			baseEvent.EventID = evID // предпочтительный способ получения генерённого EventID - через возвращаемое значение. EventID в BaseEvent будет проставлен только если event передано по указателю, что не является обязательным.
+		}
+	}
+
+	return queue.client.Publish(ctx, event.QueueID(), event.getEventID(), flags, eventData)
 }
 
 // TODO тут нужны высокоуровневые методы Delete и Defer, чтобы не приходилось собирать вручную айдишник и лезть в низкоуровневый QueuedClient
@@ -153,7 +180,7 @@ func (queue *Queue) GetEventsByIDs(ctx context.Context, queueID QueueIDType, eve
 }
 
 func (queue *Queue) eventListFromItems(ctx context.Context, queueID QueueIDType, get func() (queuedproto.ItemList, error)) (*EventList, error) {
-	byVersion, ok := queue.incoming[queueID]
+	byVersion, ok := queue.handlerMap[queueID]
 	if !ok {
 		return nil, fmt.Errorf("%w %d", ErrUnknownQueue, queueID)
 	}
@@ -172,9 +199,8 @@ func (queue *Queue) eventListFromItems(ctx context.Context, queueID QueueIDType,
 		return evl, nil
 	}
 
-	evl.events = make([]Handler, 0, len(items.Items))
+	evl.baseEvents = make([]*BaseEvent, 0, len(items.Items))
 	unsupported := make([]queuedproto.EventID, 0, len(items.Items))
-	prevHandler := make(map[VersionType]*Handler, MaxVersion)
 
 	for _, item := range items.Items {
 		if len(item.Data) == 0 {
@@ -185,7 +211,7 @@ func (queue *Queue) eventListFromItems(ctx context.Context, queueID QueueIDType,
 		}
 
 		version := item.Data[0] & queuedproto.VersionMask
-		hinfo, ok := byVersion[version]
+		hInfo, ok := byVersion[version]
 
 		if !ok {
 			zerolog.Ctx(ctx).Error().Uint16("queue_id", queueID).Stringer("event_id", item).Uint8("version", version).Msg("unsupported version")
@@ -194,30 +220,36 @@ func (queue *Queue) eventListFromItems(ctx context.Context, queueID QueueIDType,
 			continue
 		}
 
-		valPtr := reflect.New(hinfo.dataType)
-		valIface := valPtr.Interface()
-		handler, ok := valIface.(Handler)
+		sl := evl.eventsByVersion[version]
+		if sl == nil {
+			sl = hInfo.newEvents(len(items.Items))
+			evl.eventsByVersion[version] = sl
+		}
 
+		event := hInfo.boundPtr(sl)
+
+		getBaseEv, ok := event.(baseEventGetter)
 		if !ok {
-			return nil, ErrInternalHandler
+			zerolog.Ctx(ctx).Error().Stringer("event_id", item).Msg("internal error: boundPtr returned non-pointer")
+			unsupported = append(unsupported, item.EventID)
+
+			continue
 		}
 
-		if hinfo.autofillIdx != -1 {
-			valPtr.Elem().Field(hinfo.autofillIdx).Set(hinfo.autofillVal)
-		}
+		baseEvent := getBaseEv.getBaseEvent()
 
-		if err := encodings.Decode(hinfo.format, item.Data, handler); err != nil {
+		if err := encodings.Decode(hInfo.format, item.Data, event); err != nil {
 			zerolog.Ctx(ctx).Err(err).Uint16("queue_id", queueID).Stringer("event_id", item).Uint8("version", version).Send()
 			unsupported = append(unsupported, item.EventID)
 
 			continue
 		}
 
-		ev := handler.GetEvent()
-		ev.EventID = item.EventID
-		ev.list = evl
+		baseEvent.EventID = item.EventID
+		baseEvent.list = evl
+		baseEvent.flags = new(atomic.Uint32)
 
-		if unpacker, ok := valIface.(Unpacker); ok {
+		if unpacker, ok := event.(Unpacker); ok {
 			if err := unpacker.Unpack(); err != nil {
 				zerolog.Ctx(ctx).Err(err).Uint16("queue_id", queueID).Stringer("event_id", item).Uint8("version", version).Msg("Unpack() error")
 				unsupported = append(unsupported, item.EventID)
@@ -226,13 +258,8 @@ func (queue *Queue) eventListFromItems(ctx context.Context, queueID QueueIDType,
 			}
 		}
 
-		if prevPtr, ok := prevHandler[version]; ok {
-			*prevPtr = handler
-		}
-
-		prevHandler[version] = &ev.next
-
-		evl.events = append(evl.events, handler)
+		evl.baseEvents = append(evl.baseEvents, baseEvent)
+		evl.eventsByVersion[version] = hInfo.grow(sl)
 	}
 
 	if len(unsupported) != 0 {
@@ -242,6 +269,110 @@ func (queue *Queue) eventListFromItems(ctx context.Context, queueID QueueIDType,
 	}
 
 	return evl, getErr
+}
+
+// register регистрирует обработчик для входщих событий из очереди queueID.
+// Исключительно для внутреннего использования, юзеры должны региться функцией [Register].
+// [Register] предоставляет функции-аргументы, работающие с конкретным юзерским типом.
+// Рефлексия и unsafe не используются! Обёртка [Register] приводит всё к типам юзерских событий.
+//
+// hInfo.newEvents: конструктор нового слайса событий, аргумент - capacity, должен возвращать тип слайса юзерских событий.
+// hInfo.boundPtr:   возвращает указатель на элемент с индексом длины слайса(!), т.е. "после последнего" (нарушения типобезопасности нет, поскольку элемент находится внутри capacity слайса).
+// hInfo.grow:      увеличивает длину слайса на 1 элемент путём реслайсинга, данные не изменяются.
+// hInfo.handler:   принимает слайс юзерских событий, assertion к нужному типу делается во враппере, подставляемом [Register].
+//
+// Повторная регистрация для той же очереди перезаписывает предыдущую, и не вызывает ошибку.
+// Так сделано, чтобы не ломало регистрацию очередей из init() библиотек (что, тем не менее, делать не рекомендуется).
+func (q *Queue) register(queueID QueueIDType, hInfo handlerInfo, version uint8) error {
+	if version > MaxVersion {
+		return fmt.Errorf("%w: %d", ErrVersionTooBig, queueID)
+	}
+
+	if q.handlerMap == nil {
+		q.handlerMap = make(handlerMap)
+	}
+
+	byVersion, ok := q.handlerMap[queueID]
+	if !ok {
+		byVersion = make(handlerVersionMap)
+		q.handlerMap[queueID] = byVersion
+	}
+
+	byVersion[version] = hInfo
+
+	return nil
+}
+
+// Register регистрирует обработчик очереди для получения событий. Для отправки регистрация не требуется.
+// handler принимает слайс событий, поддерживающих интерфейс Event (конкретных типов - не слайс интерфейсов).
+// ID очереди и версия события определяется методами QueueID и Version. Для одной очереди могут быть зарегистрированы
+// обработчики событий нескольких версий.
+func Register[EvType Event](q *Queue, handler func(context.Context, []EvType) error) error {
+	var ev EvType // zero value of EvType
+
+	queueID := ev.QueueID()
+	version := ev.Version()
+
+	hInfo := handlerInfo{
+		newEvents: func(cap int) any {
+			return make([]EvType, 0, cap)
+		},
+		boundPtr: func(slI any) any {
+			sl := slI.([]EvType)
+			newEv := &sl[len(sl) : len(sl)+1][0]
+
+			return newEv
+		},
+		grow: func(slI any) any {
+			sl := slI.([]EvType)
+			return sl[0 : len(sl)+1]
+		},
+		handler: func(ctx context.Context, slI any) error {
+			return handler(ctx, slI.([]EvType))
+		},
+		format: encodings.Detect(ev),
+	}
+
+	return q.register(queueID, hInfo, version)
+}
+
+// Encode кодирует событие.
+//
+// Если нужно только отправлять события, регистрация не требуется (в отличие от предыдущих версий tp).
+//
+// При соответствии интерфейсам Builder и/или EventIDBuilder вызываются соответствующие методы.
+//
+// Кодировщику безразлично, передаётся указатель или значение, но для вызова методов по указанным интерфейсам
+// нужно соблюдать правильный тип (тот, для которого объявлен метод - очевидно, для Builder нужен указатель).
+//
+// ID события, кроме интерфейса EventIDBuilder, можно также передать явно. Номер шарда будет вычислен из ID события,
+// если оно задано одним из этих способов. Если EventID.ID == 0, шард будет выбран по round robin (queuedclient.BalanceShard).
+func (q *Queue) Encode(event Event) (eventData []byte, err error) {
+	if event == nil {
+		return nil, fmt.Errorf("%w nil event data", ErrUnknownType)
+	}
+
+	if builder, ok := event.(Builder); ok {
+		if err = builder.Build(); err != nil {
+			return nil, fmt.Errorf("%T: %w", event, err)
+		}
+	}
+
+	eventData, err = encodings.Encode(encodings.Detect(event), event.Version(), event)
+
+	return
+}
+
+// IsRegistered проверяет, зарегистрирован ли обработчик очереди.
+func (q *Queue) IsRegistered(queueID uint16) bool {
+	_, ok := q.handlerMap[queueID]
+	return ok
+}
+
+// CalcShard распределяет события по шардам в зависимости от хеша от ID события. Совместимо с перлом (алгоритм хеширования - crc от строкового десятичного представления eventID, распределение по шардам - остаток от деления).
+func CalcShard(eventID uint64, shardNum uint) uint {
+	hash := uint64(crc32.ChecksumIEEE([]byte(strconv.FormatUint(eventID, 10))))
+	return uint(hash % uint64(shardNum))
 }
 
 var (

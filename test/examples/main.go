@@ -7,15 +7,17 @@ import (
 )
 
 var (
-	flagID   = flag.Uint("id", 0, "event ID")
-	flagName = flag.String("name", "", "event Name")
+	flagID   = flag.Uint("id", 0, "UserID")
+	flagName = flag.String("name", "", "UserName")
 )
 
 func main() {
 	flag.Parse()
 
+	svc := &Service{DatabaseConnection: "test connection"}
+
 	if *flagID == 0 && *flagName == "" {
-		startHandler()
+		startHandler(svc)
 
 		zLog.Info().Msg("handler finished, exiting")
 	} else {

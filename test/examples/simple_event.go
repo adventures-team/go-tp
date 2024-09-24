@@ -7,15 +7,20 @@ import (
 const SimpleQueueID = 1122
 
 type SimpleEvent struct {
-	tp.Event
+	tp.BaseEvent
 
-	ID   uint32
-	Name string
+	UserID   uint32
+	UserName string
+}
 
-	Service *Service `iproto:"-"` // поля с этим тэгом игнорируются при сериализации
+func (SimpleEvent) Version() uint8 {
+	return 1
+}
+
+func (SimpleEvent) QueueID() uint16 {
+	return SimpleQueueID
 }
 
 type Service struct {
-	tp.DisableMarshaler
 	DatabaseConnection any
 }

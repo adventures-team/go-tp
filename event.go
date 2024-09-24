@@ -2,82 +2,67 @@ package tp
 
 import (
 	"context"
-	"hash/crc32"
-	"strconv"
+	"fmt"
+	"sync/atomic"
 	"time"
 
 	"gitlab.corp.mail.ru/mygo/queuedproto.git"
 )
 
 const (
-	evIsDeleted      uint8 = 1 << iota // события с этим флагом удаляются балком методом EventList.commit
-	evHasCustomDefer                   // проставляется для событий, которым вручную был задан кастомный дефер. их не обрабатывает EventList.commit
-	evIsProcessed                      // проставляется функцией tp.Next для возвращаемых ей событий. для пропуска уже обработанных событий в основном цикле. НЕ означает, что событие обработано успешно
+	evIsDeleted      uint32 = 1 << iota // события с этим флагом удаляются балком методом EventList.commit
+	evHasCustomDefer                    // проставляется для событий, которым вручную был задан кастомный дефер. их не обрабатывает EventList.commit
 )
 
 type (
-	// Event - высокоуровневое представление события. Предоставлены также врапперы к нужным частям API очередей.
-	Event struct {
+	// BaseEvent - базовый тип события, должен встраиваться в пользовательские типы событий.
+	BaseEvent struct {
 		eventInternal `iproto:"-" json:"-"`
 	}
 
-	// NoHandler - если для очереди (пока) не предусмотрена обработка (например, обработчик реализован на перле),
-	// надо встроить в структуру события этот тип
-	NoHandler struct {
-		Event
-	}
-
-	noHandler interface {
-		noHandler()
-	}
-
-	// next это слишком C-style, особенно вместе с костыльным логгированием. Кажется, более красиво это реализуется через канал в Queue.Work.
 	eventInternal struct {
 		queuedproto.EventID            // состоит из ID события (ID), и номера шарда (Shard). поддерживает интерфейс fmt.Stringer
 		list                *EventList // список всех событий, полученных одной пачкой (т.е. разные версии для той же очереди)
-		next                Handler    // следующее событие того же типа (т.е. той же версии для той же очереди)
-		flags               uint8      // см. константы ev* выше
-	}
-
-	// EventList - список событий, прилетающих из queued для одной очереди. В списке могут быть события разных версий.
-	EventList struct {
-		queueID QueueIDType
-		events  []Handler
-		queue   *Queue
+		flags               *atomic.Uint32
 	}
 )
 
-var (
-	_ Hasher  = &Event{}
-	_ Sharder = &Event{}
-)
+// baseEventGetter - метод getBaseEvent не включён в интерфейс Event, т.к. не всегда
+// указатель на тип присутствует в явном виде, несмотря на то, что возможность вызова
+// по указателю есть (пример - []UserEvent).
+type baseEventGetter interface {
+	getBaseEvent() *BaseEvent
+}
 
-// GetEvent - доступ к кишкам события из юзерской структуры
-func (ev *Event) GetEvent() *Event {
+// getBaseEvent - доступ к кишкам события из юзерской структуры
+func (ev *BaseEvent) getBaseEvent() *BaseEvent {
 	return ev
 }
 
-// QueueID - ID очереди, из которой прилетело событие
-func (ev *Event) QueueID() QueueIDType {
+// getEventID - BaseEvent принимается по значению по причине, описанной для [baseEventGetter].
+// метод нужный, не выпиливать, просто golangci-lint не умеет в приватные интерфейсы.
+func (ev BaseEvent) getEventID() queuedproto.EventID { //nolint:unused
+	return ev.EventID
+}
+
+// FromQueueID - ID очереди, из которой прилетело событие
+func (ev *BaseEvent) FromQueueID() QueueIDType {
 	return ev.list.queueID
-}
-
-// Hash - возвращает хэш от ID события, совместимый с перловыми очередями (crc32 от строкового десятичного представления ID)
-func (ev *Event) Hash() uint64 {
-	return uint64(crc32.ChecksumIEEE([]byte(strconv.FormatUint(ev.EventID.ID, 10))))
-}
-
-// Shard - распределяет событие по шардам в зависимости от хеша. Совместимая с перлом версия (остаток от деления).
-func (ev *Event) Shard(hash uint64) uint {
-	return uint(hash % uint64(ev.list.queue.client.ShardNum()))
 }
 
 // Done помечает событие обработанным.
 //
 // События удаляются не сразу, а по завершении цикла обработки всех событий, полученных за один запрос из queued.
 // В случае возникновения паник (в т.ч. необработанных), удаление все равно должно произойти до выхода из tp.Queue.Work
-func (ev *Event) Done() {
-	ev.flags |= evIsDeleted
+func (ev *BaseEvent) Done() {
+	if ev.flags != nil {
+		oldFlags := ev.flags.Load()
+		newFlags := oldFlags | evIsDeleted
+
+		if !ev.flags.CompareAndSwap(oldFlags, newFlags) {
+			ev.Done()
+		}
+	}
 }
 
 // Defer устанавливает задержку события.
@@ -86,59 +71,84 @@ func (ev *Event) Done() {
 // либо Defer, проставляется задержка по умолчанию.
 //
 // Если событие было помечено как выполненное при помощи Done, а потом был вызван Defer, пометка на удаление снимается.
-func (ev *Event) Defer(ctx context.Context, delay time.Duration) error {
+func (ev *BaseEvent) Defer(ctx context.Context, delay time.Duration) error {
 	if err := ev.list.queue.client.Defer(ctx, ev.list.queueID, delay, []queuedproto.EventID{ev.EventID}); err != nil {
 		return err
 	}
 
-	ev.flags = ev.flags&^evIsDeleted | evHasCustomDefer
+	if ev.flags != nil {
+		ev.setHasCustomDefer()
+	}
 
 	return nil
 }
 
+func (ev *BaseEvent) setHasCustomDefer() {
+	oldFlags := ev.flags.Load()
+	newFlags := oldFlags&^evIsDeleted | evHasCustomDefer
+
+	if !ev.flags.CompareAndSwap(oldFlags, newFlags) {
+		ev.setHasCustomDefer()
+	}
+}
+
 // Publish - враппер к Queue.Publish (см. его доку для описания параметра и возвращаемого значения). Отправляет новое событие в очередь, указанную при регистрации для этого типа методом Queue.Register
-func (ev *Event) Publish(ctx context.Context, data Handler) (eventID queuedproto.EventID, err error) {
+func (ev *BaseEvent) Publish(ctx context.Context, data Event) (eventID queuedproto.EventID, err error) {
 	return ev.list.queue.Publish(ctx, data)
 }
 
-// BatchLen возвращает количество событий одинакового типа (т.е. кол-во раз, когда tp.Next(&ev) вернёт true + 1).
-// Если событие в пачке единственное - возвращается 1.
-//
-//	ids := make([]uint32, 0, myev.BatchLen())
-//	for {
-//		ids = append(ids, myev.UserID)
-//
-//		if !tp.Next(&myev) {
-//			break
-//		}
-//	}
-func (ev *Event) BatchLen() int {
-	l := 1
+// IprotoPack - не поддерживается. Тип BaseEvent не предназначен для передачи по протоколу
+func (BaseEvent) IprotoPack(incompatible) {}
 
-	for {
-		if ev.next == nil {
-			return l
-		}
+// IprotoUnpack - не поддерживается. Тип BaseEvent не предназначен для передачи по протоколу
+func (BaseEvent) IprotoUnpack(incompatible) {}
 
-		l++
+// MarshalAddon - не поддерживается. Тип BaseEvent не предназначен для передачи по протоколу
+func (BaseEvent) MarshalAddon(incompatible) {}
 
-		ev = ev.next.GetEvent() // TODO когда-нибудь порефакторить Event/EventList, но точно после запуска в прод
-	}
+// UnmarshalAddon - не поддерживается. Тип BaseEvent не предназначен для передачи по протоколу
+func (BaseEvent) UnmarshalAddon(incompatible) {}
+
+// AddonID - не поддерживается. Тип BaseEvent не предназначен для передачи по протоколу
+func (BaseEvent) AddonID(incompatible) {}
+
+func (BaseEvent) MarshalerDisabled(incompatible) {} //nolint:unused
+
+// EventList - список событий, прилетающих из queued для одной очереди.
+// TODO подумать про перенос в internal, чтобы не путать разработчиков. Сущность внутренняя.
+type EventList struct {
+	queueID         QueueIDType
+	baseEvents      []*BaseEvent        // указатели на кишки внутри всех событий, полученных для этой очереди за раз от queued
+	eventsByVersion [MaxVersion + 1]any // слайсы конкретных типов юзерского события, сгруппированные по версиям
+	queue           *Queue
 }
 
 // commit удаляет события, для которых был вызван метод Done, а также проставляет дефолтный дефер (defer_time из конфига)
 // всем событиям из списка, которые не были удалены, и для которых не был вызван метод Defer с кастомным временем.
-func (evl *EventList) commit(ctx context.Context) error {
-	deleteEventIDs := make([]queuedproto.EventID, 0, len(evl.events))
-	deferEventIDs := make([]queuedproto.EventID, 0, len(evl.events))
+func (evl *EventList) commit(ctx context.Context, stat *Stat) error {
+	deleteEventIDs := make([]queuedproto.EventID, 0, len(evl.baseEvents))
+	deferEventIDs := make([]queuedproto.EventID, 0, len(evl.baseEvents))
+	deferred := uint32(0)
 
-	for _, handler := range evl.events {
-		if ev := handler.GetEvent(); ev.flags&evIsDeleted != 0 {
+	for _, ev := range evl.baseEvents {
+		if ev.flags == nil {
+			return fmt.Errorf("event %v was not received from the queue", ev.EventID)
+		}
+
+		flags := ev.flags.Load()
+		if flags&evIsDeleted != 0 {
 			deleteEventIDs = append(deleteEventIDs, ev.EventID)
-		} else if ev.flags&evHasCustomDefer == 0 {
-			deferEventIDs = append(deferEventIDs, ev.EventID)
+		} else {
+			if flags&evHasCustomDefer == 0 {
+				deferEventIDs = append(deferEventIDs, ev.EventID)
+			}
+
+			deferred++
 		}
 	}
+
+	stat.processed.Add(uint32(len(evl.baseEvents)))
+	stat.errors.Add(deferred) // TODO в новой стате это должно идти как deferred
 
 	if err := evl.queue.client.Delete(ctx, evl.queueID, deleteEventIDs); err != nil {
 		return err
@@ -146,59 +156,3 @@ func (evl *EventList) commit(ctx context.Context) error {
 
 	return evl.queue.client.Defer(ctx, evl.queueID, 0, deferEventIDs)
 }
-
-// IprotoPack - см. описание NoHandler.IprotoPack
-func (Event) IprotoPack(incompatible) {}
-
-// IprotoUnpack - см. описание NoHandler.IprotoPack
-func (Event) IprotoUnpack(incompatible) {}
-
-// MarshalAddon - см. описание NoHandler.IprotoPack
-func (Event) MarshalAddon(incompatible) {}
-
-// UnmarshalAddon - см. описание NoHandler.IprotoPack
-func (Event) UnmarshalAddon(incompatible) {}
-
-// AddonID - см. описание NoHandler.IprotoPack
-func (Event) AddonID(incompatible) {}
-
-func (Event) MarshalerDisabled(incompatible) {} //nolint:unused
-func (Event) enforceDictatorship()           {} //nolint:unused
-
-// Handle - не делает ничего
-func (NoHandler) Handle(context.Context) error {
-	return nil
-}
-
-func (NoHandler) noHandler() {}
-
-// IprotoPack - ломаем совместимость NoHandler с маршалерами, чтобы маршалер из вложенной структуры (например,
-// DisableMarshaler из структуры объектов API, вложенный в событие), не повлиял на маршалинг события.
-//
-// Почему бы не объявить приватный тип с запрещёнными маршалерами, и не встроить его в типы NoHandler и Event?
-// Зачем мозолить глаза разработчику, читающему доку?
-//
-// По правилам проброса встроенных полей в го: x.f denotes the field or method at the shallowest depth
-// in T where there is such an f. If there is not exactly one f with shallowest depth, the selector
-// expression is illegal.
-//
-// Т.е. если мы объявим "запрещающие" методы глубже (структура, вложенная в структуру Event/NoHandler) не перекроют
-// методы, объявленные непосредственно у вложенной структуры 1го уровня.
-//
-// Если же всё-таки зачем-то потребуется объявить маршалеры для типа события - это можно сделать, т.к. они перекроют
-// "наследуемые" методы (и с правильной, и с неправильной сигнатурой).
-func (NoHandler) IprotoPack(incompatible) {}
-
-// IprotoUnpack - см. описание NoHandler.IprotoPack
-func (NoHandler) IprotoUnpack(incompatible) {}
-
-// MarshalAddon - см. описание NoHandler.IprotoPack
-func (NoHandler) MarshalAddon(incompatible) {}
-
-// UnmarshalAddon - см. описание NoHandler.IprotoPack
-func (NoHandler) UnmarshalAddon(incompatible) {}
-
-// AddonID - см. описание NoHandler.IprotoPack
-func (NoHandler) AddonID(incompatible) {}
-
-func (NoHandler) MarshalerDisabled(incompatible) {} //nolint:unused

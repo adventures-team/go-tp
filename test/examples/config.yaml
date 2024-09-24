@@ -4,4 +4,5 @@ tp:
   go:
     log_level: debug
     workers: 5
+    workers_max: 10
     queue_ids: 1122

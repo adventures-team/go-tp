@@ -15,9 +15,7 @@ import (
 type (
 	// eventWithAddons - с аддонами, детерминированным ID и игнором дублей
 	eventWithAddons struct {
-		tp.Event
-		Counter *counter
-
+		tp.BaseEvent
 		addons.CreationTime
 		addons.Producer
 
@@ -29,9 +27,7 @@ type (
 	// TODO сделать потом рекурсивный перебор полей во вложенных структурах (делается при старте/наполнении кеша - пофиг, что это долго)
 	// чтобы можно было встраивать структуры при добавлении полей в новой версии).
 	eventWithAddonsV2 struct {
-		tp.Event
-		Counter *counter
-
+		tp.BaseEvent
 		addons.CreationTime
 		addons.Producer
 
@@ -42,18 +38,26 @@ type (
 )
 
 var (
-	_ tp.Handler              = &eventWithAddons{}
+	_ tp.Event                = &eventWithAddons{}
 	_ tp.Builder              = &eventWithAddons{}
 	_ tp.EventIDBuilder       = &eventWithAddons{}
 	_ tp.IgnoreDuplicateItems = &eventWithAddons{}
 )
 
-func (*eventWithAddons) Version() uint8 {
+func (eventWithAddons) Version() uint8 {
 	return 1
 }
 
-func (*eventWithAddonsV2) Version() uint8 {
+func (eventWithAddons) QueueID() uint16 {
+	return testAddonsQueueID
+}
+
+func (eventWithAddonsV2) Version() uint8 {
 	return 2
+}
+
+func (eventWithAddonsV2) QueueID() uint16 {
+	return testAddonsQueueID
 }
 
 func (ev *eventWithAddons) Build() error {
@@ -85,30 +89,26 @@ func (*eventWithAddonsV2) IgnoreDuplicateItems() bool {
 	return true
 }
 
-func (ev *eventWithAddons) Handle(ctx context.Context) error {
-	zerolog.Ctx(ctx).Info().Int("batch_len", ev.BatchLen()).Interface("event", ev).Msgf("event_id=%v", ev.EventID)
-	ev.Done()
-	ev.Counter.Done()
+func (svc testService) HandleEventWithAddons(ctx context.Context, events []eventWithAddons) error {
+	zerolog.Ctx(ctx).Info().Int("batch_len", len(events)).Msg("[]eventWithAddons")
 
-	for nev := ev; tp.Next(&ctx, &nev); {
-		zerolog.Ctx(ctx).Info().Interface("event", nev).Msgf("Next: event_id=%v", nev.EventID)
-		nev.Done()
-		ev.Counter.Done()
+	for _, ev := range events {
+		zerolog.Ctx(ctx).Info().Interface("event", ev).Send()
+		ev.Done()
+		svc.Counter.Done()
 	}
 
 	return nil
 }
 
 // не выпиливать ) тест на перемешанные события разных версий
-func (ev *eventWithAddonsV2) Handle(ctx context.Context) error {
-	zerolog.Ctx(ctx).Info().Int("batch_len", ev.BatchLen()).Interface("event", ev).Msgf("V2 event_id=%v", ev.EventID)
-	ev.Done()
-	ev.Counter.Done()
+func (svc testService) HandleEventWithAddonsV2(ctx context.Context, events []eventWithAddonsV2) error {
+	zerolog.Ctx(ctx).Info().Int("batch_len", len(events)).Msg("[]eventWithAddonsV2")
 
-	for nev := ev; tp.Next(&ctx, &nev); {
-		zerolog.Ctx(ctx).Info().Interface("event", nev).Msgf("V2 Next: event_id=%v", nev.EventID)
-		nev.Done()
-		ev.Counter.Done()
+	for _, ev := range events {
+		zerolog.Ctx(ctx).Info().Interface("event", ev).Send()
+		ev.Done()
+		svc.Counter.Done()
 	}
 
 	return nil

@@ -30,13 +30,14 @@ func TestQueueWorker(t *testing.T) {
 	}
 
 	cnt := newCounter(1) // 1 - событие, посылаемое вне цикла
+	svc := testService{Counter: cnt}
 
-	err = queue.Register(testAddonsQueueID, &eventWithAddons{}, cnt)
+	err = tp.Register(queue, svc.HandleEventWithAddons)
 	if err != nil {
 		t.Fatal("Register failed:", err)
 	}
 
-	err = queue.Register(testAddonsQueueID, &eventWithAddonsV2{}, cnt)
+	err = tp.Register(queue, svc.HandleEventWithAddonsV2)
 	if err != nil {
 		t.Fatal("Register failed:", err)
 	}

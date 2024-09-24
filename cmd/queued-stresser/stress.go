@@ -28,7 +28,7 @@ type ConnPool struct {
 	durationMax time.Duration
 	delay       atomic.Uint64
 	logger      iproto.Logger
-	payload     []byte //using fixed payload since queued doesn't implement data compression
+	payload     []byte // using fixed payload since queued doesn't implement data compression
 }
 
 // NewConnPool initializes ConnPool. Each new pool comes with the unique random pid.
