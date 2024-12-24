@@ -17,6 +17,7 @@ TODO дока по архитектуре
 - [func CalcShard\(eventID uint64, shardNum uint\) uint](<#CalcShard>)
 - [func Register\[EvType Event\]\(q \*Queue, handler func\(context.Context, \[\]EvType\) error\) error](<#Register>)
 - [type BaseEvent](<#BaseEvent>)
+  - [func NewBaseEvent\(\) BaseEvent](<#NewBaseEvent>)
   - [func \(BaseEvent\) AddonID\(incompatible\)](<#BaseEvent.AddonID>)
   - [func \(ev \*BaseEvent\) Defer\(ctx context.Context, delay time.Duration\) error](<#BaseEvent.Defer>)
   - [func \(ev \*BaseEvent\) Done\(\)](<#BaseEvent.Done>)
@@ -170,6 +171,15 @@ type BaseEvent struct {
     // contains filtered or unexported fields
 }
 ```
+
+<a name="NewBaseEvent"></a>
+### func NewBaseEvent
+
+```go
+func NewBaseEvent() BaseEvent
+```
+
+NewBaseEvent \- для использования в тестах. Возвращает проинициализированный BaseEvent, в котором будут работать флаги \(в частности, метод Done\). Для отправки инициализировать событие не нужно, функция предусмотрена только для тестов, которым нужно проверить установку Done.
 
 <a name="BaseEvent.AddonID"></a>
 ### func \(BaseEvent\) AddonID
