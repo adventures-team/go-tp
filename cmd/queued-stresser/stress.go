@@ -141,6 +141,8 @@ func (cp *ConnPool) connLoop(ctx context.Context) error {
 	ctx, cancel := context.WithCancelCause(ctx)
 	tickets := make(chan struct{}, cp.pipeline)
 
+	defer cancel(nil)
+
 loop:
 	for {
 		select {

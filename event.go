@@ -65,6 +65,15 @@ func (ev *BaseEvent) Done() {
 	}
 }
 
+// IsDone - вызывался ли метод Done для события.
+func (ev *BaseEvent) IsDone() bool {
+	if ev.flags == nil {
+		return false
+	}
+
+	return ev.flags.Load()&evIsDeleted != 0
+}
+
 // Defer устанавливает задержку события.
 //
 // Время задержки устанавливается сразу же. По завершении цикла обработки событиям, для которых не был вызван метод Done

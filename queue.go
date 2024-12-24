@@ -230,7 +230,7 @@ func (queue *Queue) eventListFromItems(ctx context.Context, queueID QueueIDType,
 
 		getBaseEv, ok := event.(baseEventGetter)
 		if !ok {
-			zerolog.Ctx(ctx).Error().Stringer("event_id", item).Msg("internal error: boundPtr returned non-pointer")
+			zerolog.Ctx(ctx).Error().Stringer("event_id", item).Msgf("internal error: boundPtr returned non-pointer: %T", event)
 			unsupported = append(unsupported, item.EventID)
 
 			continue

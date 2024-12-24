@@ -5,6 +5,7 @@ package tptest
 
 import (
 	"context"
+	"errors"
 	"math/rand"
 	"time"
 
@@ -55,6 +56,10 @@ func (svc *testService) HandleSleeper(ctx context.Context, events []eventSleeper
 			zLog.Info().Msg("eventSleeper: OK")
 			ev.Done() // в случае паники в след. строке (специально устанавливаем низкое значение счётчика) событие всё равно должно удалиться
 			svc.Counter.Done()
+
+			if !ev.IsDone() {
+				return errors.New("IsDone() returned false after calling Done()")
+			}
 		} else {
 			zLog.Info().Msg("eventSleeper: failed")
 		}
