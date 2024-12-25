@@ -11,8 +11,12 @@ import (
 
 	"github.com/rs/zerolog"
 
+	"gitlab.corp.mail.ru/mygo/queuedproto.git/addons"
 	"gitlab.corp.mail.ru/mygo/tp.git"
 )
+
+// used by TestInitialDelay only
+const testInitialDelay = 5 * time.Second
 
 type testService struct {
 	Counter *counter
@@ -21,6 +25,7 @@ type testService struct {
 // eventSleeper - работает долго, и не всегда успешно
 type eventSleeper struct {
 	tp.BaseEvent
+	addons.CreationTime
 
 	DurationMin time.Duration
 	DurationMax time.Duration
@@ -45,6 +50,20 @@ func (svc *testService) HandleSleeper(ctx context.Context, events []eventSleeper
 
 	for _, ev := range events {
 		dur := ev.DurationMin
+		if dur == 0 && ev.DurationMax == 0 {
+			ev.Done()
+
+			// just check CreationTime and return, don't sleep
+			delay := time.Since(time.Unix(int64(ev.CreationTime), 0))
+			if delay < testInitialDelay {
+				zLog.Panic().Dur("actual_delay", delay).Msg("initial delay is too short")
+			}
+
+			zLog.Info().Dur("actual_delay", delay).Send()
+			svc.Counter.Done()
+			continue
+		}
+
 		if ev.DurationMin != ev.DurationMax {
 			dur += time.Duration(rand.Intn(int(ev.DurationMax - ev.DurationMin)))
 		}
