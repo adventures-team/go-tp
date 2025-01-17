@@ -122,7 +122,7 @@ func (queue *Queue) Queued() *queuedclient.QueuedClient {
 //
 // Если тип события поддерживает интерфейс IgnoreDuplicateItems, и метод IgnoreDuplicateItems возвращает true, дубли при
 // совпадении ID события игнорируются (также подавляется ошибка в логе queued флагом queuedproto.FlagIgnoreWrongItem).
-func (queue *Queue) Publish(ctx context.Context, event Event) (eventID queuedproto.EventID, err error) {
+func (queue *Queue) Publish(ctx context.Context, event Event, opts ...queuedclient.PublishOption) (eventID queuedproto.EventID, err error) {
 	eventData, err := queue.Encode(event)
 	if err != nil {
 		return queuedproto.EventID{}, err
@@ -154,7 +154,7 @@ func (queue *Queue) Publish(ctx context.Context, event Event) (eventID queuedpro
 		}
 	}
 
-	return queue.client.Publish(ctx, event.QueueID(), event.getEventID(), flags, eventData)
+	return queue.client.Publish(ctx, event.QueueID(), event.getEventID(), flags, eventData, opts...)
 }
 
 // TODO тут нужны высокоуровневые методы Delete и Defer, чтобы не приходилось собирать вручную айдишник и лезть в низкоуровневый QueuedClient

@@ -187,6 +187,28 @@ func (qc *QueuedClient) Defer(ctx context.Context, queueID uint16, delay time.Du
 	return nil
 }
 
+// PublishOption - опции [Publish]
+type PublishOption func(*publishOptions)
+
+// PublishProcessTime устанавливает время обработки нового события. Если не установлено - см. [PublishInitialDelay]
+func PublishProcessTime(t time.Time) PublishOption {
+	return func(opt *publishOptions) {
+		opt.processTime = t
+	}
+}
+
+// PublishInitialDelay устанавливает задержку обработки нового события. Если не установлено - используется заданное в конфиге значение.
+func PublishInitialDelay(d time.Duration) PublishOption {
+	return func(opt *publishOptions) {
+		opt.initialDelay = d
+	}
+}
+
+type publishOptions struct {
+	initialDelay time.Duration
+	processTime  time.Time
+}
+
 // Publish отправляет событие в очередь. Если eventID.ID == 0, queued создаёт новый ID, который возвращается.
 // Если задан eventID.Shard == BalanceShard, шард выбирается по round robin.
 // Если шард задан, а ID - нет, происходит автоинкремент ID в указанном шарде.
@@ -202,15 +224,27 @@ func (qc *QueuedClient) Defer(ctx context.Context, queueID uint16, delay time.Du
 // если у нас шардов меньше, чем retry_count (например, 1), и 1й запрос ушёл, но ответ потерялся.
 //
 // Ошибки обработки результата (iproto.Unpack) не приводят к ретраям, т.к., скорее всего, являются ошибками прикладного уровня.
-func (qc *QueuedClient) Publish(ctx context.Context, queueID uint16, eventID queuedproto.EventID, flags uint32, eventData []byte) (queuedproto.EventID, error) {
-	initialDelay := qc.Config.InitialDelay(ctx, queueID)
+func (qc *QueuedClient) Publish(ctx context.Context, queueID uint16, eventID queuedproto.EventID, flags uint32, eventData []byte, opts ...PublishOption) (queuedproto.EventID, error) {
+	var opt publishOptions
+
+	for _, f := range opts {
+		f(&opt)
+	}
+
+	if opt.processTime.IsZero() {
+		if opt.initialDelay == 0 {
+			opt.initialDelay = qc.Config.InitialDelay(ctx, queueID)
+		}
+
+		opt.processTime = time.Now().Add(opt.initialDelay)
+	}
 
 	req := queuedproto.ReqAddItem{
 		Pid:         qc.pid,
 		ReqID:       atomic.AddUint32(&reqID, 1),
 		StorageType: queueID,
 		ID:          eventID.ID,
-		UnixTime:    uint32(time.Now().Add(initialDelay).Unix()),
+		UnixTime:    uint32(opt.processTime.Unix()),
 		Data:        eventData,
 		Flags:       flags,
 	}

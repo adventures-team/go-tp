@@ -49,7 +49,7 @@ TODO дока по архитектуре
   - [func \(queue \*Queue\) GetEventsByIDs\(ctx context.Context, queueID QueueIDType, eventIDs \[\]queuedproto.EventID\) \(\*EventList, error\)](<#Queue.GetEventsByIDs>)
   - [func \(q \*Queue\) IsRegistered\(queueID uint16\) bool](<#Queue.IsRegistered>)
   - [func \(q \*Queue\) NewPoller\(logger \*zerolog.Logger\) workerpool.Poller](<#Queue.NewPoller>)
-  - [func \(queue \*Queue\) Publish\(ctx context.Context, event Event\) \(eventID queuedproto.EventID, err error\)](<#Queue.Publish>)
+  - [func \(queue \*Queue\) Publish\(ctx context.Context, event Event, opts ...queuedclient.PublishOption\) \(eventID queuedproto.EventID, err error\)](<#Queue.Publish>)
   - [func \(queue \*Queue\) Queued\(\) \*queuedclient.QueuedClient](<#Queue.Queued>)
 - [type QueueIDType](<#QueueIDType>)
 - [type StandaloneMaster](<#StandaloneMaster>)
@@ -559,7 +559,7 @@ NewPoller возвращает объект для опроса новых со�
 ### func \(\*Queue\) Publish
 
 ```go
-func (queue *Queue) Publish(ctx context.Context, event Event) (eventID queuedproto.EventID, err error)
+func (queue *Queue) Publish(ctx context.Context, event Event, opts ...queuedclient.PublishOption) (eventID queuedproto.EventID, err error)
 ```
 
 Publish кодирует событие при помощи метода Encode, и отправляет его в очередь методом queuedclient.Publish. Клиент очередей должен быть проинициализирован.
@@ -1201,6 +1201,9 @@ Multicast/broadcast методы отправляют запросы в указ
   - [func \(errs \*ErrMulti\) Append\(err error\)](<#ErrMulti.Append>)
   - [func \(errs ErrMulti\) Error\(\) string](<#ErrMulti.Error>)
   - [func \(errs ErrMulti\) ToError\(\) error](<#ErrMulti.ToError>)
+- [type PublishOption](<#PublishOption>)
+  - [func PublishInitialDelay\(d time.Duration\) PublishOption](<#PublishInitialDelay>)
+  - [func PublishProcessTime\(t time.Time\) PublishOption](<#PublishProcessTime>)
 - [type QueuedClient](<#QueuedClient>)
   - [func Dial\(ctx context.Context, conf \*queueconfig.Config\) \(\*QueuedClient, error\)](<#Dial>)
   - [func \(qc \*QueuedClient\) Defer\(ctx context.Context, queueID uint16, delay time.Duration, eventIDs \[\]queuedproto.EventID\) error](<#QueuedClient.Defer>)
@@ -1211,7 +1214,7 @@ Multicast/broadcast методы отправляют запросы в указ
   - [func \(qc \*QueuedClient\) MakeBroadcastRequest\(ctx context.Context, req queuedproto.Request, resFunc ResultFunc\) error](<#QueuedClient.MakeBroadcastRequest>)
   - [func \(qc \*QueuedClient\) MakeMulticastRequest\(ctx context.Context, batchSize int, eventIDs \[\]queuedproto.EventID, reqFunc RequestFunc, resFunc ResultFunc\) error](<#QueuedClient.MakeMulticastRequest>)
   - [func \(qc \*QueuedClient\) MakeUnicastRequest\(ctx context.Context, shard uint, req queuedproto.Request\) \(usedShard uint, respBytes \[\]byte, err error\)](<#QueuedClient.MakeUnicastRequest>)
-  - [func \(qc \*QueuedClient\) Publish\(ctx context.Context, queueID uint16, eventID queuedproto.EventID, flags uint32, eventData \[\]byte\) \(queuedproto.EventID, error\)](<#QueuedClient.Publish>)
+  - [func \(qc \*QueuedClient\) Publish\(ctx context.Context, queueID uint16, eventID queuedproto.EventID, flags uint32, eventData \[\]byte, opts ...PublishOption\) \(queuedproto.EventID, error\)](<#QueuedClient.Publish>)
   - [func \(qc \*QueuedClient\) ShardNum\(\) uint](<#QueuedClient.ShardNum>)
 - [type RequestFunc](<#RequestFunc>)
 - [type ResultFunc](<#ResultFunc>)
@@ -1348,6 +1351,33 @@ func (errs ErrMulti) ToError() error
 
 ToError преобразует мульти\-ошибку в стандартный тип error. Если ошибок 0 \- возвращается nil.
 
+<a name="PublishOption"></a>
+## type PublishOption
+
+PublishOption \- опции \[Publish\]
+
+```go
+type PublishOption func(*publishOptions)
+```
+
+<a name="PublishInitialDelay"></a>
+### func PublishInitialDelay
+
+```go
+func PublishInitialDelay(d time.Duration) PublishOption
+```
+
+PublishInitialDelay устанавливает задержку обработки нового события. Если не установлено \- используется заданное в конфиге значение.
+
+<a name="PublishProcessTime"></a>
+### func PublishProcessTime
+
+```go
+func PublishProcessTime(t time.Time) PublishOption
+```
+
+PublishProcessTime устанавливает время обработки нового события. Если не установлено \- см. [PublishInitialDelay](<#PublishInitialDelay>)
+
 <a name="QueuedClient"></a>
 ## type QueuedClient
 
@@ -1481,7 +1511,7 @@ MakeUnicastRequest посылает запрос req к указанному ш�
 ### func \(\*QueuedClient\) Publish
 
 ```go
-func (qc *QueuedClient) Publish(ctx context.Context, queueID uint16, eventID queuedproto.EventID, flags uint32, eventData []byte) (queuedproto.EventID, error)
+func (qc *QueuedClient) Publish(ctx context.Context, queueID uint16, eventID queuedproto.EventID, flags uint32, eventData []byte, opts ...PublishOption) (queuedproto.EventID, error)
 ```
 
 Publish отправляет событие в очередь. Если eventID.ID == 0, queued создаёт новый ID, который возвращается. Если задан eventID.Shard == BalanceShard, шард выбирается по round robin. Если шард задан, а ID \- нет, происходит автоинкремент ID в указанном шарде.

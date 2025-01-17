@@ -17,6 +17,7 @@ import (
 	"gitlab.corp.mail.ru/mygo/queuedproto.git"
 	"gitlab.corp.mail.ru/mygo/tp.git"
 	"gitlab.corp.mail.ru/mygo/tp.git/queueconfig"
+	"gitlab.corp.mail.ru/mygo/tp.git/queuedclient"
 	"gitlab.corp.mail.ru/mygo/utils.git/mylog"
 )
 
@@ -105,6 +106,23 @@ func TestDeferred(t *testing.T) {
 			time.Sleep(publishDelayLong)
 		}
 
+		cnt.Wait()
+		qm.Stop()
+	})
+}
+
+func TestInitialDelay(t *testing.T) {
+	ctx := context.Background()
+
+	testManaged(t, func(qm *tp.StandaloneMaster, cnt *counter, _ <-chan struct{}) {
+		eventID, err := qm.Publish(ctx, &eventSleeper{}, queuedclient.PublishInitialDelay(testInitialDelay))
+		if err != nil {
+			zLog.Panic().Err(err).Msg("Publish")
+		}
+
+		zLog.Info().Stringer("event_id", eventID).Msg("published")
+
+		cnt.Add(1)
 		cnt.Wait()
 		qm.Stop()
 	})
