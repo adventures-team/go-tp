@@ -9,11 +9,11 @@ import (
 
 	"github.com/onlineconf/onlineconf-go"
 
-	"gitlab.corp.mail.ru/mygo/tp.git"
-	"gitlab.corp.mail.ru/mygo/tp.git/queueconfig"
-	"gitlab.corp.mail.ru/mygo/tp.git/workerpool"
-	"gitlab.corp.mail.ru/mygo/utils.git/mylog"
-	"gitlab.corp.mail.ru/mygo/utils.git/oconf"
+	"gitlab.corp.my.games/adventures/go/tp.git"
+	"gitlab.corp.my.games/adventures/go/tp.git/queueconfig"
+	"gitlab.corp.my.games/adventures/go/tp.git/workerpool"
+	"gitlab.corp.my.games/adventures/go/utils.git/mylog"
+	"gitlab.corp.my.games/adventures/go/utils.git/oconf"
 )
 
 func TestQueueWorker(t *testing.T) {

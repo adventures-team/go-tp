@@ -4,7 +4,7 @@ package tptest
 import (
 	"path"
 
-	"gitlab.corp.mail.ru/mygo/tp.git/test/rootpath"
+	"gitlab.corp.my.games/adventures/go/tp.git/test/rootpath"
 )
 
 // ConfigDir returns path to directory with TREE.cdb file.

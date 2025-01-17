@@ -6,11 +6,11 @@ import (
 
 	"github.com/rs/zerolog"
 
-	"gitlab.corp.mail.ru/mygo/tp.git"
-	"gitlab.corp.mail.ru/mygo/tp.git/managed/qmclient"
-	"gitlab.corp.mail.ru/mygo/tp.git/managed/stats"
-	"gitlab.corp.mail.ru/mygo/tp.git/slotpool"
-	"gitlab.corp.mail.ru/mygo/tp.git/workerpool"
+	"gitlab.corp.my.games/adventures/go/tp.git"
+	"gitlab.corp.my.games/adventures/go/tp.git/managed/qmclient"
+	"gitlab.corp.my.games/adventures/go/tp.git/managed/stats"
+	"gitlab.corp.my.games/adventures/go/tp.git/slotpool"
+	"gitlab.corp.my.games/adventures/go/tp.git/workerpool"
 )
 
 const (

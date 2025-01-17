@@ -6,7 +6,7 @@ import (
 
 	zLog "github.com/rs/zerolog/log"
 
-	"gitlab.corp.mail.ru/mygo/utils.git/myatomic"
+	"gitlab.corp.my.games/adventures/go/utils.git/myatomic"
 )
 
 // Run управляет запуском заданий. Метод не возвращается, в случае паники об этом пишется в лог, и обработка возобновляется.

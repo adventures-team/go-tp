@@ -5,7 +5,7 @@ import (
 	"encoding/binary"
 	"os"
 
-	"gitlab.corp.mail.ru/mygo/utils.git/oconf"
+	"gitlab.corp.my.games/adventures/go/utils.git/oconf"
 )
 
 // GetPID - хак для получения ID, обеспечивающего уникальность в протоколе при добавлении событий.

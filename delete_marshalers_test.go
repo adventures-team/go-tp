@@ -7,9 +7,9 @@ import (
 	"context"
 	"testing"
 
-	"gitlab.corp.mail.ru/mygo/easygo.git/iproto"
-	"gitlab.corp.mail.ru/mygo/queuedproto.git/addons"
-	tp "gitlab.corp.mail.ru/mygo/tp.git"
+	"gitlab.corp.my.games/adventures/go/easygo.git/iproto"
+	"gitlab.corp.my.games/adventures/go/queuedproto.git/addons"
+	tp "gitlab.corp.my.games/adventures/go/tp.git"
 )
 
 type (

@@ -1,6 +1,5 @@
 x-queued_shard: &queued_shard
   image: queued:latest
-#  build: queued/build
   volumes:
    - ./queued-1.conf:/etc/queued/queued.conf
   command:

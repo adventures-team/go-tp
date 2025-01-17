@@ -10,10 +10,10 @@ import (
 
 	"github.com/onlineconf/onlineconf-go"
 
-	"gitlab.corp.mail.ru/mygo/tp.git/queueconfig"
-	"gitlab.corp.mail.ru/mygo/tp.git/queuedclient"
-	"gitlab.corp.mail.ru/mygo/utils.git/mylog"
-	"gitlab.corp.mail.ru/mygo/utils.git/oconf"
+	"gitlab.corp.my.games/adventures/go/tp.git/queueconfig"
+	"gitlab.corp.my.games/adventures/go/tp.git/queuedclient"
+	"gitlab.corp.my.games/adventures/go/utils.git/mylog"
+	"gitlab.corp.my.games/adventures/go/utils.git/oconf"
 )
 
 var initConfig sync.Once

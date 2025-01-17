@@ -9,7 +9,7 @@ import (
 	"github.com/rs/zerolog"
 	zLog "github.com/rs/zerolog/log"
 
-	"gitlab.corp.mail.ru/mygo/tp.git"
+	"gitlab.corp.my.games/adventures/go/tp.git"
 )
 
 func (svc *Service) Handle(ctx context.Context, events []SimpleEvent) error {

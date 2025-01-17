@@ -10,14 +10,14 @@ import (
 	"github.com/rs/zerolog"
 	"go.uber.org/mock/gomock"
 
-	"gitlab.corp.mail.ru/mygo/tp.git"
-	"gitlab.corp.mail.ru/mygo/tp.git/managed/qmclient"
-	"gitlab.corp.mail.ru/mygo/tp.git/managed/stats"
-	"gitlab.corp.mail.ru/mygo/tp.git/slotpool"
-	mock_poller "gitlab.corp.mail.ru/mygo/tp.git/test/mock/poller"
-	mock_queue "gitlab.corp.mail.ru/mygo/tp.git/test/mock/queue"
-	mock_slotpool "gitlab.corp.mail.ru/mygo/tp.git/test/mock/slotpool"
-	mock_stat "gitlab.corp.mail.ru/mygo/tp.git/test/mock/stats"
+	"gitlab.corp.my.games/adventures/go/tp.git"
+	"gitlab.corp.my.games/adventures/go/tp.git/managed/qmclient"
+	"gitlab.corp.my.games/adventures/go/tp.git/managed/stats"
+	"gitlab.corp.my.games/adventures/go/tp.git/slotpool"
+	mock_poller "gitlab.corp.my.games/adventures/go/tp.git/test/mock/poller"
+	mock_queue "gitlab.corp.my.games/adventures/go/tp.git/test/mock/queue"
+	mock_slotpool "gitlab.corp.my.games/adventures/go/tp.git/test/mock/slotpool"
+	mock_stat "gitlab.corp.my.games/adventures/go/tp.git/test/mock/stats"
 )
 
 func TestAssignSlot(t *testing.T) {
