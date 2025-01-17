@@ -10,11 +10,11 @@ import (
 
 	"github.com/rs/zerolog"
 
-	"gitlab.corp.mail.ru/mygo/easygo.git/iproto"
-	"gitlab.corp.mail.ru/mygo/queuedproto.git"
-	"gitlab.corp.mail.ru/mygo/tp.git/encodings"
-	"gitlab.corp.mail.ru/mygo/tp.git/queueconfig"
-	"gitlab.corp.mail.ru/mygo/tp.git/queuedclient"
+	"gitlab.corp.my.games/adventures/go/easygo.git/iproto"
+	"gitlab.corp.my.games/adventures/go/queuedproto.git"
+	"gitlab.corp.my.games/adventures/go/tp.git/encodings"
+	"gitlab.corp.my.games/adventures/go/tp.git/queueconfig"
+	"gitlab.corp.my.games/adventures/go/tp.git/queuedclient"
 )
 
 // MaxVersion - максимальная версия события (в верхних битах хранятся флаги)

@@ -6,8 +6,8 @@ package tptest
 import (
 	"github.com/gofrs/uuid"
 
-	"gitlab.corp.mail.ru/mygo/easygo.git/iproto"
-	"gitlab.corp.mail.ru/mygo/tp.git"
+	"gitlab.corp.my.games/adventures/go/easygo.git/iproto"
+	"gitlab.corp.my.games/adventures/go/tp.git"
 )
 
 // UUID - обёртка для передачи UUID при помощи easygo.

@@ -1,7 +1,7 @@
 package main
 
 import (
-	"gitlab.corp.mail.ru/mygo/tp.git"
+	"gitlab.corp.my.games/adventures/go/tp.git"
 )
 
 const SimpleQueueID = 1122

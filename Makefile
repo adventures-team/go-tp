@@ -44,7 +44,7 @@ full-lint:
 # Форматирует код с помощью goimports
 .PHONY: format
 format:
-	find . -name '*.go' | grep -v /vendor/ | xargs goimports -local gitlab.corp.mail.ru/ -l -w
+	find . -name '*.go' | grep -v /vendor/ | xargs goimports -local gitlab.corp.my.games/ -l -w
 
 .PHONY: test
 test:
@@ -78,11 +78,11 @@ generate:
 
 .PHONY: generate_mocks
 generate_mocks:
-	mockgen -destination test/mock/queue/mock_queue.go -typed -package mock_queue gitlab.corp.mail.ru/mygo/tp.git/managed/master Queue
-	mockgen -destination test/mock/slotpool/mock_slotpool.go -typed -package mock_slotpool gitlab.corp.mail.ru/mygo/tp.git/managed/master Pool
-	mockgen -destination test/mock/stats/mock_stat.go -typed -package mock_stat gitlab.corp.mail.ru/mygo/tp.git/managed/master SlotStat
-	mockgen -destination test/mock/poller/mock_poller.go -typed -package mock_poller gitlab.corp.mail.ru/mygo/tp.git/workerpool Poller,Worker,WorkerStat
-	mockgen -destination test/mock/iproto/mock_iproto.go -typed -package mock_iproto gitlab.corp.mail.ru/mygo/tp.git/managed/qmclient Connection
+	mockgen -destination test/mock/queue/mock_queue.go -typed -package mock_queue gitlab.corp.my.games/adventures/go/tp.git/managed/master Queue
+	mockgen -destination test/mock/slotpool/mock_slotpool.go -typed -package mock_slotpool gitlab.corp.my.games/adventures/go/tp.git/managed/master Pool
+	mockgen -destination test/mock/stats/mock_stat.go -typed -package mock_stat gitlab.corp.my.games/adventures/go/tp.git/managed/master SlotStat
+	mockgen -destination test/mock/poller/mock_poller.go -typed -package mock_poller gitlab.corp.my.games/adventures/go/tp.git/workerpool Poller,Worker,WorkerStat
+	mockgen -destination test/mock/iproto/mock_iproto.go -typed -package mock_iproto gitlab.corp.my.games/adventures/go/tp.git/managed/qmclient Connection
 
 .PHONY: doc
 doc: API.md # doc/index.html

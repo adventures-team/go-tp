@@ -11,8 +11,8 @@ import (
 
 	"github.com/rs/zerolog"
 
-	"gitlab.corp.mail.ru/mygo/queuedproto.git/addons"
-	"gitlab.corp.mail.ru/mygo/tp.git"
+	"gitlab.corp.my.games/adventures/go/queuedproto.git/addons"
+	"gitlab.corp.my.games/adventures/go/tp.git"
 )
 
 // used by TestInitialDelay only

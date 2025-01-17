@@ -4,7 +4,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"gitlab.corp.mail.ru/mygo/utils.git/myatomic"
+	"gitlab.corp.my.games/adventures/go/utils.git/myatomic"
 )
 
 // SetWorkerCount устанавливает кол-во воркеров count для работы jobID.

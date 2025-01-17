@@ -9,9 +9,9 @@ import (
 
 	"github.com/rs/zerolog"
 
-	"gitlab.corp.mail.ru/mygo/easygo.git/iproto"
-	"gitlab.corp.mail.ru/mygo/queuedproto.git"
-	"gitlab.corp.mail.ru/mygo/utils.git/mylog"
+	"gitlab.corp.my.games/adventures/go/easygo.git/iproto"
+	"gitlab.corp.my.games/adventures/go/queuedproto.git"
+	"gitlab.corp.my.games/adventures/go/utils.git/mylog"
 )
 
 type (

@@ -9,10 +9,10 @@ import (
 
 	"github.com/gofrs/uuid"
 
-	"gitlab.corp.mail.ru/mygo/queuedproto.git"
-	"gitlab.corp.mail.ru/mygo/tp.git"
-	"gitlab.corp.mail.ru/mygo/tp.git/queueconfig"
-	"gitlab.corp.mail.ru/mygo/utils.git/mylog"
+	"gitlab.corp.my.games/adventures/go/queuedproto.git"
+	"gitlab.corp.my.games/adventures/go/tp.git"
+	"gitlab.corp.my.games/adventures/go/tp.git/queueconfig"
+	"gitlab.corp.my.games/adventures/go/utils.git/mylog"
 )
 
 func TestNoHandler(t *testing.T) {

@@ -1,4 +1,4 @@
-module gitlab.corp.mail.ru/mygo/tp.git
+module gitlab.corp.my.games/adventures/go/tp.git
 
 go 1.21.0
 
@@ -9,9 +9,9 @@ require (
 	github.com/onlineconf/onlineconf-go v1.2.0
 	github.com/rs/zerolog v1.30.0
 	github.com/stretchr/testify v1.8.4
-	gitlab.corp.mail.ru/mygo/easygo.git v0.0.5
-	gitlab.corp.mail.ru/mygo/queuedproto.git v0.0.2
-	gitlab.corp.mail.ru/mygo/utils.git v0.0.7
+	gitlab.corp.my.games/adventures/go/easygo.git v0.0.6
+	gitlab.corp.my.games/adventures/go/queuedproto.git v0.0.3
+	gitlab.corp.my.games/adventures/go/utils.git v0.0.9
 	go.uber.org/mock v0.3.0
 	google.golang.org/protobuf v1.31.0
 	gopkg.in/yaml.v3 v3.0.1

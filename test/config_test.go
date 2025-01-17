@@ -12,10 +12,10 @@ import (
 	"github.com/golang/mock/gomock"
 	zLog "github.com/rs/zerolog/log"
 
-	"gitlab.corp.mail.ru/mygo/tp.git"
-	"gitlab.corp.mail.ru/mygo/tp.git/queueconfig"
-	"gitlab.corp.mail.ru/mygo/tp.git/queuedclient"
-	"gitlab.corp.mail.ru/mygo/utils.git/oconf"
+	"gitlab.corp.my.games/adventures/go/tp.git"
+	"gitlab.corp.my.games/adventures/go/tp.git/queueconfig"
+	"gitlab.corp.my.games/adventures/go/tp.git/queuedclient"
+	"gitlab.corp.my.games/adventures/go/utils.git/oconf"
 )
 
 var (
