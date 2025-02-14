@@ -7,9 +7,9 @@ import (
 
 	"github.com/rs/zerolog"
 
-	"gitlab.corp.my.games/adventures/go/queuedproto.git"
-	"gitlab.corp.my.games/adventures/go/tp.git/queuedclient"
-	"gitlab.corp.my.games/adventures/go/tp.git/workerpool"
+	"gitlab.cebc.tools/go/queuedproto.git"
+	"gitlab.cebc.tools/go/tp.git/queuedclient"
+	"gitlab.cebc.tools/go/tp.git/workerpool"
 )
 
 type (

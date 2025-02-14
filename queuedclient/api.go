@@ -7,8 +7,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"gitlab.corp.my.games/adventures/go/easygo.git/iproto"
-	"gitlab.corp.my.games/adventures/go/queuedproto.git"
+	"gitlab.cebc.tools/go/easygo.git/iproto"
+	"gitlab.cebc.tools/go/queuedproto.git"
 )
 
 // GetActive получает активные события из очереди queueID изо всех шардов одновременно.

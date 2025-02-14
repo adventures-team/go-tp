@@ -6,10 +6,10 @@ import (
 
 	"github.com/rs/zerolog"
 
-	"gitlab.corp.my.games/adventures/go/tp.git/queueconfig"
-	"gitlab.corp.my.games/adventures/go/tp.git/workerpool"
-	"gitlab.corp.my.games/adventures/go/utils.git/mylog"
-	"gitlab.corp.my.games/adventures/go/utils.git/oconf"
+	"gitlab.cebc.tools/go/tp.git/queueconfig"
+	"gitlab.cebc.tools/go/tp.git/workerpool"
+	"gitlab.cebc.tools/go/utils.git/mylog"
+	"gitlab.cebc.tools/go/utils.git/oconf"
 )
 
 // DefaultProducerInstance - имя инстанса в онлайнконфе по умолчанию для продюсеров (веб-сервисы, и т.д.)

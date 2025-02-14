@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"time"
 
-	"gitlab.corp.my.games/adventures/go/easygo.git/iproto"
+	"gitlab.cebc.tools/go/easygo.git/iproto"
 
-	"gitlab.corp.my.games/adventures/go/tp.git/queueconfig"
-	"gitlab.corp.my.games/adventures/go/utils.git/mylog"
+	"gitlab.cebc.tools/go/tp.git/queueconfig"
+	"gitlab.cebc.tools/go/utils.git/mylog"
 )
 
 const (

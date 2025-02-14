@@ -2,10 +2,3 @@ include:
   - project: 'ci-cd'
     ref: master
     file: '/go/test-lint.yml'
-    rules:
-      - if: $CI_SERVER_HOST == "gitlab.corp.mail.ru"
-  - project: 'ci-cd'
-    ref: master
-    file: '/go/test-lint.yml'
-    rules:
-      - if: $CI_SERVER_HOST == "gitlab.corp.my.games"

@@ -5,8 +5,8 @@ import (
 	"reflect"
 	"sync"
 
-	"gitlab.corp.my.games/adventures/go/queuedproto.git"
-	"gitlab.corp.my.games/adventures/go/queuedproto.git/addons"
+	"gitlab.cebc.tools/go/queuedproto.git"
+	"gitlab.cebc.tools/go/queuedproto.git/addons"
 )
 
 // В рантайме используется только быстрая рефлексия (reflect.Value.Field), при первом обращении к типу данные о номерах полей кешируются

@@ -7,8 +7,8 @@ import (
 
 	"github.com/rs/zerolog/log"
 
-	"gitlab.corp.my.games/adventures/go/easygo.git/iproto"
-	"gitlab.corp.my.games/adventures/go/utils.git/mylog"
+	"gitlab.cebc.tools/go/easygo.git/iproto"
+	"gitlab.cebc.tools/go/utils.git/mylog"
 )
 
 const (

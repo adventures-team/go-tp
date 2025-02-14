@@ -13,8 +13,8 @@ import (
 
 	"github.com/rs/zerolog"
 
-	"gitlab.corp.my.games/adventures/go/queuedproto.git"
-	"gitlab.corp.my.games/adventures/go/tp.git/queuedclient"
+	"gitlab.cebc.tools/go/queuedproto.git"
+	"gitlab.cebc.tools/go/tp.git/queuedclient"
 )
 
 // Тест только для queuedclient, безо всей высокоуровневой логики. Копипастить/изучать этот файл не надо (если не пишите какую-нибудь низкоуровневую тулзу для фиксов).

@@ -6,7 +6,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"gitlab.corp.my.games/adventures/go/queuedproto.git"
+	"gitlab.cebc.tools/go/queuedproto.git"
 )
 
 const (
