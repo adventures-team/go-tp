@@ -1,8 +1,8 @@
 package encodings
 
 import (
-	"gitlab.corp.my.games/adventures/go/easygo.git/iproto"
-	"gitlab.corp.my.games/adventures/go/queuedproto.git"
+	"gitlab.cebc.tools/go/easygo.git/iproto"
+	"gitlab.cebc.tools/go/queuedproto.git"
 )
 
 func perlEncoder(version uint8, valPtr interface{}) ([]byte, error) {

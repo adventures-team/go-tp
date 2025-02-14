@@ -14,11 +14,11 @@ import (
 
 	zLog "github.com/rs/zerolog/log"
 
-	"gitlab.corp.my.games/adventures/go/queuedproto.git"
-	"gitlab.corp.my.games/adventures/go/tp.git"
-	"gitlab.corp.my.games/adventures/go/tp.git/queueconfig"
-	"gitlab.corp.my.games/adventures/go/tp.git/queuedclient"
-	"gitlab.corp.my.games/adventures/go/utils.git/mylog"
+	"gitlab.cebc.tools/go/queuedproto.git"
+	"gitlab.cebc.tools/go/tp.git"
+	"gitlab.cebc.tools/go/tp.git/queueconfig"
+	"gitlab.cebc.tools/go/tp.git/queuedclient"
+	"gitlab.cebc.tools/go/utils.git/mylog"
 )
 
 // тесты на управление пулом при помощи онлайнконфа (проще говоря - тест системы целиком)

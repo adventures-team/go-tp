@@ -10,8 +10,8 @@ import (
 
 	"kythe.io/kythe/go/util/datasize"
 
-	"gitlab.corp.my.games/adventures/go/utils.git/mytime"
-	"gitlab.corp.my.games/adventures/go/utils.git/oconf"
+	"gitlab.cebc.tools/go/utils.git/mytime"
+	"gitlab.cebc.tools/go/utils.git/oconf"
 )
 
 const globalPath = "/tp/go"

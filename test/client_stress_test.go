@@ -12,7 +12,7 @@ import (
 	"github.com/rs/zerolog"
 	zLog "github.com/rs/zerolog/log"
 
-	"gitlab.corp.my.games/adventures/go/queuedproto.git"
+	"gitlab.cebc.tools/go/queuedproto.git"
 )
 
 const (

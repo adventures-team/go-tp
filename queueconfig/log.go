@@ -3,7 +3,7 @@ package queueconfig
 import (
 	"context"
 
-	"gitlab.corp.my.games/adventures/go/utils.git/mylog"
+	"gitlab.cebc.tools/go/utils.git/mylog"
 )
 
 // ClearErrCache очищает кеш ошибочных путей. Вызывать при перезагрузке конфига.
