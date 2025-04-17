@@ -7,7 +7,8 @@ import (
 	"github.com/go-faker/faker/v4"
 	"go.uber.org/mock/gomock"
 
-	"gitlab.cebc.tools/go/easygo.git/iproto"
+	easygo "gitlab.cebc.tools/go/easygo.git/iproto"
+	"gitlab.cebc.tools/go/tp.git/internal"
 	mock_iproto "gitlab.cebc.tools/go/tp.git/test/mock/iproto"
 )
 
@@ -26,8 +27,8 @@ func TestServeIProto_cmdStat(t *testing.T) {
 		client := Client{
 			stats: collectStatsData,
 		}
-		req := iproto.Packet{
-			Header: iproto.Header{
+		req := easygo.Packet{
+			Header: easygo.Header{
 				Msg:  cmdStat,
 				Sync: 1,
 			},
@@ -38,10 +39,13 @@ func TestServeIProto_cmdStat(t *testing.T) {
 			Data:    data,
 			Cluster: "generic",
 		}
-		iprotoResp, _ := iproto.Pack(&statsResp)
+		iprotoResp, err := statsResp.MarshalIProto(internal.AllocBytes())
+		if err != nil {
+			t.Fatal("statsResp.MarshalIProto: ", err)
+		}
 
-		conn.EXPECT().Send(ctx, iproto.Packet{
-			Header: iproto.Header{
+		conn.EXPECT().Send(ctx, easygo.Packet{
+			Header: easygo.Header{
 				Msg:  req.Header.Msg,
 				Len:  uint32(len(iprotoResp)),
 				Sync: req.Header.Sync,
@@ -76,9 +80,9 @@ func TestServeIProto_cmdSetQueue(t *testing.T) {
 		}
 
 		setQueues := []SetQueue{{Slot: 0, QueueID: 1}, {Slot: 1, QueueID: 2}}
-		reqData, _ := iproto.Pack(SetQueueRequest{Queues: setQueues})
-		req := iproto.Packet{
-			Header: iproto.Header{
+		reqData, _ := SetQueueRequest{Queues: setQueues}.MarshalIProto(internal.AllocBytes())
+		req := easygo.Packet{
+			Header: easygo.Header{
 				Msg:  cmdSetQueue,
 				Sync: 1,
 			},
@@ -95,11 +99,11 @@ func TestServeIProto_cmdSetQueue(t *testing.T) {
 			SetQueueStatuses: []uint32{answerOK, answerOK},
 			Stats:            statsResp,
 		}
-		iprotoResp, _ := iproto.Pack(&queueResp)
+		iprotoResp, _ := queueResp.MarshalIProto(internal.AllocBytes())
 		_ = iprotoResp
 
-		conn.EXPECT().Send(ctx, iproto.Packet{
-			Header: iproto.Header{
+		conn.EXPECT().Send(ctx, easygo.Packet{
+			Header: easygo.Header{
 				Msg:  req.Header.Msg,
 				Len:  uint32(len(iprotoResp)),
 				Sync: req.Header.Sync,

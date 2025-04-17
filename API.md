@@ -15,28 +15,28 @@ TODO дока по архитектуре
 - [Constants](<#constants>)
 - [Variables](<#variables>)
 - [func CalcShard\(eventID uint64, shardNum uint\) uint](<#CalcShard>)
-- [func Register\[EvType Event\]\(q \*Queue, handler func\(context.Context, \[\]EvType\) error\) error](<#Register>)
+- [func Register\[EvType Event, EvSlice \~\[\]EvType\]\(q \*Queue, handler func\(context.Context, EvSlice\) error\) error](<#Register>)
 - [type BaseEvent](<#BaseEvent>)
   - [func NewBaseEvent\(\) BaseEvent](<#NewBaseEvent>)
   - [func \(BaseEvent\) AddonID\(incompatible\)](<#BaseEvent.AddonID>)
   - [func \(ev \*BaseEvent\) Defer\(ctx context.Context, delay time.Duration\) error](<#BaseEvent.Defer>)
   - [func \(ev \*BaseEvent\) Done\(\)](<#BaseEvent.Done>)
   - [func \(ev \*BaseEvent\) FromQueueID\(\) QueueIDType](<#BaseEvent.FromQueueID>)
-  - [func \(BaseEvent\) IprotoPack\(incompatible\)](<#BaseEvent.IprotoPack>)
-  - [func \(BaseEvent\) IprotoUnpack\(incompatible\)](<#BaseEvent.IprotoUnpack>)
   - [func \(ev \*BaseEvent\) IsDone\(\) bool](<#BaseEvent.IsDone>)
   - [func \(BaseEvent\) MarshalAddon\(incompatible\)](<#BaseEvent.MarshalAddon>)
+  - [func \(BaseEvent\) MarshalIProto\(incompatible\)](<#BaseEvent.MarshalIProto>)
   - [func \(BaseEvent\) MarshalerDisabled\(incompatible\)](<#BaseEvent.MarshalerDisabled>)
   - [func \(ev \*BaseEvent\) Publish\(ctx context.Context, data Event\) \(eventID queuedproto.EventID, err error\)](<#BaseEvent.Publish>)
   - [func \(BaseEvent\) UnmarshalAddon\(incompatible\)](<#BaseEvent.UnmarshalAddon>)
+  - [func \(BaseEvent\) UnmarshalIProto\(incompatible\)](<#BaseEvent.UnmarshalIProto>)
 - [type Builder](<#Builder>)
 - [type Config](<#Config>)
   - [func \(conf Config\) InitProcessor\(\) \*StandaloneMaster](<#Config.InitProcessor>)
   - [func \(conf Config\) InitProducer\(\) \*Queue](<#Config.InitProducer>)
 - [type DisableMarshaler](<#DisableMarshaler>)
-  - [func \(DisableMarshaler\) IprotoPack\(w \[\]byte, \_ iproto.PackMode\) \(\[\]byte, error\)](<#DisableMarshaler.IprotoPack>)
-  - [func \(DisableMarshaler\) IprotoUnpack\(\*bytes.Reader, iproto.PackMode\) error](<#DisableMarshaler.IprotoUnpack>)
+  - [func \(DisableMarshaler\) MarshalIProto\(buf \[\]byte\) \(\[\]byte, error\)](<#DisableMarshaler.MarshalIProto>)
   - [func \(DisableMarshaler\) MarshalerDisabled\(\)](<#DisableMarshaler.MarshalerDisabled>)
+  - [func \(DisableMarshaler\) UnmarshalIProto\(buf \[\]byte\) \(\[\]byte, error\)](<#DisableMarshaler.UnmarshalIProto>)
 - [type Event](<#Event>)
 - [type EventIDBuilder](<#EventIDBuilder>)
 - [type EventList](<#EventList>)
@@ -156,7 +156,7 @@ CalcShard распределяет события по шардам в зави�
 ## func Register
 
 ```go
-func Register[EvType Event](q *Queue, handler func(context.Context, []EvType) error) error
+func Register[EvType Event, EvSlice ~[]EvType](q *Queue, handler func(context.Context, EvSlice) error) error
 ```
 
 Register регистрирует обработчик очереди для получения событий. Для отправки регистрация не требуется. handler принимает слайс событий, поддерживающих интерфейс Event \(конкретных типов \- не слайс интерфейсов\). ID очереди и версия события определяется методами QueueID и Version. Для одной очереди могут быть зарегистрированы обработчики событий нескольких версий.
@@ -223,24 +223,6 @@ func (ev *BaseEvent) FromQueueID() QueueIDType
 
 FromQueueID \- ID очереди, из которой прилетело событие
 
-<a name="BaseEvent.IprotoPack"></a>
-### func \(BaseEvent\) IprotoPack
-
-```go
-func (BaseEvent) IprotoPack(incompatible)
-```
-
-IprotoPack \- не поддерживается. Тип BaseEvent не предназначен для передачи по протоколу
-
-<a name="BaseEvent.IprotoUnpack"></a>
-### func \(BaseEvent\) IprotoUnpack
-
-```go
-func (BaseEvent) IprotoUnpack(incompatible)
-```
-
-IprotoUnpack \- не поддерживается. Тип BaseEvent не предназначен для передачи по протоколу
-
 <a name="BaseEvent.IsDone"></a>
 ### func \(\*BaseEvent\) IsDone
 
@@ -258,6 +240,15 @@ func (BaseEvent) MarshalAddon(incompatible)
 ```
 
 MarshalAddon \- не поддерживается. Тип BaseEvent не предназначен для передачи по протоколу
+
+<a name="BaseEvent.MarshalIProto"></a>
+### func \(BaseEvent\) MarshalIProto
+
+```go
+func (BaseEvent) MarshalIProto(incompatible)
+```
+
+MarshalIProto \- не поддерживается. Тип BaseEvent не предназначен для передачи по протоколу
 
 <a name="BaseEvent.MarshalerDisabled"></a>
 ### func \(BaseEvent\) MarshalerDisabled
@@ -285,6 +276,15 @@ func (BaseEvent) UnmarshalAddon(incompatible)
 ```
 
 UnmarshalAddon \- не поддерживается. Тип BaseEvent не предназначен для передачи по протоколу
+
+<a name="BaseEvent.UnmarshalIProto"></a>
+### func \(BaseEvent\) UnmarshalIProto
+
+```go
+func (BaseEvent) UnmarshalIProto(incompatible)
+```
+
+UnmarshalIProto \- не поддерживается. Тип BaseEvent не предназначен для передачи по протоколу
 
 <a name="Builder"></a>
 ## type Builder
@@ -394,23 +394,14 @@ DisableMarshaler \- встраивание этого типа в структу
 type DisableMarshaler struct{}
 ```
 
-<a name="DisableMarshaler.IprotoPack"></a>
-### func \(DisableMarshaler\) IprotoPack
+<a name="DisableMarshaler.MarshalIProto"></a>
+### func \(DisableMarshaler\) MarshalIProto
 
 ```go
-func (DisableMarshaler) IprotoPack(w []byte, _ iproto.PackMode) ([]byte, error)
+func (DisableMarshaler) MarshalIProto(buf []byte) ([]byte, error)
 ```
 
-IprotoPack \- не делает ничего
-
-<a name="DisableMarshaler.IprotoUnpack"></a>
-### func \(DisableMarshaler\) IprotoUnpack
-
-```go
-func (DisableMarshaler) IprotoUnpack(*bytes.Reader, iproto.PackMode) error
-```
-
-IprotoUnpack \- не делает ничего
+MarshalIProto \- не делает ничего
 
 <a name="DisableMarshaler.MarshalerDisabled"></a>
 ### func \(DisableMarshaler\) MarshalerDisabled
@@ -421,6 +412,15 @@ func (DisableMarshaler) MarshalerDisabled()
 
 
 
+<a name="DisableMarshaler.UnmarshalIProto"></a>
+### func \(DisableMarshaler\) UnmarshalIProto
+
+```go
+func (DisableMarshaler) UnmarshalIProto(buf []byte) ([]byte, error)
+```
+
+UnmarshalIProto \- не делает ничего
+
 <a name="Event"></a>
 ## type Event
 
@@ -428,6 +428,7 @@ Event \- интерфейс обработчика очереди. Структ�
 
 ```go
 type Event interface {
+    iproto.Marshaler      // если не реализовать/сгенерить Unmarshaler, обрабатываться такие события не будут, доступна будет только отправка (Publish)
     Version() VersionType // Возвращает версию события. Должен быть определён для типа события.
     QueueID() QueueIDType // Возвращает ID очереди. должен быть определён для типа события.
     // contains filtered or unexported methods
@@ -714,7 +715,7 @@ Package encodings \- поддержка сериализации событий.
 
 Флаг FlagEncodeInUTF8 пока устанавливается при кодировании всегда. Это может вызывать небольшой оверхед при обработке событий без текстовых полей в перле. При декодировании этот флаг ингорируется, т.к. не поддерживать utf8 go не умеет :\)
 
-Также в очередях перловых проектов возможно указывать формат сериализации поля \(cbor, array\_as\_str и т.д.\). Всё это можно реализовать, объявляя методы IprotoPack/IprotoUnpack для своих структур. Когда/если надоест \- можно реализовать генераторы таких методов для указанных типов.
+Также в очередях перловых проектов возможно указывать формат сериализации поля \(cbor, array\_as\_str и т.д.\). Всё это можно реализовать, объявляя методы MarshalIProto/UnmarshalIProto для своих структур. Когда/если надоест \- можно реализовать генераторы таких методов для указанных типов.
 
 ### Perl Addons
 
@@ -772,13 +773,13 @@ var (
 )
 ```
 
-Если структура не будет поддерживать интерфейс proto.Message \(например, если вместо встраивания объявить поле с генерённым типом\), то эта структура будет зарегистрирована, как перловая, с использованием сериализации на базе easygo/iproto. В таком случае не гарантируется возможность работы даже с этой же реализацией, не говоря уже о реализации на другом языке :\)
+Если структура не будет поддерживать интерфейс proto.Message \(например, если вместо встраивания объявить поле с генерённым типом\), то эта структура будет зарегистрирована, как перловая.
 
 ## Index
 
 - [Variables](<#variables>)
-- [func Decode\(format Format, encoded \[\]byte, valPtr interface\{\}\) error](<#Decode>)
-- [func Encode\(format Format, version uint8, val interface\{\}\) \(\[\]byte, error\)](<#Encode>)
+- [func Decode\(format Format, encoded \[\]byte, valPtr iproto.Unmarshaler\) error](<#Decode>)
+- [func Encode\(format Format, version uint8, val iproto.Marshaler\) \(\[\]byte, error\)](<#Encode>)
 - [type Format](<#Format>)
   - [func Detect\(v interface\{\}\) Format](<#Detect>)
 
@@ -801,7 +802,7 @@ var (
 ## func Decode
 
 ```go
-func Decode(format Format, encoded []byte, valPtr interface{}) error
+func Decode(format Format, encoded []byte, valPtr iproto.Unmarshaler) error
 ```
 
 Decode декодирует encoded в valPtr, который должен быть указателем.
@@ -812,7 +813,7 @@ TODO проверить хотя бы в API верхнего уровня, чт
 ## func Encode
 
 ```go
-func Encode(format Format, version uint8, val interface{}) ([]byte, error)
+func Encode(format Format, version uint8, val iproto.Marshaler) ([]byte, error)
 ```
 
 Encode кодирует данные val в указанном формате и версии. val может быть как значением, так и указателем.
@@ -843,6 +844,35 @@ func Detect(v interface{}) Format
 ```
 
 Detect определяет формат структуры данных по соответствию интерфейсу \- proto.Message для protobuf, всё остальное считается перловым форматом
+
+# internal
+
+```go
+import "gitlab.cebc.tools/go/tp.git/internal"
+```
+
+## Index
+
+- [Constants](<#constants>)
+- [func AllocBytes\(\) \[\]byte](<#AllocBytes>)
+
+
+## Constants
+
+<a name="AllocSize"></a>AllocSize \- capacity буфера кодирования отправляемых пакетов
+
+```go
+const AllocSize = 64
+```
+
+<a name="AllocBytes"></a>
+## func AllocBytes
+
+```go
+func AllocBytes() []byte
+```
+
+
 
 # queueconfig
 
@@ -1475,7 +1505,7 @@ resFunc вызывается из разных горутин и должна б
 
 Ретраи в случае ошибок не производятся, т.к. функция предназначена для get\-запросов, текущая логика которых \(опрос событий\) не ломается от разовых сбоев некоторых шардов.
 
-TODO раскопипастить broad/multicast запросы \- когда полностью определимся с их логикой. Возможно, использовать общее с box решение, после перевода его на easygo/iproto.
+TODO раскопипастить broad/multicast запросы \- когда полностью определимся с их логикой.
 
 <a name="QueuedClient.MakeMulticastRequest"></a>
 ### func \(\*QueuedClient\) MakeMulticastRequest
@@ -1524,7 +1554,7 @@ Publish отправляет событие в очередь. Если eventID.
 
 ID запроса \(queuedproto.ReqAddItem.ReqID\) для всех ретраев отправляется один и тот же, на случай, если у нас шардов меньше, чем retry\_count \(например, 1\), и 1й запрос ушёл, но ответ потерялся.
 
-Ошибки обработки результата \(iproto.Unpack\) не приводят к ретраям, т.к., скорее всего, являются ошибками прикладного уровня.
+Ошибки обработки результата \(iproto.Unmarshal\) не приводят к ретраям, т.к., скорее всего, являются ошибками прикладного уровня.
 
 <a name="QueuedClient.ShardNum"></a>
 ### func \(\*QueuedClient\) ShardNum
@@ -2184,21 +2214,29 @@ type SlotStat interface {
 import "gitlab.cebc.tools/go/tp.git/managed/qmclient"
 ```
 
+Code generated by iprotogen. DO NOT EDIT.
+
 ## Index
 
 - [type Client](<#Client>)
   - [func NewClient\(endpoint string, assignSlot func\(slotID, queueID uint32\) error, stats func\(\) StatsData\) \*Client](<#NewClient>)
   - [func \(c \*Client\) Run\(ctx context.Context\)](<#Client.Run>)
-  - [func \(c \*Client\) ServeIProto\(ctx context.Context, conn iproto.Conn, packet iproto.Packet\)](<#Client.ServeIProto>)
+  - [func \(c \*Client\) ServeIProto\(ctx context.Context, conn easygo.Conn, packet easygo.Packet\)](<#Client.ServeIProto>)
 - [type Connection](<#Connection>)
 - [type QueueExtendedStat](<#QueueExtendedStat>)
 - [type QueueStat](<#QueueStat>)
 - [type SetQueue](<#SetQueue>)
 - [type SetQueueRequest](<#SetQueueRequest>)
+  - [func \(recvSetQueueRequest SetQueueRequest\) MarshalIProto\(buf \[\]byte\) \(\[\]byte, error\)](<#SetQueueRequest.MarshalIProto>)
+  - [func \(recv\_SetQueueRequest \*SetQueueRequest\) UnmarshalIProto\(buf \[\]byte\) \(\[\]byte, error\)](<#SetQueueRequest.UnmarshalIProto>)
 - [type SetQueueResponse](<#SetQueueResponse>)
+  - [func \(recvSetQueueResponse SetQueueResponse\) MarshalIProto\(buf \[\]byte\) \(\[\]byte, error\)](<#SetQueueResponse.MarshalIProto>)
+  - [func \(recv\_SetQueueResponse \*SetQueueResponse\) UnmarshalIProto\(buf \[\]byte\) \(\[\]byte, error\)](<#SetQueueResponse.UnmarshalIProto>)
 - [type SlotStat](<#SlotStat>)
 - [type StatsData](<#StatsData>)
 - [type StatsResponse](<#StatsResponse>)
+  - [func \(recvStatsResponse StatsResponse\) MarshalIProto\(buf \[\]byte\) \(\[\]byte, error\)](<#StatsResponse.MarshalIProto>)
+  - [func \(recv\_StatsResponse \*StatsResponse\) UnmarshalIProto\(buf \[\]byte\) \(\[\]byte, error\)](<#StatsResponse.UnmarshalIProto>)
 
 
 <a name="Client"></a>
@@ -2234,7 +2272,7 @@ func (c *Client) Run(ctx context.Context)
 ### func \(\*Client\) ServeIProto
 
 ```go
-func (c *Client) ServeIProto(ctx context.Context, conn iproto.Conn, packet iproto.Packet)
+func (c *Client) ServeIProto(ctx context.Context, conn easygo.Conn, packet easygo.Packet)
 ```
 
 
@@ -2250,7 +2288,7 @@ type Connection interface {
     LocalAddr() net.Addr
     Call(ctx context.Context, message uint32, data []byte) ([]byte, error)
     Notify(ctx context.Context, message uint32, data []byte) error
-    Send(ctx context.Context, packet iproto.Packet) error
+    Send(ctx context.Context, packet easygo.Packet) error
     Close()
     Shutdown()
     Done() <-chan struct{}
@@ -2318,6 +2356,24 @@ type SetQueueRequest struct {
 }
 ```
 
+<a name="SetQueueRequest.MarshalIProto"></a>
+### func \(SetQueueRequest\) MarshalIProto
+
+```go
+func (recvSetQueueRequest SetQueueRequest) MarshalIProto(buf []byte) ([]byte, error)
+```
+
+
+
+<a name="SetQueueRequest.UnmarshalIProto"></a>
+### func \(\*SetQueueRequest\) UnmarshalIProto
+
+```go
+func (recv_SetQueueRequest *SetQueueRequest) UnmarshalIProto(buf []byte) ([]byte, error)
+```
+
+
+
 <a name="SetQueueResponse"></a>
 ## type SetQueueResponse
 
@@ -2330,6 +2386,24 @@ type SetQueueResponse struct {
     Stats            StatsResponse
 }
 ```
+
+<a name="SetQueueResponse.MarshalIProto"></a>
+### func \(SetQueueResponse\) MarshalIProto
+
+```go
+func (recvSetQueueResponse SetQueueResponse) MarshalIProto(buf []byte) ([]byte, error)
+```
+
+
+
+<a name="SetQueueResponse.UnmarshalIProto"></a>
+### func \(\*SetQueueResponse\) UnmarshalIProto
+
+```go
+func (recv_SetQueueResponse *SetQueueResponse) UnmarshalIProto(buf []byte) ([]byte, error)
+```
+
+
 
 <a name="SlotStat"></a>
 ## type SlotStat
@@ -2384,6 +2458,24 @@ type StatsResponse struct {
     Cluster string `iproto:"u32"`
 }
 ```
+
+<a name="StatsResponse.MarshalIProto"></a>
+### func \(StatsResponse\) MarshalIProto
+
+```go
+func (recvStatsResponse StatsResponse) MarshalIProto(buf []byte) ([]byte, error)
+```
+
+
+
+<a name="StatsResponse.UnmarshalIProto"></a>
+### func \(\*StatsResponse\) UnmarshalIProto
+
+```go
+func (recv_StatsResponse *StatsResponse) UnmarshalIProto(buf []byte) ([]byte, error)
+```
+
+
 
 # stats
 
@@ -2590,13 +2682,17 @@ const (
 import "gitlab.cebc.tools/go/tp.git/test/examples"
 ```
 
+Code generated by iprotogen. DO NOT EDIT.
+
 ## Index
 
 - [Constants](<#constants>)
 - [type Service](<#Service>)
   - [func \(svc \*Service\) Handle\(ctx context.Context, events \[\]SimpleEvent\) error](<#Service.Handle>)
 - [type SimpleEvent](<#SimpleEvent>)
+  - [func \(recvSimpleEvent SimpleEvent\) MarshalIProto\(buf \[\]byte\) \(\[\]byte, error\)](<#SimpleEvent.MarshalIProto>)
   - [func \(SimpleEvent\) QueueID\(\) uint16](<#SimpleEvent.QueueID>)
+  - [func \(recv\_SimpleEvent \*SimpleEvent\) UnmarshalIProto\(buf \[\]byte\) \(\[\]byte, error\)](<#SimpleEvent.UnmarshalIProto>)
   - [func \(SimpleEvent\) Version\(\) uint8](<#SimpleEvent.Version>)
 
 
@@ -2642,11 +2738,29 @@ type SimpleEvent struct {
 }
 ```
 
+<a name="SimpleEvent.MarshalIProto"></a>
+### func \(SimpleEvent\) MarshalIProto
+
+```go
+func (recvSimpleEvent SimpleEvent) MarshalIProto(buf []byte) ([]byte, error)
+```
+
+
+
 <a name="SimpleEvent.QueueID"></a>
 ### func \(SimpleEvent\) QueueID
 
 ```go
 func (SimpleEvent) QueueID() uint16
+```
+
+
+
+<a name="SimpleEvent.UnmarshalIProto"></a>
+### func \(\*SimpleEvent\) UnmarshalIProto
+
+```go
+func (recv_SimpleEvent *SimpleEvent) UnmarshalIProto(buf []byte) ([]byte, error)
 ```
 
 
@@ -3976,49 +4090,13 @@ Package mock\_queue is a generated GoMock package.
 - [type MockQueue](<#MockQueue>)
   - [func NewMockQueue\(ctrl \*gomock.Controller\) \*MockQueue](<#NewMockQueue>)
   - [func \(m \*MockQueue\) EXPECT\(\) \*MockQueueMockRecorder](<#MockQueue.EXPECT>)
-  - [func \(m \*MockQueue\) Encode\(arg0 tp.Event\) \(\[\]byte, error\)](<#MockQueue.Encode>)
-  - [func \(m \*MockQueue\) GetActiveEvents\(arg0 context.Context, arg1 uint16, arg2 int\) \(\*tp.EventList, error\)](<#MockQueue.GetActiveEvents>)
-  - [func \(m \*MockQueue\) GetEventsByIDs\(arg0 context.Context, arg1 uint16, arg2 \[\]queuedproto.EventID\) \(\*tp.EventList, error\)](<#MockQueue.GetEventsByIDs>)
   - [func \(m \*MockQueue\) IsRegistered\(arg0 uint16\) bool](<#MockQueue.IsRegistered>)
-  - [func \(m \*MockQueue\) NewPoller\(arg0 \*zerolog.Logger\) workerpool.Poller](<#MockQueue.NewPoller>)
-  - [func \(m \*MockQueue\) Publish\(arg0 context.Context, arg1 tp.Event\) \(queuedproto.EventID, error\)](<#MockQueue.Publish>)
-  - [func \(m \*MockQueue\) Queued\(\) \*queuedclient.QueuedClient](<#MockQueue.Queued>)
 - [type MockQueueMockRecorder](<#MockQueueMockRecorder>)
-  - [func \(mr \*MockQueueMockRecorder\) Encode\(arg0 any\) \*QueueEncodeCall](<#MockQueueMockRecorder.Encode>)
-  - [func \(mr \*MockQueueMockRecorder\) GetActiveEvents\(arg0, arg1, arg2 any\) \*QueueGetActiveEventsCall](<#MockQueueMockRecorder.GetActiveEvents>)
-  - [func \(mr \*MockQueueMockRecorder\) GetEventsByIDs\(arg0, arg1, arg2 any\) \*QueueGetEventsByIDsCall](<#MockQueueMockRecorder.GetEventsByIDs>)
   - [func \(mr \*MockQueueMockRecorder\) IsRegistered\(arg0 any\) \*QueueIsRegisteredCall](<#MockQueueMockRecorder.IsRegistered>)
-  - [func \(mr \*MockQueueMockRecorder\) NewPoller\(arg0 any\) \*QueueNewPollerCall](<#MockQueueMockRecorder.NewPoller>)
-  - [func \(mr \*MockQueueMockRecorder\) Publish\(arg0, arg1 any\) \*QueuePublishCall](<#MockQueueMockRecorder.Publish>)
-  - [func \(mr \*MockQueueMockRecorder\) Queued\(\) \*QueueQueuedCall](<#MockQueueMockRecorder.Queued>)
-- [type QueueEncodeCall](<#QueueEncodeCall>)
-  - [func \(c \*QueueEncodeCall\) Do\(f func\(tp.Event\) \(\[\]byte, error\)\) \*QueueEncodeCall](<#QueueEncodeCall.Do>)
-  - [func \(c \*QueueEncodeCall\) DoAndReturn\(f func\(tp.Event\) \(\[\]byte, error\)\) \*QueueEncodeCall](<#QueueEncodeCall.DoAndReturn>)
-  - [func \(c \*QueueEncodeCall\) Return\(arg0 \[\]byte, arg1 error\) \*QueueEncodeCall](<#QueueEncodeCall.Return>)
-- [type QueueGetActiveEventsCall](<#QueueGetActiveEventsCall>)
-  - [func \(c \*QueueGetActiveEventsCall\) Do\(f func\(context.Context, uint16, int\) \(\*tp.EventList, error\)\) \*QueueGetActiveEventsCall](<#QueueGetActiveEventsCall.Do>)
-  - [func \(c \*QueueGetActiveEventsCall\) DoAndReturn\(f func\(context.Context, uint16, int\) \(\*tp.EventList, error\)\) \*QueueGetActiveEventsCall](<#QueueGetActiveEventsCall.DoAndReturn>)
-  - [func \(c \*QueueGetActiveEventsCall\) Return\(arg0 \*tp.EventList, arg1 error\) \*QueueGetActiveEventsCall](<#QueueGetActiveEventsCall.Return>)
-- [type QueueGetEventsByIDsCall](<#QueueGetEventsByIDsCall>)
-  - [func \(c \*QueueGetEventsByIDsCall\) Do\(f func\(context.Context, uint16, \[\]queuedproto.EventID\) \(\*tp.EventList, error\)\) \*QueueGetEventsByIDsCall](<#QueueGetEventsByIDsCall.Do>)
-  - [func \(c \*QueueGetEventsByIDsCall\) DoAndReturn\(f func\(context.Context, uint16, \[\]queuedproto.EventID\) \(\*tp.EventList, error\)\) \*QueueGetEventsByIDsCall](<#QueueGetEventsByIDsCall.DoAndReturn>)
-  - [func \(c \*QueueGetEventsByIDsCall\) Return\(arg0 \*tp.EventList, arg1 error\) \*QueueGetEventsByIDsCall](<#QueueGetEventsByIDsCall.Return>)
 - [type QueueIsRegisteredCall](<#QueueIsRegisteredCall>)
   - [func \(c \*QueueIsRegisteredCall\) Do\(f func\(uint16\) bool\) \*QueueIsRegisteredCall](<#QueueIsRegisteredCall.Do>)
   - [func \(c \*QueueIsRegisteredCall\) DoAndReturn\(f func\(uint16\) bool\) \*QueueIsRegisteredCall](<#QueueIsRegisteredCall.DoAndReturn>)
   - [func \(c \*QueueIsRegisteredCall\) Return\(arg0 bool\) \*QueueIsRegisteredCall](<#QueueIsRegisteredCall.Return>)
-- [type QueueNewPollerCall](<#QueueNewPollerCall>)
-  - [func \(c \*QueueNewPollerCall\) Do\(f func\(\*zerolog.Logger\) workerpool.Poller\) \*QueueNewPollerCall](<#QueueNewPollerCall.Do>)
-  - [func \(c \*QueueNewPollerCall\) DoAndReturn\(f func\(\*zerolog.Logger\) workerpool.Poller\) \*QueueNewPollerCall](<#QueueNewPollerCall.DoAndReturn>)
-  - [func \(c \*QueueNewPollerCall\) Return\(arg0 workerpool.Poller\) \*QueueNewPollerCall](<#QueueNewPollerCall.Return>)
-- [type QueuePublishCall](<#QueuePublishCall>)
-  - [func \(c \*QueuePublishCall\) Do\(f func\(context.Context, tp.Event\) \(queuedproto.EventID, error\)\) \*QueuePublishCall](<#QueuePublishCall.Do>)
-  - [func \(c \*QueuePublishCall\) DoAndReturn\(f func\(context.Context, tp.Event\) \(queuedproto.EventID, error\)\) \*QueuePublishCall](<#QueuePublishCall.DoAndReturn>)
-  - [func \(c \*QueuePublishCall\) Return\(arg0 queuedproto.EventID, arg1 error\) \*QueuePublishCall](<#QueuePublishCall.Return>)
-- [type QueueQueuedCall](<#QueueQueuedCall>)
-  - [func \(c \*QueueQueuedCall\) Do\(f func\(\) \*queuedclient.QueuedClient\) \*QueueQueuedCall](<#QueueQueuedCall.Do>)
-  - [func \(c \*QueueQueuedCall\) DoAndReturn\(f func\(\) \*queuedclient.QueuedClient\) \*QueueQueuedCall](<#QueueQueuedCall.DoAndReturn>)
-  - [func \(c \*QueueQueuedCall\) Return\(arg0 \*queuedclient.QueuedClient\) \*QueueQueuedCall](<#QueueQueuedCall.Return>)
 
 
 <a name="MockQueue"></a>
@@ -4050,33 +4128,6 @@ func (m *MockQueue) EXPECT() *MockQueueMockRecorder
 
 EXPECT returns an object that allows the caller to indicate expected use.
 
-<a name="MockQueue.Encode"></a>
-### func \(\*MockQueue\) Encode
-
-```go
-func (m *MockQueue) Encode(arg0 tp.Event) ([]byte, error)
-```
-
-Encode mocks base method.
-
-<a name="MockQueue.GetActiveEvents"></a>
-### func \(\*MockQueue\) GetActiveEvents
-
-```go
-func (m *MockQueue) GetActiveEvents(arg0 context.Context, arg1 uint16, arg2 int) (*tp.EventList, error)
-```
-
-GetActiveEvents mocks base method.
-
-<a name="MockQueue.GetEventsByIDs"></a>
-### func \(\*MockQueue\) GetEventsByIDs
-
-```go
-func (m *MockQueue) GetEventsByIDs(arg0 context.Context, arg1 uint16, arg2 []queuedproto.EventID) (*tp.EventList, error)
-```
-
-GetEventsByIDs mocks base method.
-
 <a name="MockQueue.IsRegistered"></a>
 ### func \(\*MockQueue\) IsRegistered
 
@@ -4085,33 +4136,6 @@ func (m *MockQueue) IsRegistered(arg0 uint16) bool
 ```
 
 IsRegistered mocks base method.
-
-<a name="MockQueue.NewPoller"></a>
-### func \(\*MockQueue\) NewPoller
-
-```go
-func (m *MockQueue) NewPoller(arg0 *zerolog.Logger) workerpool.Poller
-```
-
-NewPoller mocks base method.
-
-<a name="MockQueue.Publish"></a>
-### func \(\*MockQueue\) Publish
-
-```go
-func (m *MockQueue) Publish(arg0 context.Context, arg1 tp.Event) (queuedproto.EventID, error)
-```
-
-Publish mocks base method.
-
-<a name="MockQueue.Queued"></a>
-### func \(\*MockQueue\) Queued
-
-```go
-func (m *MockQueue) Queued() *queuedclient.QueuedClient
-```
-
-Queued mocks base method.
 
 <a name="MockQueueMockRecorder"></a>
 ## type MockQueueMockRecorder
@@ -4124,33 +4148,6 @@ type MockQueueMockRecorder struct {
 }
 ```
 
-<a name="MockQueueMockRecorder.Encode"></a>
-### func \(\*MockQueueMockRecorder\) Encode
-
-```go
-func (mr *MockQueueMockRecorder) Encode(arg0 any) *QueueEncodeCall
-```
-
-Encode indicates an expected call of Encode.
-
-<a name="MockQueueMockRecorder.GetActiveEvents"></a>
-### func \(\*MockQueueMockRecorder\) GetActiveEvents
-
-```go
-func (mr *MockQueueMockRecorder) GetActiveEvents(arg0, arg1, arg2 any) *QueueGetActiveEventsCall
-```
-
-GetActiveEvents indicates an expected call of GetActiveEvents.
-
-<a name="MockQueueMockRecorder.GetEventsByIDs"></a>
-### func \(\*MockQueueMockRecorder\) GetEventsByIDs
-
-```go
-func (mr *MockQueueMockRecorder) GetEventsByIDs(arg0, arg1, arg2 any) *QueueGetEventsByIDsCall
-```
-
-GetEventsByIDs indicates an expected call of GetEventsByIDs.
-
 <a name="MockQueueMockRecorder.IsRegistered"></a>
 ### func \(\*MockQueueMockRecorder\) IsRegistered
 
@@ -4159,147 +4156,6 @@ func (mr *MockQueueMockRecorder) IsRegistered(arg0 any) *QueueIsRegisteredCall
 ```
 
 IsRegistered indicates an expected call of IsRegistered.
-
-<a name="MockQueueMockRecorder.NewPoller"></a>
-### func \(\*MockQueueMockRecorder\) NewPoller
-
-```go
-func (mr *MockQueueMockRecorder) NewPoller(arg0 any) *QueueNewPollerCall
-```
-
-NewPoller indicates an expected call of NewPoller.
-
-<a name="MockQueueMockRecorder.Publish"></a>
-### func \(\*MockQueueMockRecorder\) Publish
-
-```go
-func (mr *MockQueueMockRecorder) Publish(arg0, arg1 any) *QueuePublishCall
-```
-
-Publish indicates an expected call of Publish.
-
-<a name="MockQueueMockRecorder.Queued"></a>
-### func \(\*MockQueueMockRecorder\) Queued
-
-```go
-func (mr *MockQueueMockRecorder) Queued() *QueueQueuedCall
-```
-
-Queued indicates an expected call of Queued.
-
-<a name="QueueEncodeCall"></a>
-## type QueueEncodeCall
-
-QueueEncodeCall wrap \*gomock.Call
-
-```go
-type QueueEncodeCall struct {
-    *gomock.Call
-}
-```
-
-<a name="QueueEncodeCall.Do"></a>
-### func \(\*QueueEncodeCall\) Do
-
-```go
-func (c *QueueEncodeCall) Do(f func(tp.Event) ([]byte, error)) *QueueEncodeCall
-```
-
-Do rewrite \*gomock.Call.Do
-
-<a name="QueueEncodeCall.DoAndReturn"></a>
-### func \(\*QueueEncodeCall\) DoAndReturn
-
-```go
-func (c *QueueEncodeCall) DoAndReturn(f func(tp.Event) ([]byte, error)) *QueueEncodeCall
-```
-
-DoAndReturn rewrite \*gomock.Call.DoAndReturn
-
-<a name="QueueEncodeCall.Return"></a>
-### func \(\*QueueEncodeCall\) Return
-
-```go
-func (c *QueueEncodeCall) Return(arg0 []byte, arg1 error) *QueueEncodeCall
-```
-
-Return rewrite \*gomock.Call.Return
-
-<a name="QueueGetActiveEventsCall"></a>
-## type QueueGetActiveEventsCall
-
-QueueGetActiveEventsCall wrap \*gomock.Call
-
-```go
-type QueueGetActiveEventsCall struct {
-    *gomock.Call
-}
-```
-
-<a name="QueueGetActiveEventsCall.Do"></a>
-### func \(\*QueueGetActiveEventsCall\) Do
-
-```go
-func (c *QueueGetActiveEventsCall) Do(f func(context.Context, uint16, int) (*tp.EventList, error)) *QueueGetActiveEventsCall
-```
-
-Do rewrite \*gomock.Call.Do
-
-<a name="QueueGetActiveEventsCall.DoAndReturn"></a>
-### func \(\*QueueGetActiveEventsCall\) DoAndReturn
-
-```go
-func (c *QueueGetActiveEventsCall) DoAndReturn(f func(context.Context, uint16, int) (*tp.EventList, error)) *QueueGetActiveEventsCall
-```
-
-DoAndReturn rewrite \*gomock.Call.DoAndReturn
-
-<a name="QueueGetActiveEventsCall.Return"></a>
-### func \(\*QueueGetActiveEventsCall\) Return
-
-```go
-func (c *QueueGetActiveEventsCall) Return(arg0 *tp.EventList, arg1 error) *QueueGetActiveEventsCall
-```
-
-Return rewrite \*gomock.Call.Return
-
-<a name="QueueGetEventsByIDsCall"></a>
-## type QueueGetEventsByIDsCall
-
-QueueGetEventsByIDsCall wrap \*gomock.Call
-
-```go
-type QueueGetEventsByIDsCall struct {
-    *gomock.Call
-}
-```
-
-<a name="QueueGetEventsByIDsCall.Do"></a>
-### func \(\*QueueGetEventsByIDsCall\) Do
-
-```go
-func (c *QueueGetEventsByIDsCall) Do(f func(context.Context, uint16, []queuedproto.EventID) (*tp.EventList, error)) *QueueGetEventsByIDsCall
-```
-
-Do rewrite \*gomock.Call.Do
-
-<a name="QueueGetEventsByIDsCall.DoAndReturn"></a>
-### func \(\*QueueGetEventsByIDsCall\) DoAndReturn
-
-```go
-func (c *QueueGetEventsByIDsCall) DoAndReturn(f func(context.Context, uint16, []queuedproto.EventID) (*tp.EventList, error)) *QueueGetEventsByIDsCall
-```
-
-DoAndReturn rewrite \*gomock.Call.DoAndReturn
-
-<a name="QueueGetEventsByIDsCall.Return"></a>
-### func \(\*QueueGetEventsByIDsCall\) Return
-
-```go
-func (c *QueueGetEventsByIDsCall) Return(arg0 *tp.EventList, arg1 error) *QueueGetEventsByIDsCall
-```
-
-Return rewrite \*gomock.Call.Return
 
 <a name="QueueIsRegisteredCall"></a>
 ## type QueueIsRegisteredCall
@@ -4335,120 +4191,6 @@ DoAndReturn rewrite \*gomock.Call.DoAndReturn
 
 ```go
 func (c *QueueIsRegisteredCall) Return(arg0 bool) *QueueIsRegisteredCall
-```
-
-Return rewrite \*gomock.Call.Return
-
-<a name="QueueNewPollerCall"></a>
-## type QueueNewPollerCall
-
-QueueNewPollerCall wrap \*gomock.Call
-
-```go
-type QueueNewPollerCall struct {
-    *gomock.Call
-}
-```
-
-<a name="QueueNewPollerCall.Do"></a>
-### func \(\*QueueNewPollerCall\) Do
-
-```go
-func (c *QueueNewPollerCall) Do(f func(*zerolog.Logger) workerpool.Poller) *QueueNewPollerCall
-```
-
-Do rewrite \*gomock.Call.Do
-
-<a name="QueueNewPollerCall.DoAndReturn"></a>
-### func \(\*QueueNewPollerCall\) DoAndReturn
-
-```go
-func (c *QueueNewPollerCall) DoAndReturn(f func(*zerolog.Logger) workerpool.Poller) *QueueNewPollerCall
-```
-
-DoAndReturn rewrite \*gomock.Call.DoAndReturn
-
-<a name="QueueNewPollerCall.Return"></a>
-### func \(\*QueueNewPollerCall\) Return
-
-```go
-func (c *QueueNewPollerCall) Return(arg0 workerpool.Poller) *QueueNewPollerCall
-```
-
-Return rewrite \*gomock.Call.Return
-
-<a name="QueuePublishCall"></a>
-## type QueuePublishCall
-
-QueuePublishCall wrap \*gomock.Call
-
-```go
-type QueuePublishCall struct {
-    *gomock.Call
-}
-```
-
-<a name="QueuePublishCall.Do"></a>
-### func \(\*QueuePublishCall\) Do
-
-```go
-func (c *QueuePublishCall) Do(f func(context.Context, tp.Event) (queuedproto.EventID, error)) *QueuePublishCall
-```
-
-Do rewrite \*gomock.Call.Do
-
-<a name="QueuePublishCall.DoAndReturn"></a>
-### func \(\*QueuePublishCall\) DoAndReturn
-
-```go
-func (c *QueuePublishCall) DoAndReturn(f func(context.Context, tp.Event) (queuedproto.EventID, error)) *QueuePublishCall
-```
-
-DoAndReturn rewrite \*gomock.Call.DoAndReturn
-
-<a name="QueuePublishCall.Return"></a>
-### func \(\*QueuePublishCall\) Return
-
-```go
-func (c *QueuePublishCall) Return(arg0 queuedproto.EventID, arg1 error) *QueuePublishCall
-```
-
-Return rewrite \*gomock.Call.Return
-
-<a name="QueueQueuedCall"></a>
-## type QueueQueuedCall
-
-QueueQueuedCall wrap \*gomock.Call
-
-```go
-type QueueQueuedCall struct {
-    *gomock.Call
-}
-```
-
-<a name="QueueQueuedCall.Do"></a>
-### func \(\*QueueQueuedCall\) Do
-
-```go
-func (c *QueueQueuedCall) Do(f func() *queuedclient.QueuedClient) *QueueQueuedCall
-```
-
-Do rewrite \*gomock.Call.Do
-
-<a name="QueueQueuedCall.DoAndReturn"></a>
-### func \(\*QueueQueuedCall\) DoAndReturn
-
-```go
-func (c *QueueQueuedCall) DoAndReturn(f func() *queuedclient.QueuedClient) *QueueQueuedCall
-```
-
-DoAndReturn rewrite \*gomock.Call.DoAndReturn
-
-<a name="QueueQueuedCall.Return"></a>
-### func \(\*QueueQueuedCall\) Return
-
-```go
-func (c *QueueQueuedCall) Return(arg0 *queuedclient.QueuedClient) *QueueQueuedCall
 ```
 
 Return rewrite \*gomock.Call.Return

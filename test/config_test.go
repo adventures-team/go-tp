@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/mock/gomock"
 	zLog "github.com/rs/zerolog/log"
+	"go.uber.org/mock/gomock"
 
 	"gitlab.cebc.tools/go/tp.git"
 	"gitlab.cebc.tools/go/tp.git/queueconfig"

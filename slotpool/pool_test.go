@@ -6,8 +6,6 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
-
-	"github.com/google/go-cmp/cmp"
 )
 
 func TestPool_New(t *testing.T) {
@@ -293,9 +291,9 @@ func TestAssignSlot(t *testing.T) {
 	t.Run("replace pending work", func(t *testing.T) {
 		p := New(1)
 		wait := make(chan struct{})
-		work1 := Work{Do: func() { <-wait }}
-		work2 := Work{ID: 2}
-		work3 := Work{ID: 3}
+		work1 := Work{ID: 1, Do: func() { <-wait }}
+		work2 := Work{ID: 2, Do: work1.Do}
+		work3 := Work{ID: 3, Do: work1.Do}
 
 		_ = p.AssignSlot(0, work1)
 		_ = p.AssignSlot(0, work2)
@@ -305,7 +303,7 @@ func TestAssignSlot(t *testing.T) {
 		slot := st.slots[0]
 		got, want := <-slot.work, work3
 
-		if !cmp.Equal(got, want) {
+		if got.ID != want.ID {
 			t.Errorf("pending work must be replaced: got %v, want %v", got, want)
 		}
 	})

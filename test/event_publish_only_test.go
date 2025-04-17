@@ -4,23 +4,30 @@
 package tptest
 
 import (
+	"errors"
+
 	"github.com/gofrs/uuid"
 
-	"gitlab.cebc.tools/go/easygo.git/iproto"
 	"gitlab.cebc.tools/go/tp.git"
 )
 
-// UUID - обёртка для передачи UUID при помощи easygo.
+// UUID - uuid.UUID iproto wrapper
 type UUID struct {
 	uuid.UUID
 }
 
-// IprotoPack передаёт 16 байт UUID, как есть. Перловый формат: C16.
-func (u UUID) IprotoPack(payload []byte, _ iproto.PackMode) ([]byte, error) {
-	return append(payload, u.UUID[:]...), nil
+// MarshalIProto передаёт 16 байт UUID, как есть. Перловый формат: C16.
+func (u UUID) MarshalIProto(buf []byte) ([]byte, error) {
+	return append(buf, u.UUID[:]...), nil
+}
+
+func (u *UUID) UnmarshalIProto(_ []byte) ([]byte, error) {
+	return nil, errors.New("UUID.UnmarshalIProto isn't implemented")
 }
 
 // eventPublishOnly - без обработчика - публикуем и удаляем вручную
+//
+//adv:iproto:
 type eventPublishOnly struct {
 	tp.BaseEvent
 

@@ -1,7 +1,6 @@
 package tp
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"hash/crc32"
@@ -10,12 +9,14 @@ import (
 
 	"github.com/rs/zerolog"
 
-	"gitlab.cebc.tools/go/easygo.git/iproto"
+	"gitlab.cebc.tools/go/iproto.git"
 	"gitlab.cebc.tools/go/queuedproto.git"
 	"gitlab.cebc.tools/go/tp.git/encodings"
 	"gitlab.cebc.tools/go/tp.git/queueconfig"
 	"gitlab.cebc.tools/go/tp.git/queuedclient"
 )
+
+//go:generate go tool iprotogen -r -tests -tags integration
 
 // MaxVersion - максимальная версия события (в верхних битах хранятся флаги)
 const MaxVersion = queuedproto.VersionMask
@@ -35,6 +36,7 @@ type (
 
 	// Event - интерфейс обработчика очереди. Структура обработчика должна включать в себя тип BaseEvent
 	Event interface {
+		iproto.Marshaler      // если не реализовать/сгенерить Unmarshaler, обрабатываться такие события не будут, доступна будет только отправка (Publish)
 		Version() VersionType // Возвращает версию события. Должен быть определён для типа события.
 		QueueID() QueueIDType // Возвращает ID очереди. должен быть определён для типа события.
 
@@ -226,11 +228,21 @@ func (queue *Queue) eventListFromItems(ctx context.Context, queueID QueueIDType,
 			evl.eventsByVersion[version] = sl
 		}
 
-		event := hInfo.boundPtr(sl)
+		evPtr := hInfo.boundPtr(sl)
 
-		getBaseEv, ok := event.(baseEventGetter)
+		// Register ensures that the event (or a pointer to it) implements Unmarshaler
+		decodeTo, ok := evPtr.(iproto.Unmarshaler)
 		if !ok {
-			zerolog.Ctx(ctx).Error().Stringer("event_id", item).Msgf("internal error: boundPtr returned non-pointer: %T", event)
+			zerolog.Ctx(ctx).Error().Msgf("type %T doesn't implement iproto.Unmarshaler (pointer receiver is required)", evPtr)
+
+			unsupported = append(unsupported, item.EventID)
+
+			continue
+		}
+
+		getBaseEv, ok := evPtr.(baseEventGetter)
+		if !ok {
+			zerolog.Ctx(ctx).Error().Stringer("event_id", item).Msgf("internal error: boundPtr returned non-pointer: %T", evPtr)
 			unsupported = append(unsupported, item.EventID)
 
 			continue
@@ -238,7 +250,7 @@ func (queue *Queue) eventListFromItems(ctx context.Context, queueID QueueIDType,
 
 		baseEvent := getBaseEv.getBaseEvent()
 
-		if err := encodings.Decode(hInfo.format, item.Data, event); err != nil {
+		if err := encodings.Decode(hInfo.format, item.Data, decodeTo); err != nil {
 			zerolog.Ctx(ctx).Err(err).Uint16("queue_id", queueID).Stringer("event_id", item).Uint8("version", version).Send()
 			unsupported = append(unsupported, item.EventID)
 
@@ -249,7 +261,7 @@ func (queue *Queue) eventListFromItems(ctx context.Context, queueID QueueIDType,
 		baseEvent.list = evl
 		baseEvent.flags = new(atomic.Uint32)
 
-		if unpacker, ok := event.(Unpacker); ok {
+		if unpacker, ok := evPtr.(Unpacker); ok {
 			if err := unpacker.Unpack(); err != nil {
 				zerolog.Ctx(ctx).Err(err).Uint16("queue_id", queueID).Stringer("event_id", item).Uint8("version", version).Msg("Unpack() error")
 				unsupported = append(unsupported, item.EventID)
@@ -307,28 +319,32 @@ func (q *Queue) register(queueID QueueIDType, hInfo handlerInfo, version uint8) 
 // handler принимает слайс событий, поддерживающих интерфейс Event (конкретных типов - не слайс интерфейсов).
 // ID очереди и версия события определяется методами QueueID и Version. Для одной очереди могут быть зарегистрированы
 // обработчики событий нескольких версий.
-func Register[EvType Event](q *Queue, handler func(context.Context, []EvType) error) error {
+func Register[EvType Event, EvSlice ~[]EvType](q *Queue, handler func(context.Context, EvSlice) error) error {
 	var ev EvType // zero value of EvType
+
+	if _, ok := any(&ev).(iproto.Unmarshaler); !ok {
+		return fmt.Errorf("event type %T (or a pointer to it) must implement iproto.Unmarshaler to be registered", ev)
+	}
 
 	queueID := ev.QueueID()
 	version := ev.Version()
 
 	hInfo := handlerInfo{
 		newEvents: func(cap int) any {
-			return make([]EvType, 0, cap)
+			return make(EvSlice, 0, cap)
 		},
 		boundPtr: func(slI any) any {
-			sl := slI.([]EvType)
+			sl := slI.(EvSlice)
 			newEv := &sl[len(sl) : len(sl)+1][0]
 
 			return newEv
 		},
 		grow: func(slI any) any {
-			sl := slI.([]EvType)
+			sl := slI.(EvSlice)
 			return sl[0 : len(sl)+1]
 		},
 		handler: func(ctx context.Context, slI any) error {
-			return handler(ctx, slI.([]EvType))
+			return handler(ctx, slI.(EvSlice))
 		},
 		format: encodings.Detect(ev),
 	}
@@ -376,19 +392,18 @@ func CalcShard(eventID uint64, shardNum uint) uint {
 }
 
 var (
-	_ iproto.IprotoPacker   = DisableMarshaler{}
-	_ iproto.IprotoUnpacker = DisableMarshaler{}
-	_ MarshalerDisabled     = DisableMarshaler{}
+	_ iproto.MarshalerUnmarshaler = DisableMarshaler{}
+	_ MarshalerDisabled           = DisableMarshaler{}
 )
 
-// IprotoPack - не делает ничего
-func (DisableMarshaler) IprotoPack(w []byte, _ iproto.PackMode) ([]byte, error) {
-	return w, nil
+// MarshalIProto - не делает ничего
+func (DisableMarshaler) MarshalIProto(buf []byte) ([]byte, error) {
+	return buf, nil
 }
 
-// IprotoUnpack - не делает ничего
-func (DisableMarshaler) IprotoUnpack(*bytes.Reader, iproto.PackMode) error {
-	return nil
+// UnmarshalIProto - не делает ничего
+func (DisableMarshaler) UnmarshalIProto(buf []byte) ([]byte, error) {
+	return buf, nil
 }
 
 func (DisableMarshaler) MarshalerDisabled() {}

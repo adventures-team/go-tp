@@ -4,9 +4,11 @@ import (
 	"fmt"
 
 	"google.golang.org/protobuf/proto"
+
+	"gitlab.cebc.tools/go/iproto.git"
 )
 
-func protobufEncoder(version uint8, valPtr interface{}) ([]byte, error) {
+func protobufEncoder(version uint8, valPtr iproto.Marshaler) ([]byte, error) {
 	msg, ok := valPtr.(proto.Message)
 	if !ok {
 		return nil, fmt.Errorf("%w: %T", ErrProtobuf, valPtr)
@@ -24,7 +26,7 @@ func protobufEncoder(version uint8, valPtr interface{}) ([]byte, error) {
 	return ret, nil
 }
 
-func protobufDecoder(encoded []byte, valPtr interface{}) error {
+func protobufDecoder(encoded []byte, valPtr iproto.Unmarshaler) error {
 	msg, ok := valPtr.(proto.Message)
 	if !ok {
 		return fmt.Errorf("%w: %T", ErrProtobuf, valPtr)

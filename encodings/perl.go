@@ -1,32 +1,33 @@
 package encodings
 
 import (
-	"gitlab.cebc.tools/go/easygo.git/iproto"
+	"gitlab.cebc.tools/go/iproto.git"
 	"gitlab.cebc.tools/go/queuedproto.git"
+	"gitlab.cebc.tools/go/tp.git/internal"
 )
 
-func perlEncoder(version uint8, valPtr interface{}) ([]byte, error) {
+func perlEncoder(version uint8, valPtr iproto.Marshaler) ([]byte, error) {
 	addons, err := encodeAddonsData(valPtr)
 	if err != nil {
 		return nil, err
 	}
 
-	data, err := iproto.Pack(valPtr)
+	data, err := valPtr.MarshalIProto(internal.AllocBytes())
 	if err != nil {
 		return nil, err
 	}
 
-	return iproto.Pack(queuedproto.PerlData{
+	return queuedproto.PerlData{
 		Version: version,
 		Addons:  queuedproto.PerlAddons{List: addons},
 		Data:    data,
-	})
+	}.MarshalIProto(internal.AllocBytes())
 }
 
-func perlDecoder(encoded []byte, valPtr interface{}) error {
+func perlDecoder(encoded []byte, valPtr iproto.Unmarshaler) error {
 	var perlData queuedproto.PerlData
 
-	if _, err := iproto.Unpack(encoded, &perlData); err != nil {
+	if _, err := perlData.UnmarshalIProto(encoded); err != nil {
 		return err
 	}
 
@@ -36,7 +37,7 @@ func perlDecoder(encoded []byte, valPtr interface{}) error {
 		}
 	}
 
-	_, err := iproto.Unpack(perlData.Data, valPtr)
+	_, err := valPtr.UnmarshalIProto(perlData.Data)
 
 	return err
 }

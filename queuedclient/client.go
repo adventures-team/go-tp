@@ -5,8 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"gitlab.cebc.tools/go/easygo.git/iproto"
-
+	easygo "gitlab.cebc.tools/go/easygo.git/iproto"
 	"gitlab.cebc.tools/go/tp.git/queueconfig"
 	"gitlab.cebc.tools/go/utils.git/mylog"
 )
@@ -63,7 +62,7 @@ var reqID uint32 // per process! не per-QueuedClient. в случае ранд
 // QueuedClient - низкоуровневый клиент queued
 type QueuedClient struct {
 	Config     *queueconfig.Config
-	shards     []*iproto.Pool
+	shards     []*easygo.Pool
 	roundRobin uint32
 	pid        uint32
 }
@@ -80,7 +79,7 @@ func Dial(ctx context.Context, conf *queueconfig.Config) (*QueuedClient, error) 
 	pingInterval := conf.GetDuration(ctx, ConfPingInterval, DefaultPingInterval)
 
 	serverStrings := queueconfig.CSVRegex.Split(conf.GetString(ConfServers, ""), -1)
-	shards := make([]*iproto.Pool, 0, len(serverStrings))
+	shards := make([]*easygo.Pool, 0, len(serverStrings))
 
 	for _, server := range serverStrings {
 		if server == "" {
@@ -89,7 +88,7 @@ func Dial(ctx context.Context, conf *queueconfig.Config) (*QueuedClient, error) 
 
 		logAdapter := mylog.IprotoLogger{}
 
-		endpoint, err := iproto.Dial(ctx, "tcp", server, &iproto.PoolConfig{
+		endpoint, err := easygo.Dial(ctx, "tcp", server, &easygo.PoolConfig{
 			Size:              1,
 			ConnectTimeout:    timeout,
 			DialTimeout:       timeout,
@@ -97,7 +96,7 @@ func Dial(ctx context.Context, conf *queueconfig.Config) (*QueuedClient, error) 
 			MaxRedialInterval: redialInterval,
 			RedialForever:     true,
 			Logger:            logAdapter,
-			ChannelConfig: &iproto.ChannelConfig{
+			ChannelConfig: &easygo.ChannelConfig{
 				WriteTimeout:   timeout,
 				RequestTimeout: timeout,
 				PingInterval:   pingInterval,

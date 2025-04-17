@@ -23,6 +23,8 @@ type testService struct {
 }
 
 // eventSleeper - работает долго, и не всегда успешно
+//
+//adv:iproto:
 type eventSleeper struct {
 	tp.BaseEvent
 	addons.CreationTime

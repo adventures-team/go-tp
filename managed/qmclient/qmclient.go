@@ -7,7 +7,8 @@ import (
 
 	"github.com/rs/zerolog/log"
 
-	"gitlab.cebc.tools/go/easygo.git/iproto"
+	easygo "gitlab.cebc.tools/go/easygo.git/iproto"
+	"gitlab.cebc.tools/go/tp.git/internal"
 	"gitlab.cebc.tools/go/utils.git/mylog"
 )
 
@@ -27,7 +28,7 @@ type Connection interface {
 	LocalAddr() net.Addr
 	Call(ctx context.Context, message uint32, data []byte) ([]byte, error)
 	Notify(ctx context.Context, message uint32, data []byte) error
-	Send(ctx context.Context, packet iproto.Packet) error
+	Send(ctx context.Context, packet easygo.Packet) error
 	Close()
 	Shutdown()
 	Done() <-chan struct{}
@@ -36,6 +37,7 @@ type Connection interface {
 	PutBytes(p []byte)
 }
 
+//adv:iproto:
 type StatsResponse struct {
 	Status  uint32
 	Data    StatsData
@@ -89,6 +91,7 @@ type QueueStat struct {
 	Stopped    uint32
 }
 
+//adv:iproto:
 type SetQueueRequest struct {
 	Queues []SetQueue `iproto:"u32"`
 }
@@ -99,6 +102,7 @@ type SetQueue struct {
 	Flags   uint32
 }
 
+//adv:iproto:
 type SetQueueResponse struct {
 	Status           uint32
 	SetQueueStatuses []uint32 `iproto:"u32"`
@@ -124,7 +128,7 @@ func NewClient(endpoint string, assignSlot func(slotID, queueID uint32) error, s
 func (c *Client) Run(ctx context.Context) {
 	logAdapter := mylog.IprotoLogger{}
 
-	pool, err := iproto.Dial(ctx, "tcp", c.endpoint, &iproto.PoolConfig{
+	pool, err := easygo.Dial(ctx, "tcp", c.endpoint, &easygo.PoolConfig{
 		Size:              1,
 		ConnectTimeout:    c.timeout,
 		DialTimeout:       c.timeout,
@@ -132,7 +136,7 @@ func (c *Client) Run(ctx context.Context) {
 		MaxRedialInterval: c.redialInterval,
 		RedialForever:     true,
 		Logger:            logAdapter,
-		ChannelConfig: &iproto.ChannelConfig{
+		ChannelConfig: &easygo.ChannelConfig{
 			Handler:        c,
 			WriteTimeout:   c.timeout,
 			RequestTimeout: c.timeout,
@@ -148,7 +152,7 @@ func (c *Client) Run(ctx context.Context) {
 	pool.Close()
 }
 
-func (c *Client) ServeIProto(ctx context.Context, conn iproto.Conn, packet iproto.Packet) {
+func (c *Client) ServeIProto(ctx context.Context, conn easygo.Conn, packet easygo.Packet) {
 	log.Debug().Uint32("msg", packet.Header.Msg).Msg("command received")
 
 	switch packet.Header.Msg {
@@ -159,14 +163,14 @@ func (c *Client) ServeIProto(ctx context.Context, conn iproto.Conn, packet iprot
 			Cluster: cluster,
 		}
 
-		data, err := iproto.Pack(&response)
+		data, err := response.MarshalIProto(internal.AllocBytes())
 		if err != nil {
 			log.Error().Err(err).Send()
 			break
 		}
 
-		err = conn.Send(ctx, iproto.Packet{
-			Header: iproto.Header{
+		err = conn.Send(ctx, easygo.Packet{
+			Header: easygo.Header{
 				Msg:  packet.Header.Msg,
 				Len:  uint32(len(data)),
 				Sync: packet.Header.Sync,
@@ -180,7 +184,7 @@ func (c *Client) ServeIProto(ctx context.Context, conn iproto.Conn, packet iprot
 	case cmdSetQueue:
 		var req SetQueueRequest
 
-		_, err := iproto.Unpack(packet.Data, &req)
+		_, err := req.UnmarshalIProto(packet.Data)
 		if err != nil {
 			log.Error().Err(err).Send()
 			break // TODO AnswerFail should be sent
@@ -196,7 +200,7 @@ func (c *Client) ServeIProto(ctx context.Context, conn iproto.Conn, packet iprot
 			}
 		}
 
-		data, err := iproto.Pack(SetQueueResponse{
+		data, err := SetQueueResponse{
 			Status:           answerOK,
 			SetQueueStatuses: queueStatuses,
 			Stats: StatsResponse{
@@ -204,15 +208,15 @@ func (c *Client) ServeIProto(ctx context.Context, conn iproto.Conn, packet iprot
 				Data:    c.stats(),
 				Cluster: cluster,
 			},
-		})
+		}.MarshalIProto(internal.AllocBytes())
 
 		if err != nil {
 			log.Error().Err(err).Send()
 			break
 		}
 
-		err = conn.Send(ctx, iproto.Packet{
-			Header: iproto.Header{
+		err = conn.Send(ctx, easygo.Packet{
+			Header: easygo.Header{
 				Msg:  packet.Header.Msg,
 				Len:  uint32(len(data)),
 				Sync: packet.Header.Sync,
