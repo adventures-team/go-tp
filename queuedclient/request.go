@@ -9,8 +9,9 @@ import (
 
 	"github.com/rs/zerolog"
 
-	"gitlab.cebc.tools/go/easygo.git/iproto"
+	easygo "gitlab.cebc.tools/go/easygo.git/iproto"
 	"gitlab.cebc.tools/go/queuedproto.git"
+	"gitlab.cebc.tools/go/tp.git/internal"
 	"gitlab.cebc.tools/go/utils.git/mylog"
 )
 
@@ -44,7 +45,7 @@ func (qc *QueuedClient) MakeUnicastRequest(ctx context.Context, shard uint, req 
 		return 0, nil, fmt.Errorf("%w %d", ErrInvalidShard, shard)
 	}
 
-	reqBytes, err := iproto.Pack(req)
+	reqBytes, err := req.MarshalIProto(internal.AllocBytes())
 
 	if err != nil {
 		return 0, nil, err
@@ -104,9 +105,8 @@ func (qc *QueuedClient) MakeUnicastRequest(ctx context.Context, shard uint, req 
 // которых (опрос событий) не ломается от разовых сбоев некоторых шардов.
 //
 // TODO раскопипастить broad/multicast запросы - когда полностью определимся с их логикой.
-// Возможно, использовать общее с box решение, после перевода его на easygo/iproto.
 func (qc *QueuedClient) MakeBroadcastRequest(ctx context.Context, req queuedproto.Request, resFunc ResultFunc) error {
-	reqBytes, err := iproto.Pack(req)
+	reqBytes, err := req.MarshalIProto(internal.AllocBytes())
 	if err != nil {
 		return err
 	}
@@ -116,7 +116,7 @@ func (qc *QueuedClient) MakeBroadcastRequest(ctx context.Context, req queuedprot
 	errs := make(ErrMulti, 0, len(qc.shards))
 
 	for shard, endpoint := range qc.shards {
-		go func(shard uint, endpoint *iproto.Pool) {
+		go func(shard uint, endpoint *easygo.Pool) {
 			var err error
 
 			defer func() {
@@ -260,8 +260,8 @@ func (qc *QueuedClient) reqMultiProcessShard(ctx context.Context, batchSize int,
 	}
 }
 
-func (qc *QueuedClient) reqMultiRetryLoop(ctx context.Context, shard uint, endpoint *iproto.Pool, req queuedproto.Request) (respBytes []byte, op string, err error) {
-	reqBytes, err := iproto.Pack(req)
+func (qc *QueuedClient) reqMultiRetryLoop(ctx context.Context, shard uint, endpoint *easygo.Pool, req queuedproto.Request) (respBytes []byte, op string, err error) {
+	reqBytes, err := req.MarshalIProto(internal.AllocBytes())
 	if err != nil {
 		return nil, "Pack: ", err
 	}

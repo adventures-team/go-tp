@@ -4,10 +4,8 @@
 package tp_test
 
 import (
-	"context"
 	"testing"
 
-	"gitlab.cebc.tools/go/easygo.git/iproto"
 	"gitlab.cebc.tools/go/queuedproto.git/addons"
 	tp "gitlab.cebc.tools/go/tp.git"
 )
@@ -45,53 +43,8 @@ type (
 	}
 )
 
-var (
-	_ tp.Event = &testEvent{}
-	_ tp.Event = &testUnhandledEvent{}
-	_ tp.Event = &testUnhandledEvent2{}
-)
-
-func (testEvent) QueueID() uint16 {
-	return 1
-}
-
-func (testEvent) Version() uint8 {
-	return 1
-}
-
-func (testUnhandledEvent) QueueID() uint16 {
-	return 1
-}
-
-func (testUnhandledEvent) Version() uint8 {
-	return 1
-}
-
-func (testUnhandledEvent2) QueueID() uint16 {
-	return 1
-}
-
-func (testUnhandledEvent2) Version() uint8 {
-	return 1
-}
-
-func (*testEvent) Handle(context.Context) error {
-	return nil
-}
-
 func checkMarshalers(t *testing.T, val interface{}) {
-	_, ok := val.(iproto.IprotoPacker)
-	if ok {
-		t.Errorf("%T must not implement iproto.IprotoPacker", val)
-	}
-
-	_, ok = val.(iproto.IprotoUnpacker)
-	if ok {
-		t.Errorf("%T must not implement iproto.IprotoUnpacker", val)
-	}
-
-	_, ok = val.(addons.PerlAddon)
-	if ok {
+	if _, ok := val.(addons.PerlAddon); ok {
 		t.Errorf("%T must not implement addons.PerlAddon", val)
 	}
 }

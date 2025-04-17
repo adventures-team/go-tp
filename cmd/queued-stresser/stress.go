@@ -9,8 +9,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"gitlab.cebc.tools/go/easygo.git/iproto"
+	easygo "gitlab.cebc.tools/go/easygo.git/iproto"
 	"gitlab.cebc.tools/go/queuedproto.git"
+	"gitlab.cebc.tools/go/tp.git/internal"
 )
 
 // ConnPool represents stress test connection pool state.
@@ -27,7 +28,7 @@ type ConnPool struct {
 	duration    time.Duration
 	durationMax time.Duration
 	delay       atomic.Uint64
-	logger      iproto.Logger
+	logger      easygo.Logger
 	payload     []byte // using fixed payload since queued doesn't implement data compression
 }
 
@@ -116,7 +117,7 @@ loop:
 }
 
 func (cp *ConnPool) connLoop(ctx context.Context) error {
-	conn, err := iproto.Dial(ctx, "tcp", cp.master, &iproto.PoolConfig{
+	conn, err := easygo.Dial(ctx, "tcp", cp.master, &easygo.PoolConfig{
 		Size:              1,
 		ConnectTimeout:    cp.timeout,
 		DialTimeout:       cp.timeout,
@@ -124,7 +125,7 @@ func (cp *ConnPool) connLoop(ctx context.Context) error {
 		MaxRedialInterval: redialInterval,
 		RedialForever:     true,
 		Logger:            cp.logger,
-		ChannelConfig: &iproto.ChannelConfig{
+		ChannelConfig: &easygo.ChannelConfig{
 			WriteTimeout:   cp.timeout,
 			RequestTimeout: cp.timeout,
 			PingInterval:   pingInterval,
@@ -165,7 +166,7 @@ loop:
 	return context.Cause(ctx)
 }
 
-func (cp *ConnPool) makeRequest(ctx context.Context, conn *iproto.Pool) error {
+func (cp *ConnPool) makeRequest(ctx context.Context, conn *easygo.Pool) error {
 	req := queuedproto.ReqAddItem{
 		Pid:         cp.pid,
 		ReqID:       cp.reqID.Add(1),
@@ -176,7 +177,7 @@ func (cp *ConnPool) makeRequest(ctx context.Context, conn *iproto.Pool) error {
 		Flags:       0,
 	}
 
-	reqBytes, err := iproto.Pack(req)
+	reqBytes, err := req.MarshalIProto(internal.AllocBytes())
 	if err != nil {
 		return err
 	}

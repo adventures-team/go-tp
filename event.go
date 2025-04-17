@@ -116,11 +116,11 @@ func (ev *BaseEvent) Publish(ctx context.Context, data Event) (eventID queuedpro
 	return ev.list.queue.Publish(ctx, data)
 }
 
-// IprotoPack - не поддерживается. Тип BaseEvent не предназначен для передачи по протоколу
-func (BaseEvent) IprotoPack(incompatible) {}
+// MarshalIProto - не поддерживается. Тип BaseEvent не предназначен для передачи по протоколу
+func (BaseEvent) MarshalIProto(incompatible) {}
 
-// IprotoUnpack - не поддерживается. Тип BaseEvent не предназначен для передачи по протоколу
-func (BaseEvent) IprotoUnpack(incompatible) {}
+// UnmarshalIProto - не поддерживается. Тип BaseEvent не предназначен для передачи по протоколу
+func (BaseEvent) UnmarshalIProto(incompatible) {}
 
 // MarshalAddon - не поддерживается. Тип BaseEvent не предназначен для передачи по протоколу
 func (BaseEvent) MarshalAddon(incompatible) {}

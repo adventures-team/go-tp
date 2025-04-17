@@ -6,6 +6,7 @@ import (
 
 const SimpleQueueID = 1122
 
+//adv:iproto:
 type SimpleEvent struct {
 	tp.BaseEvent
 

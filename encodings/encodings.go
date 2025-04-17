@@ -4,6 +4,8 @@ import (
 	"fmt"
 
 	"google.golang.org/protobuf/proto"
+
+	"gitlab.cebc.tools/go/iproto.git"
 )
 
 // Format - тип ID формата сообщения. Все форматы должны начинаться с uint8 с номером версии.
@@ -16,8 +18,8 @@ const (
 )
 
 type (
-	encoder func(version uint8, val interface{}) ([]byte, error)
-	decoder func(encoded []byte, valPtr interface{}) error
+	encoder func(version uint8, val iproto.Marshaler) ([]byte, error)
+	decoder func(encoded []byte, valPtr iproto.Unmarshaler) error
 )
 
 var (
@@ -33,7 +35,7 @@ var (
 )
 
 // Encode кодирует данные val в указанном формате и версии. val может быть как значением, так и указателем.
-func Encode(format Format, version uint8, val interface{}) ([]byte, error) {
+func Encode(format Format, version uint8, val iproto.Marshaler) ([]byte, error) {
 	if format >= Format(len(encoders)) {
 		return nil, fmt.Errorf("%w: %d", ErrInvalidFormat, format)
 	}
@@ -45,7 +47,7 @@ func Encode(format Format, version uint8, val interface{}) ([]byte, error) {
 //
 // TODO проверить хотя бы в API верхнего уровня, что не будет паники, если передать по значению.
 // Когда устаканятся дженерики - потребовать указатель на этапе компиляции.
-func Decode(format Format, encoded []byte, valPtr interface{}) error {
+func Decode(format Format, encoded []byte, valPtr iproto.Unmarshaler) error {
 	if format >= Format(len(decoders)) {
 		return fmt.Errorf("%w: %d", ErrInvalidFormat, format)
 	}

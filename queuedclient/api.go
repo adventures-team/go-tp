@@ -7,7 +7,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"gitlab.cebc.tools/go/easygo.git/iproto"
 	"gitlab.cebc.tools/go/queuedproto.git"
 )
 
@@ -80,7 +79,7 @@ func (qc *QueuedClient) collectItemList(estimated int) (ResultFunc, func() queue
 	return func(shard uint, data []byte) error {
 			var shardResult queuedproto.ItemList
 
-			if _, err := iproto.Unpack(data, &shardResult); err != nil {
+			if _, err := shardResult.UnmarshalIProto(data); err != nil {
 				return err
 			}
 
@@ -223,7 +222,7 @@ type publishOptions struct {
 // ID запроса (queuedproto.ReqAddItem.ReqID) для всех ретраев отправляется один и тот же, на случай,
 // если у нас шардов меньше, чем retry_count (например, 1), и 1й запрос ушёл, но ответ потерялся.
 //
-// Ошибки обработки результата (iproto.Unpack) не приводят к ретраям, т.к., скорее всего, являются ошибками прикладного уровня.
+// Ошибки обработки результата (iproto.Unmarshal) не приводят к ретраям, т.к., скорее всего, являются ошибками прикладного уровня.
 func (qc *QueuedClient) Publish(ctx context.Context, queueID uint16, eventID queuedproto.EventID, flags uint32, eventData []byte, opts ...PublishOption) (queuedproto.EventID, error) {
 	var opt publishOptions
 
@@ -260,7 +259,7 @@ func (qc *QueuedClient) Publish(ctx context.Context, queueID uint16, eventID que
 		return queuedproto.EventID{}, fmt.Errorf("Publish: queue_id=%d: %w", queueID, err)
 	}
 
-	if _, err = iproto.Unpack(respBytes, &eventID.ID); err != nil {
+	if _, err = eventID.UnmarshalIProto(respBytes); err != nil {
 		return queuedproto.EventID{}, fmt.Errorf("Publish: queue_id=%d: Unpack: %w", queueID, err)
 	}
 

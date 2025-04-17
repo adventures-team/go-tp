@@ -14,6 +14,7 @@ import (
 
 type (
 	// eventWithAddons - с аддонами, детерминированным ID и игнором дублей
+	//adv:iproto:
 	eventWithAddons struct {
 		tp.BaseEvent
 		addons.CreationTime
@@ -26,6 +27,7 @@ type (
 	// eventWithAddonsV2 - тест на событие новой версии
 	// TODO сделать потом рекурсивный перебор полей во вложенных структурах (делается при старте/наполнении кеша - пофиг, что это долго)
 	// чтобы можно было встраивать структуры при добавлении полей в новой версии).
+	//adv:iproto:
 	eventWithAddonsV2 struct {
 		tp.BaseEvent
 		addons.CreationTime
