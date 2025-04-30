@@ -1,8 +1,10 @@
 package encodings
 
 import (
-	"gitlab.cebc.tools/go/iproto.git"
-	"gitlab.cebc.tools/go/queuedproto.git"
+	"github.com/my-mail-ru/go-iproto"
+
+	"github.com/my-mail-ru/go-queuedproto"
+
 	"gitlab.cebc.tools/go/tp.git/internal"
 )
 

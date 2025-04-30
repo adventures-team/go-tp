@@ -8,7 +8,7 @@ import (
 	"encoding/binary"
 	"fmt"
 
-	iproto "gitlab.cebc.tools/go/iproto.git"
+	iproto "github.com/my-mail-ru/go-iproto"
 )
 
 func (recvTestPerlData testPerlData) MarshalIProto(buf []byte) ([]byte, error) {

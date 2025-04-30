@@ -6,7 +6,8 @@ package tp_test
 import (
 	"testing"
 
-	"gitlab.cebc.tools/go/queuedproto.git/addons"
+	"github.com/my-mail-ru/go-queuedproto/addons"
+
 	tp "gitlab.cebc.tools/go/tp.git"
 )
 

@@ -19,14 +19,16 @@ TODO дока по архитектуре
 - [type BaseEvent](<#BaseEvent>)
   - [func NewBaseEvent\(\) BaseEvent](<#NewBaseEvent>)
   - [func \(BaseEvent\) AddonID\(incompatible\)](<#BaseEvent.AddonID>)
-  - [func \(ev \*BaseEvent\) Defer\(ctx context.Context, delay time.Duration\) error](<#BaseEvent.Defer>)
-  - [func \(ev \*BaseEvent\) Done\(\)](<#BaseEvent.Done>)
-  - [func \(ev \*BaseEvent\) FromQueueID\(\) QueueIDType](<#BaseEvent.FromQueueID>)
-  - [func \(ev \*BaseEvent\) IsDone\(\) bool](<#BaseEvent.IsDone>)
+  - [func \(bev BaseEvent\) Defer\(ctx context.Context, delay time.Duration\) error](<#BaseEvent.Defer>)
+  - [func \(bev BaseEvent\) Done\(\)](<#BaseEvent.Done>)
+  - [func \(bev BaseEvent\) GetEventID\(\) queuedproto.EventID](<#BaseEvent.GetEventID>)
+  - [func \(bev BaseEvent\) HasCustomDefer\(\) bool](<#BaseEvent.HasCustomDefer>)
+  - [func \(bev BaseEvent\) IsDone\(\) bool](<#BaseEvent.IsDone>)
   - [func \(BaseEvent\) MarshalAddon\(incompatible\)](<#BaseEvent.MarshalAddon>)
   - [func \(BaseEvent\) MarshalIProto\(incompatible\)](<#BaseEvent.MarshalIProto>)
   - [func \(BaseEvent\) MarshalerDisabled\(incompatible\)](<#BaseEvent.MarshalerDisabled>)
-  - [func \(ev \*BaseEvent\) Publish\(ctx context.Context, data Event\) \(eventID queuedproto.EventID, err error\)](<#BaseEvent.Publish>)
+  - [func \(bev BaseEvent\) Publish\(ctx context.Context, data Event\) \(eventID queuedproto.EventID, err error\)](<#BaseEvent.Publish>)
+  - [func \(bev BaseEvent\) Queue\(\) \*Queue](<#BaseEvent.Queue>)
   - [func \(BaseEvent\) UnmarshalAddon\(incompatible\)](<#BaseEvent.UnmarshalAddon>)
   - [func \(BaseEvent\) UnmarshalIProto\(incompatible\)](<#BaseEvent.UnmarshalIProto>)
 - [type Builder](<#Builder>)
@@ -40,18 +42,31 @@ TODO дока по архитектуре
 - [type Event](<#Event>)
 - [type EventIDBuilder](<#EventIDBuilder>)
 - [type EventList](<#EventList>)
+- [type EventWithCreationTime](<#EventWithCreationTime>)
+- [type EventWithRetry](<#EventWithRetry>)
+- [type EventWithRetry2](<#EventWithRetry2>)
+- [type Handler](<#Handler>)
+  - [func WithMaxAge\[EvType EventWithCreationTime, EvSlice \~\[\]EvType\]\(handler Handler\[EvType, EvSlice\]\) Handler\[EvType, EvSlice\]](<#WithMaxAge>)
+  - [func WithRetry\[EvType EventWithRetry, EvSlice \~\[\]EvType\]\(handler Handler\[EvType, EvSlice\]\) Handler\[EvType, EvSlice\]](<#WithRetry>)
+  - [func WithRetry2\[EvType EventWithRetry2, EvSlice \~\[\]EvType\]\(handler Handler\[EvType, EvSlice\], opts ...Retry2Option\) Handler\[EvType, EvSlice\]](<#WithRetry2>)
 - [type IgnoreDuplicateItems](<#IgnoreDuplicateItems>)
 - [type MarshalerDisabled](<#MarshalerDisabled>)
+- [type Middleware](<#Middleware>)
 - [type Queue](<#Queue>)
   - [func Init\(ctx context.Context, conf \*queueconfig.Config\) \(\*Queue, error\)](<#Init>)
+  - [func \(queue \*Queue\) Client\(\) \*queuedclient.QueuedClient](<#Queue.Client>)
+  - [func \(queue \*Queue\) Config\(\) \*queueconfig.Config](<#Queue.Config>)
   - [func \(q \*Queue\) Encode\(event Event\) \(eventData \[\]byte, err error\)](<#Queue.Encode>)
   - [func \(queue \*Queue\) GetActiveEvents\(ctx context.Context, queueID QueueIDType, count int\) \(\*EventList, error\)](<#Queue.GetActiveEvents>)
   - [func \(queue \*Queue\) GetEventsByIDs\(ctx context.Context, queueID QueueIDType, eventIDs \[\]queuedproto.EventID\) \(\*EventList, error\)](<#Queue.GetEventsByIDs>)
   - [func \(q \*Queue\) IsRegistered\(queueID uint16\) bool](<#Queue.IsRegistered>)
   - [func \(q \*Queue\) NewPoller\(logger \*zerolog.Logger\) workerpool.Poller](<#Queue.NewPoller>)
-  - [func \(queue \*Queue\) Publish\(ctx context.Context, event Event, opts ...queuedclient.PublishOption\) \(eventID queuedproto.EventID, err error\)](<#Queue.Publish>)
+  - [func \(queue \*Queue\) Publish\(ctx context.Context, event Event, opts ...queuedclient.PublishOption\) \(queuedproto.EventID, error\)](<#Queue.Publish>)
   - [func \(queue \*Queue\) Queued\(\) \*queuedclient.QueuedClient](<#Queue.Queued>)
+  - [func \(queue \*Queue\) Replace\(ctx context.Context, event Event, opts ...queuedclient.PublishOption\) error](<#Queue.Replace>)
 - [type QueueIDType](<#QueueIDType>)
+- [type Retry2Option](<#Retry2Option>)
+  - [func Retry2CounterNames\(retry1, retry2 string\) Retry2Option](<#Retry2CounterNames>)
 - [type StandaloneMaster](<#StandaloneMaster>)
   - [func NewStandaloneManager\(queue \*Queue, pool \*workerpool.WorkerPool, logger \*zerolog.Logger\) \*StandaloneMaster](<#NewStandaloneManager>)
   - [func \(qm \*StandaloneMaster\) Run\(\)](<#StandaloneMaster.Run>)
@@ -191,10 +206,10 @@ func (BaseEvent) AddonID(incompatible)
 AddonID \- не поддерживается. Тип BaseEvent не предназначен для передачи по протоколу
 
 <a name="BaseEvent.Defer"></a>
-### func \(\*BaseEvent\) Defer
+### func \(BaseEvent\) Defer
 
 ```go
-func (ev *BaseEvent) Defer(ctx context.Context, delay time.Duration) error
+func (bev BaseEvent) Defer(ctx context.Context, delay time.Duration) error
 ```
 
 Defer устанавливает задержку события.
@@ -204,30 +219,39 @@ Defer устанавливает задержку события.
 Если событие было помечено как выполненное при помощи Done, а потом был вызван Defer, пометка на удаление снимается.
 
 <a name="BaseEvent.Done"></a>
-### func \(\*BaseEvent\) Done
+### func \(BaseEvent\) Done
 
 ```go
-func (ev *BaseEvent) Done()
+func (bev BaseEvent) Done()
 ```
 
 Done помечает событие обработанным.
 
 События удаляются не сразу, а по завершении цикла обработки всех событий, полученных за один запрос из queued. В случае возникновения паник \(в т.ч. необработанных\), удаление все равно должно произойти до выхода из tp.Queue.Work
 
-<a name="BaseEvent.FromQueueID"></a>
-### func \(\*BaseEvent\) FromQueueID
+<a name="BaseEvent.GetEventID"></a>
+### func \(BaseEvent\) GetEventID
 
 ```go
-func (ev *BaseEvent) FromQueueID() QueueIDType
+func (bev BaseEvent) GetEventID() queuedproto.EventID
 ```
 
-FromQueueID \- ID очереди, из которой прилетело событие
+GetEventID \- возвращает ID события. Код, работающий с конкретным событием \(не через интерфейс\) может обращаться к полу EventID напрямую.
 
-<a name="BaseEvent.IsDone"></a>
-### func \(\*BaseEvent\) IsDone
+<a name="BaseEvent.HasCustomDefer"></a>
+### func \(BaseEvent\) HasCustomDefer
 
 ```go
-func (ev *BaseEvent) IsDone() bool
+func (bev BaseEvent) HasCustomDefer() bool
+```
+
+HasCustomDefer \- установлено ли явно время повторной активации вызовом методов [BaseEvent.Defer](<#BaseEvent.Defer>) или \[BaseEvent.Replace\]
+
+<a name="BaseEvent.IsDone"></a>
+### func \(BaseEvent\) IsDone
+
+```go
+func (bev BaseEvent) IsDone() bool
 ```
 
 IsDone \- вызывался ли метод Done для события.
@@ -260,13 +284,22 @@ func (BaseEvent) MarshalerDisabled(incompatible)
 
 
 <a name="BaseEvent.Publish"></a>
-### func \(\*BaseEvent\) Publish
+### func \(BaseEvent\) Publish
 
 ```go
-func (ev *BaseEvent) Publish(ctx context.Context, data Event) (eventID queuedproto.EventID, err error)
+func (bev BaseEvent) Publish(ctx context.Context, data Event) (eventID queuedproto.EventID, err error)
 ```
 
 Publish \- враппер к Queue.Publish \(см. его доку для описания параметра и возвращаемого значения\). Отправляет новое событие в очередь, указанную при регистрации для этого типа методом Queue.Register
+
+<a name="BaseEvent.Queue"></a>
+### func \(BaseEvent\) Queue
+
+```go
+func (bev BaseEvent) Queue() *Queue
+```
+
+
 
 <a name="BaseEvent.UnmarshalAddon"></a>
 ### func \(BaseEvent\) UnmarshalAddon
@@ -424,13 +457,22 @@ UnmarshalIProto \- не делает ничего
 <a name="Event"></a>
 ## type Event
 
-Event \- интерфейс обработчика очереди. Структура обработчика должна включать в себя тип BaseEvent
+Event \- интерфейс обработчика очереди. Структура обработчика должна встраивать тип BaseEvent.
+
+Нужно определить два метода \- Version\(\) и QueueID, остальные унаследуются от встроенного BaseEvent.
 
 ```go
 type Event interface {
-    iproto.Marshaler      // если не реализовать/сгенерить Unmarshaler, обрабатываться такие события не будут, доступна будет только отправка (Publish)
-    Version() VersionType // Возвращает версию события. Должен быть определён для типа события.
-    QueueID() QueueIDType // Возвращает ID очереди. должен быть определён для типа события.
+    iproto.Marshaler                            // если не реализовать/сгенерить Unmarshaler, обрабатываться такие события не будут, доступна будет только отправка (Publish)
+    Version() VersionType                       // Возвращает версию события. Должен быть определён для типа события.
+    QueueID() QueueIDType                       // Возвращает ID очереди. должен быть определён для типа события.
+    GetEventID() queuedproto.EventID            // Возвращает ID события
+    Done()                                      // Помечает событие обработанным
+    IsDone() bool                               // Был ли вызван метод Done
+    Defer(context.Context, time.Duration) error // Откладывает следующую активацию события на указзанную задержку
+    HasCustomDefer() bool                       // Был ли вызван метод Defer
+    Queue() *Queue
+    Publish(context.Context, Event) (queuedproto.EventID, error)
     // contains filtered or unexported methods
 }
 ```
@@ -457,6 +499,146 @@ type EventList struct {
 }
 ```
 
+<a name="EventWithCreationTime"></a>
+## type EventWithCreationTime
+
+EventWithCreationTime \- событие, встраивающее \[addons.CreationTime\]. Поддерживает middleware \[addons.CreationTime\]
+
+```go
+type EventWithCreationTime interface {
+    Event
+    GetCreationTime() addons.CreationTime
+}
+```
+
+<a name="EventWithRetry"></a>
+## type EventWithRetry
+
+EventWithRetry \- событие, встраивающее \[addons.Retry\]. Поддерживает middleware [WithRetry](<#WithRetry>).
+
+```go
+type EventWithRetry interface {
+    Event
+    IncRetryCount()
+    GetRetryCount() uint32
+    HasFailed() bool
+}
+```
+
+<a name="EventWithRetry2"></a>
+## type EventWithRetry2
+
+EventWithRetry2 \- событие, встраивающее \[addons.Retry2\]. Поддерживает middleware [WithRetry2](<#WithRetry2>).
+
+```go
+type EventWithRetry2 interface {
+    Event
+    IncRetry1Count()
+    IncRetry2Count()
+    GetRetry1Count() uint32
+    GetRetry2Count() uint32
+    HasFailed1() bool
+    HasFailed2() bool
+}
+```
+
+<a name="Handler"></a>
+## type Handler
+
+
+
+```go
+type Handler[EvType Event, EvSlice ~[]EvType] func(context.Context, EvSlice) error
+```
+
+<a name="WithMaxAge"></a>
+### func WithMaxAge
+
+```go
+func WithMaxAge[EvType EventWithCreationTime, EvSlice ~[]EvType](handler Handler[EvType, EvSlice]) Handler[EvType, EvSlice]
+```
+
+WithMaxAge \- ограничивает время обработки события значением max\_age, которое может задаваться в конфиге для очереди, инстанса или глобально.
+
+Пример:
+
+```
+tp.Register(q, tp.WithMaxAge(func (ctx context.Context, events []MyEvent) error {
+    // обычный обработчик
+    for _, event := range events {
+        // события старше max_age сюда не попадут
+    }
+    return nil
+}))
+```
+
+<a name="WithRetry"></a>
+### func WithRetry
+
+```go
+func WithRetry[EvType EventWithRetry, EvSlice ~[]EvType](handler Handler[EvType, EvSlice]) Handler[EvType, EvSlice]
+```
+
+WithRetry \- ограничивает количество попыток обработки события.
+
+Настройки в onlineconf \(задаются для очереди или глобально\):
+
+```
+retry_limit - максимальное количество попыток, после которого событие удаляется. Формат - int
+retry_type  - тип задержки - const или constant - постоянная, lin или linear - линейная, exp или exponential - экспоненциальная
+retry_delay - постоянная часть задержки (для всех типов). Формат - [time.ParseDuration]
+retry_coeff - коэффициент (для линейной или экспоненциальной задержки). Формат - [time.ParseDuration]
+retry_exp   - экспонента. Формат - float. Значение по умолчанию - 2.
+
+Задержка вычисляется по формуле:
+  constant:   retry_delay
+  linear:     retry_delay + retry_coeff * Count
+  exponential: retry_delay + retry_coeff * retry_exp ^ Count
+```
+
+где Count \- номер текущей попытки \(начиная с 0\)
+
+Пример:
+
+```
+type MyEvent struct {
+    addons.Retry
+    UserID uint64
+    // ...
+}
+
+tp.Register(q, tp.WithRetry(func (ctx context.Context, events []MyEvent) error {
+    for _, event := range events {
+        data, err := SelectUserByID(event.UserID)
+        if err != nil {
+            continue // пытаемся обработать событие неограниченное кол-во раз
+                     // с постоянной задержкой defer_time.
+                     // после выхода из обработчика для всех необработанных событий
+                     // будет вызван Defer (одним запросом)
+        }
+
+        resp, err := SendToRemoteSystem(ctx, data)
+        if err != nil {
+            event.Fail() // пытаемся обработать указанное в конфиге кол-во раз
+                         // задержка и её тип указаны в конфиге (retry_*)
+        }
+
+        // ...
+        event.Done() // успешная обработка, после выхода из обработчика
+                     // все обработанные события удаляются (одним запросом)
+    }
+}))
+```
+
+<a name="WithRetry2"></a>
+### func WithRetry2
+
+```go
+func WithRetry2[EvType EventWithRetry2, EvSlice ~[]EvType](handler Handler[EvType, EvSlice], opts ...Retry2Option) Handler[EvType, EvSlice]
+```
+
+
+
 <a name="IgnoreDuplicateItems"></a>
 ## type IgnoreDuplicateItems
 
@@ -479,6 +661,15 @@ type MarshalerDisabled interface {
 }
 ```
 
+<a name="Middleware"></a>
+## type Middleware
+
+
+
+```go
+type Middleware[EvType Event, EvSlice ~[]EvType] func(Handler[EvType, EvSlice]) Handler[EvType, EvSlice]
+```
+
 <a name="Queue"></a>
 ## type Queue
 
@@ -498,6 +689,30 @@ func Init(ctx context.Context, conf *queueconfig.Config) (*Queue, error)
 ```
 
 Init создаёт объект для высокоуровневой работы с API очередей. Инициализирует клиент очередей \(queuedclient\) с указанным конфигом.
+
+<a name="Queue.Client"></a>
+### func \(\*Queue\) Client
+
+```go
+func (queue *Queue) Client() *queuedclient.QueuedClient
+```
+
+Client возвращает клиент очередей.
+
+Это \- API нижнего уровня, не стоит им пользоваться без необходимости.
+
+Для удаления событий из обработчиков стоит пользоваться методом BaseEvent.Done, для установки времени задержки \- BaseEvent.Defer.
+
+Если будут нужны какие\-то методы "среднего уровня", имеет смысл их добавить к типу Queue.
+
+<a name="Queue.Config"></a>
+### func \(\*Queue\) Config
+
+```go
+func (queue *Queue) Config() *queueconfig.Config
+```
+
+Config возвращает высокоуровневый конфиг очередей с возможностью определения значений для каждой очереди.
 
 <a name="Queue.Encode"></a>
 ### func \(\*Queue\) Encode
@@ -560,14 +775,14 @@ NewPoller возвращает объект для опроса новых со�
 ### func \(\*Queue\) Publish
 
 ```go
-func (queue *Queue) Publish(ctx context.Context, event Event, opts ...queuedclient.PublishOption) (eventID queuedproto.EventID, err error)
+func (queue *Queue) Publish(ctx context.Context, event Event, opts ...queuedclient.PublishOption) (queuedproto.EventID, error)
 ```
 
 Publish кодирует событие при помощи метода Encode, и отправляет его в очередь методом queuedclient.Publish. Клиент очередей должен быть проинициализирован.
 
 Возвращается ID события \(сгенерённый методом BuildEventID\(\), либо возвращённый queued\).
 
-Если тип события поддерживает интерфейс IgnoreDuplicateItems, и метод IgnoreDuplicateItems возвращает true, дубли при совпадении ID события игнорируются \(также подавляется ошибка в логе queued флагом queuedproto.FlagIgnoreWrongItem\).
+Если у события есть метод IgnoreDuplicateItems, и он возвращает true, дубли при совпадении ID события игнорируются \(также подавляется ошибка в логе queued флагом queuedproto.FlagIgnoreWrongItem\).
 
 <a name="Queue.Queued"></a>
 ### func \(\*Queue\) Queued
@@ -578,11 +793,16 @@ func (queue *Queue) Queued() *queuedclient.QueuedClient
 
 Queued возвращает клиент очередей.
 
-Это \- API нижнего уровня, не стоит им пользоваться без необходимости.
+Deprecated: переименовано в [Queue.Client](<#Queue.Client>)
 
-Для удаления событий из обработчиков стоит пользоваться методом BaseEvent.Done, для установки времени задержки \- BaseEvent.Defer.
+<a name="Queue.Replace"></a>
+### func \(\*Queue\) Replace
 
-Если будут нужны какие\-то методы "среднего уровня", имеет смысл их добавить к типу Queue.
+```go
+func (queue *Queue) Replace(ctx context.Context, event Event, opts ...queuedclient.PublishOption) error
+```
+
+Replace заменяет существующее событие в очереди. ID события должно быть обязательно задано. Если время срабатывания не установлено через опции, оно не изменяется.
 
 <a name="QueueIDType"></a>
 ## type QueueIDType
@@ -592,6 +812,24 @@ QueueIDType \- тип id очереди. Используем type alias \- пр
 ```go
 type QueueIDType = uint16
 ```
+
+<a name="Retry2Option"></a>
+## type Retry2Option
+
+
+
+```go
+type Retry2Option func(*retry2Opt)
+```
+
+<a name="Retry2CounterNames"></a>
+### func Retry2CounterNames
+
+```go
+func Retry2CounterNames(retry1, retry2 string) Retry2Option
+```
+
+Retry2CounterNames позволяет задать альтернативные имена для настроек счётчиков в онлайнконфе. По умолчанию, "1" и "2".
 
 <a name="StandaloneMaster"></a>
 ## type StandaloneMaster
@@ -944,11 +1182,17 @@ update_batch_size              UpdateBatchSize strconv.ParseInt
   - [func \(c \*Config\) GetDuration\(ctx context.Context, confPath string, dfl time.Duration\) time.Duration](<#Config.GetDuration>)
   - [func \(c \*Config\) InitialDelay\(ctx context.Context, queueID uint16\) time.Duration](<#Config.InitialDelay>)
   - [func \(c \*Config\) LogLevel\(ctx context.Context\) zerolog.Level](<#Config.LogLevel>)
+  - [func \(c \*Config\) MaxAge\(queueID uint16\) \(uint32, error\)](<#Config.MaxAge>)
   - [func \(c \*Config\) OOMCheckPeriod\(ctx context.Context\) time.Duration](<#Config.OOMCheckPeriod>)
   - [func \(c \*Config\) OOMHardLimit\(ctx context.Context\) uint64](<#Config.OOMHardLimit>)
   - [func \(c \*Config\) OOMSoftDownscaleRate\(ctx context.Context\) float64](<#Config.OOMSoftDownscaleRate>)
   - [func \(c \*Config\) OOMSoftLimit\(ctx context.Context\) uint64](<#Config.OOMSoftLimit>)
   - [func \(c \*Config\) QueueIDs\(\) \(\[\]uint16, error\)](<#Config.QueueIDs>)
+  - [func \(c \*Config\) RetryCoeff\(queueID uint16, retrySuffix string\) \(time.Duration, error\)](<#Config.RetryCoeff>)
+  - [func \(c \*Config\) RetryDelay\(queueID uint16, retrySuffix string\) \(time.Duration, error\)](<#Config.RetryDelay>)
+  - [func \(c \*Config\) RetryExp\(queueID uint16, retrySuffix string\) \(float64, error\)](<#Config.RetryExp>)
+  - [func \(c \*Config\) RetryLimit\(queueID uint16, retrySuffix string\) \(uint32, error\)](<#Config.RetryLimit>)
+  - [func \(c \*Config\) RetryType\(queueID uint16\) \(int, error\)](<#Config.RetryType>)
   - [func \(c \*Config\) SlotsCount\(ctx context.Context\) \(int, error\)](<#Config.SlotsCount>)
   - [func \(c \*Config\) UpdateBatchSize\(ctx context.Context, queueID uint16\) int](<#Config.UpdateBatchSize>)
   - [func \(c \*Config\) WorkersCount\(ctx context.Context, queueID uint16\) \(int, error\)](<#Config.WorkersCount>)
@@ -969,6 +1213,16 @@ const (
     DefaultInitialDelay    = time.Duration(0)   // default for initial_delay
     DefaultFetchBatchSize  = 10                 // default for fetch_batch_size
     DefaultUpdateBatchSize = 1000               // default for update_batch_size
+)
+```
+
+<a name="RetryConstant"></a>retry\_types
+
+```go
+const (
+    RetryConstant = iota
+    RetryLinear
+    RetryExponential
 )
 ```
 
@@ -1119,6 +1373,15 @@ func (c *Config) LogLevel(ctx context.Context) zerolog.Level
 
 LogLevel получает log\_level. По умолчанию: DefaultLogLevel.
 
+<a name="Config.MaxAge"></a>
+### func \(\*Config\) MaxAge
+
+```go
+func (c *Config) MaxAge(queueID uint16) (uint32, error)
+```
+
+MaxAge возвращает max\_age для указанной очереди, или глобально заданное значение. Используется для middleware \[tp.WithMaxAge\]
+
 <a name="Config.OOMCheckPeriod"></a>
 ### func \(\*Config\) OOMCheckPeriod
 
@@ -1163,6 +1426,51 @@ func (c *Config) QueueIDs() ([]uint16, error)
 ```
 
 QueueIDs получает queue\_ids, который задаётся в виде разделённых через запятую интов \(см. CSVRegex\). Если задан пустой список \(пустая строка\), ошибкой это не считается \(требуется холостой запуск, либо остановка всех запущенных очередей\)
+
+<a name="Config.RetryCoeff"></a>
+### func \(\*Config\) RetryCoeff
+
+```go
+func (c *Config) RetryCoeff(queueID uint16, retrySuffix string) (time.Duration, error)
+```
+
+RetryCoeff возвращает коэффициент retry\_coeff для \[tp.WithRetry\] и \[tp.WithRetry2\] в режимах RetryLinear и RetryExponential
+
+<a name="Config.RetryDelay"></a>
+### func \(\*Config\) RetryDelay
+
+```go
+func (c *Config) RetryDelay(queueID uint16, retrySuffix string) (time.Duration, error)
+```
+
+RetryDelay возвращает задержку retry\_delay для \[tp.WithRetry\] и \[tp.WithRetry2\]
+
+<a name="Config.RetryExp"></a>
+### func \(\*Config\) RetryExp
+
+```go
+func (c *Config) RetryExp(queueID uint16, retrySuffix string) (float64, error)
+```
+
+RetryPower возвращает экспоненту retry\_exp для \[tp.WithRetry\] и \[tp.WithRetry2\] в режиме RetryExponential. По умолчанию, возвращается значение 2.
+
+<a name="Config.RetryLimit"></a>
+### func \(\*Config\) RetryLimit
+
+```go
+func (c *Config) RetryLimit(queueID uint16, retrySuffix string) (uint32, error)
+```
+
+RetryLimit возвращает лимит повторных попыток retry\_limit для \[tp.WithRetry\] и \[tp.WithRetry2\]
+
+<a name="Config.RetryType"></a>
+### func \(\*Config\) RetryType
+
+```go
+func (c *Config) RetryType(queueID uint16) (int, error)
+```
+
+RetryType возвращает тип задержки повтора retry\_type, заданный для указанной очереди, или глобально. Используется для \[tp.WithRetry\] и \[tp.WithRetry2\]. По умолчанию, возвращается RetryConstant.
 
 <a name="Config.SlotsCount"></a>
 ### func \(\*Config\) SlotsCount
@@ -1232,8 +1540,8 @@ Multicast/broadcast методы отправляют запросы в указ
   - [func \(errs ErrMulti\) Error\(\) string](<#ErrMulti.Error>)
   - [func \(errs ErrMulti\) ToError\(\) error](<#ErrMulti.ToError>)
 - [type PublishOption](<#PublishOption>)
+  - [func PublishActivationTime\(t time.Time\) PublishOption](<#PublishActivationTime>)
   - [func PublishInitialDelay\(d time.Duration\) PublishOption](<#PublishInitialDelay>)
-  - [func PublishProcessTime\(t time.Time\) PublishOption](<#PublishProcessTime>)
 - [type QueuedClient](<#QueuedClient>)
   - [func Dial\(ctx context.Context, conf \*queueconfig.Config\) \(\*QueuedClient, error\)](<#Dial>)
   - [func \(qc \*QueuedClient\) Defer\(ctx context.Context, queueID uint16, delay time.Duration, eventIDs \[\]queuedproto.EventID\) error](<#QueuedClient.Defer>)
@@ -1245,6 +1553,8 @@ Multicast/broadcast методы отправляют запросы в указ
   - [func \(qc \*QueuedClient\) MakeMulticastRequest\(ctx context.Context, batchSize int, eventIDs \[\]queuedproto.EventID, reqFunc RequestFunc, resFunc ResultFunc\) error](<#QueuedClient.MakeMulticastRequest>)
   - [func \(qc \*QueuedClient\) MakeUnicastRequest\(ctx context.Context, shard uint, req queuedproto.Request\) \(usedShard uint, respBytes \[\]byte, err error\)](<#QueuedClient.MakeUnicastRequest>)
   - [func \(qc \*QueuedClient\) Publish\(ctx context.Context, queueID uint16, eventID queuedproto.EventID, flags uint32, eventData \[\]byte, opts ...PublishOption\) \(queuedproto.EventID, error\)](<#QueuedClient.Publish>)
+  - [func \(qc \*QueuedClient\) Replace\(ctx context.Context, queueID uint16, eventID queuedproto.EventID, eventData \[\]byte, opts ...PublishOption\) \(bool, error\)](<#QueuedClient.Replace>)
+  - [func \(qc \*QueuedClient\) SetActivationTime\(ctx context.Context, queueID uint16, atime time.Time, eventIDs \[\]queuedproto.EventID\) error](<#QueuedClient.SetActivationTime>)
   - [func \(qc \*QueuedClient\) ShardNum\(\) uint](<#QueuedClient.ShardNum>)
 - [type RequestFunc](<#RequestFunc>)
 - [type ResultFunc](<#ResultFunc>)
@@ -1390,6 +1700,15 @@ PublishOption \- опции \[Publish\]
 type PublishOption func(*publishOptions)
 ```
 
+<a name="PublishActivationTime"></a>
+### func PublishActivationTime
+
+```go
+func PublishActivationTime(t time.Time) PublishOption
+```
+
+PublishActivationTime устанавливает время обработки нового события. Если не установлено \- см. [PublishInitialDelay](<#PublishInitialDelay>)
+
 <a name="PublishInitialDelay"></a>
 ### func PublishInitialDelay
 
@@ -1398,15 +1717,6 @@ func PublishInitialDelay(d time.Duration) PublishOption
 ```
 
 PublishInitialDelay устанавливает задержку обработки нового события. Если не установлено \- используется заданное в конфиге значение.
-
-<a name="PublishProcessTime"></a>
-### func PublishProcessTime
-
-```go
-func PublishProcessTime(t time.Time) PublishOption
-```
-
-PublishProcessTime устанавливает время обработки нового события. Если не установлено \- см. [PublishInitialDelay](<#PublishInitialDelay>)
 
 <a name="QueuedClient"></a>
 ## type QueuedClient
@@ -1436,7 +1746,7 @@ Dial открывает соединения к серверам queued, ука�
 func (qc *QueuedClient) Defer(ctx context.Context, queueID uint16, delay time.Duration, eventIDs []queuedproto.EventID) error
 ```
 
-Defer устанавливает задержку для указанных событий. Если задержка не указана \(delay == 0\), используется значение defer\_time из конфига.
+Defer устанавливает задержку обработки для указанных событий. Если задержка не указана \(delay == 0\), используется значение defer\_time из конфига.
 
 События выполняются в порядке увеличения времени срабатывания, поэтому можно использовать отрицательную задержку в качестве приоритета \(чем больше по модулю отрицательное значение задержки, тем выше приоритет\).
 
@@ -1546,7 +1856,7 @@ func (qc *QueuedClient) Publish(ctx context.Context, queueID uint16, eventID que
 
 Publish отправляет событие в очередь. Если eventID.ID == 0, queued создаёт новый ID, который возвращается. Если задан eventID.Shard == BalanceShard, шард выбирается по round robin. Если шард задан, а ID \- нет, происходит автоинкремент ID в указанном шарде.
 
-Если в конфиге задано initial\_delay, событие сработает с задержкой.
+Можно задать время активации события при помощи опции [PublishActivationTime](<#PublishActivationTime>) или задержку [PublishInitialDelay](<#PublishInitialDelay>). Если эти опции не заданы, используется задержка из конфига initial\_delay. Задержка, заданная при помощи PublishInitialDelay\(0\) считается заданной явно, дефолтная задержка из конфига в этом случае не берётся. Если это значение не задано для очереди или глобально \- событие активируется без задержки.
 
 В случае получения не\-логической ошибки \(\!queuedproto.IsSoftError\(err\)\), производится ещё /queueds/multi/retry\_count попыток с задержкой /queueds/multi/retry\_delay. Если после всех этих попыток ошибка повторяется \- она возвращается.
 
@@ -1555,6 +1865,28 @@ Publish отправляет событие в очередь. Если eventID.
 ID запроса \(queuedproto.ReqAddItem.ReqID\) для всех ретраев отправляется один и тот же, на случай, если у нас шардов меньше, чем retry\_count \(например, 1\), и 1й запрос ушёл, но ответ потерялся.
 
 Ошибки обработки результата \(iproto.Unmarshal\) не приводят к ретраям, т.к., скорее всего, являются ошибками прикладного уровня.
+
+<a name="QueuedClient.Replace"></a>
+### func \(\*QueuedClient\) Replace
+
+```go
+func (qc *QueuedClient) Replace(ctx context.Context, queueID uint16, eventID queuedproto.EventID, eventData []byte, opts ...PublishOption) (bool, error)
+```
+
+Replace заменяет существующее событие в очереди. ID события должно быть обязательно задано. Если время срабатывания не установлено через опции, оно не изменяется \(при помощи \[queuedproto.SkipTimeUpdate\]\)
+
+В queued есть старый баг \(2010 или раньше\), из\-за которого время активации при использовании запроса обновления записи не меняется. В перловой реализации аддонов есть костыли на этот счёт. Данная реализация учитывает этот баг, время обновляется отдельным запросом, поэтому опциями [PublishActivationTime](<#PublishActivationTime>) или [PublishInitialDelay](<#PublishInitialDelay>) пользоваться можно.
+
+Возвращается признак установки времени активации, и ошибка.
+
+<a name="QueuedClient.SetActivationTime"></a>
+### func \(\*QueuedClient\) SetActivationTime
+
+```go
+func (qc *QueuedClient) SetActivationTime(ctx context.Context, queueID uint16, atime time.Time, eventIDs []queuedproto.EventID) error
+```
+
+SetActivationTime устанавливает время активации для указанных событий. Обновления производятся пачками по update\_batch\_size событий.
 
 <a name="QueuedClient.ShardNum"></a>
 ### func \(\*QueuedClient\) ShardNum

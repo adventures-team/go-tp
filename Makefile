@@ -41,10 +41,9 @@ full-lint:
 	golangci-lint run --build-tags=golangci ./...
 	golangci-lint run --build-tags=golangci,integration ./...
 
-# Форматирует код с помощью goimports
 .PHONY: format
 format:
-	find . -name '*.go' | grep -v /vendor/ | xargs goimports -local gitlab.cebc.tools/ -l -w
+	find . -name '*.go' | grep -v /vendor/ | xargs go tool goimports -local gitlab.cebc.tools/ -l -w
 
 .PHONY: test
 test:

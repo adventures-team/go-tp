@@ -5,7 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 
-	iproto "gitlab.cebc.tools/go/iproto.git"
+	iproto "github.com/my-mail-ru/go-iproto"
 )
 
 func (recvSimpleEvent SimpleEvent) MarshalIProto(buf []byte) ([]byte, error) {

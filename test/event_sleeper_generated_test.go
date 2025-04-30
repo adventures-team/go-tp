@@ -8,7 +8,7 @@ import (
 	"fmt"
 	time "time"
 
-	iproto "gitlab.cebc.tools/go/iproto.git"
+	iproto "github.com/my-mail-ru/go-iproto"
 )
 
 func (recvEventSleeper eventSleeper) MarshalIProto(buf []byte) ([]byte, error) {

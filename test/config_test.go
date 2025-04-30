@@ -96,6 +96,11 @@ func newMockConf(t *testing.T, queueID tp.QueueIDType) oconf.OnlineConf {
 	conf.EXPECT().GetIntIfExists(qprefix + "workers").AnyTimes().DoAndReturn(func(string) (int, bool) { return int(atomic.LoadInt32(&confWorkers)), true })
 	conf.EXPECT().GetIntIfExists(qprefix + "fetch_batch_size").AnyTimes().DoAndReturn(func(string) (int, bool) { return confFetchBatchSize, true })
 	conf.EXPECT().GetIntIfExists(qprefix+"update_batch_size").AnyTimes().Return(queueconfig.DefaultUpdateBatchSize, true)
+	conf.EXPECT().GetStringIfExists(qprefix+"retry_type").AnyTimes().Return("exp", true)
+	conf.EXPECT().GetIntIfExists(qprefix+"retry_limit").AnyTimes().Return(5, true)
+	conf.EXPECT().GetStringIfExists(qprefix+"retry_delay").AnyTimes().Return("1s", true)
+	conf.EXPECT().GetStringIfExists(qprefix+"retry_coeff").AnyTimes().Return("500ms", true)
+	conf.EXPECT().GetStringIfExists(qprefix+"retry_exp").AnyTimes().Return("2", true)
 
 	return conf
 }
