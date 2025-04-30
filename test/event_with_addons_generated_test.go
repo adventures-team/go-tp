@@ -7,7 +7,7 @@ import (
 	"encoding/binary"
 	"fmt"
 
-	iproto "gitlab.cebc.tools/go/iproto.git"
+	iproto "github.com/my-mail-ru/go-iproto"
 )
 
 func (recvEventWithAddons eventWithAddons) MarshalIProto(buf []byte) ([]byte, error) {

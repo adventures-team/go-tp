@@ -6,11 +6,14 @@ import (
 	"hash/crc32"
 	"strconv"
 	"sync/atomic"
+	"time"
 
 	"github.com/rs/zerolog"
 
-	"gitlab.cebc.tools/go/iproto.git"
-	"gitlab.cebc.tools/go/queuedproto.git"
+	"github.com/my-mail-ru/go-iproto"
+
+	"github.com/my-mail-ru/go-queuedproto"
+
 	"gitlab.cebc.tools/go/tp.git/encodings"
 	"gitlab.cebc.tools/go/tp.git/queueconfig"
 	"gitlab.cebc.tools/go/tp.git/queuedclient"
@@ -34,13 +37,23 @@ type (
 		client     *queuedclient.QueuedClient
 	}
 
-	// Event - интерфейс обработчика очереди. Структура обработчика должна включать в себя тип BaseEvent
+	// Event - интерфейс обработчика очереди. Структура обработчика должна встраивать тип BaseEvent.
+	//
+	// Нужно определить два метода - Version() и QueueID, остальные унаследуются от встроенного BaseEvent.
 	Event interface {
-		iproto.Marshaler      // если не реализовать/сгенерить Unmarshaler, обрабатываться такие события не будут, доступна будет только отправка (Publish)
-		Version() VersionType // Возвращает версию события. Должен быть определён для типа события.
-		QueueID() QueueIDType // Возвращает ID очереди. должен быть определён для типа события.
+		iproto.Marshaler                            // если не реализовать/сгенерить Unmarshaler, обрабатываться такие события не будут, доступна будет только отправка (Publish)
+		Version() VersionType                       // Возвращает версию события. Должен быть определён для типа события.
+		QueueID() QueueIDType                       // Возвращает ID очереди. должен быть определён для типа события.
+		GetEventID() queuedproto.EventID            // Возвращает ID события
+		Done()                                      // Помечает событие обработанным
+		IsDone() bool                               // Был ли вызван метод Done
+		Defer(context.Context, time.Duration) error // Откладывает следующую активацию события на указзанную задержку
+		HasCustomDefer() bool                       // Был ли вызван метод Defer
+		Queue() *Queue
+		Publish(context.Context, Event) (queuedproto.EventID, error)
 
-		getEventID() queuedproto.EventID
+		setHasCustomDefer()
+		fromQueueID() QueueIDType // Возвращает ID очереди, из которого было получено событие.
 	}
 
 	// Builder - при поддержке этого интерфейса типом события, метод Build вызывается при добавлении события в очередь.
@@ -108,13 +121,25 @@ func Init(ctx context.Context, conf *queueconfig.Config) (*Queue, error) {
 
 // Queued возвращает клиент очередей.
 //
+// Deprecated: переименовано в [Queue.Client]
+func (queue *Queue) Queued() *queuedclient.QueuedClient {
+	return queue.client
+}
+
+// Client возвращает клиент очередей.
+//
 // Это - API нижнего уровня, не стоит им пользоваться без необходимости.
 //
 // Для удаления событий из обработчиков стоит пользоваться методом BaseEvent.Done, для установки времени задержки - BaseEvent.Defer.
 //
 // Если будут нужны какие-то методы "среднего уровня", имеет смысл их добавить к типу Queue.
-func (queue *Queue) Queued() *queuedclient.QueuedClient {
+func (queue *Queue) Client() *queuedclient.QueuedClient {
 	return queue.client
+}
+
+// Config возвращает высокоуровневый конфиг очередей с возможностью определения значений для каждой очереди.
+func (queue *Queue) Config() *queueconfig.Config {
+	return queue.client.Config
 }
 
 // Publish кодирует событие при помощи метода Encode, и отправляет его в очередь методом queuedclient.Publish.
@@ -122,9 +147,9 @@ func (queue *Queue) Queued() *queuedclient.QueuedClient {
 //
 // Возвращается ID события (сгенерённый методом BuildEventID(), либо возвращённый queued).
 //
-// Если тип события поддерживает интерфейс IgnoreDuplicateItems, и метод IgnoreDuplicateItems возвращает true, дубли при
+// Если у события есть метод IgnoreDuplicateItems, и он возвращает true, дубли при
 // совпадении ID события игнорируются (также подавляется ошибка в логе queued флагом queuedproto.FlagIgnoreWrongItem).
-func (queue *Queue) Publish(ctx context.Context, event Event, opts ...queuedclient.PublishOption) (eventID queuedproto.EventID, err error) {
+func (queue *Queue) Publish(ctx context.Context, event Event, opts ...queuedclient.PublishOption) (queuedproto.EventID, error) {
 	eventData, err := queue.Encode(event)
 	if err != nil {
 		return queuedproto.EventID{}, err
@@ -136,7 +161,7 @@ func (queue *Queue) Publish(ctx context.Context, event Event, opts ...queuedclie
 		flags |= queuedproto.FlagIgnoreWrongItem
 	}
 
-	evID := event.getEventID()
+	evID := event.GetEventID()
 	origEvID := evID
 
 	if getEvID, ok := event.(EventIDBuilder); ok {
@@ -156,10 +181,33 @@ func (queue *Queue) Publish(ctx context.Context, event Event, opts ...queuedclie
 		}
 	}
 
-	return queue.client.Publish(ctx, event.QueueID(), event.getEventID(), flags, eventData, opts...)
+	return queue.client.Publish(ctx, event.QueueID(), evID, flags, eventData, opts...)
 }
 
-// TODO тут нужны высокоуровневые методы Delete и Defer, чтобы не приходилось собирать вручную айдишник и лезть в низкоуровневый QueuedClient
+// Replace заменяет существующее событие в очереди. ID события должно быть обязательно задано.
+// Если время срабатывания не установлено через опции, оно не изменяется.
+func (queue *Queue) Replace(ctx context.Context, event Event, opts ...queuedclient.PublishOption) error {
+	eventData, err := queue.Encode(event)
+	if err != nil {
+		return err
+	}
+
+	qID := event.fromQueueID()
+	if qID == 0 {
+		qID = event.QueueID()
+	}
+
+	hasCustomDefer, err := queue.client.Replace(ctx, qID, event.GetEventID(), eventData, opts...)
+	if err != nil {
+		return err
+	}
+
+	if hasCustomDefer {
+		event.setHasCustomDefer()
+	}
+
+	return nil
+}
 
 // GetActiveEvents получает активные события (наступило время срабатывания) в декодированном виде из очереди queueID. Если count не задано (==0), используется значение из конфига (fetch_batch_size).
 //
@@ -206,7 +254,7 @@ func (queue *Queue) eventListFromItems(ctx context.Context, queueID QueueIDType,
 
 	for _, item := range items.Items {
 		if len(item.Data) == 0 {
-			zerolog.Ctx(ctx).Error().Uint16("queue_id", queueID).Stringer("event_id", item).Msg("empty event received")
+			zerolog.Ctx(ctx).Error().Uint16("queue_id", queueID).Stringer("event_id", item.EventID).Msg("empty event received")
 			unsupported = append(unsupported, item.EventID)
 
 			continue
@@ -216,7 +264,7 @@ func (queue *Queue) eventListFromItems(ctx context.Context, queueID QueueIDType,
 		hInfo, ok := byVersion[version]
 
 		if !ok {
-			zerolog.Ctx(ctx).Error().Uint16("queue_id", queueID).Stringer("event_id", item).Uint8("version", version).Msg("unsupported version")
+			zerolog.Ctx(ctx).Error().Uint16("queue_id", queueID).Stringer("event_id", item.EventID).Uint8("version", version).Msg("unsupported version")
 			unsupported = append(unsupported, item.EventID)
 
 			continue
@@ -242,7 +290,7 @@ func (queue *Queue) eventListFromItems(ctx context.Context, queueID QueueIDType,
 
 		getBaseEv, ok := evPtr.(baseEventGetter)
 		if !ok {
-			zerolog.Ctx(ctx).Error().Stringer("event_id", item).Msgf("internal error: boundPtr returned non-pointer: %T", evPtr)
+			zerolog.Ctx(ctx).Error().Stringer("event_id", item.EventID).Msgf("internal error: boundPtr returned non-pointer: %T", evPtr)
 			unsupported = append(unsupported, item.EventID)
 
 			continue
@@ -251,7 +299,7 @@ func (queue *Queue) eventListFromItems(ctx context.Context, queueID QueueIDType,
 		baseEvent := getBaseEv.getBaseEvent()
 
 		if err := encodings.Decode(hInfo.format, item.Data, decodeTo); err != nil {
-			zerolog.Ctx(ctx).Err(err).Uint16("queue_id", queueID).Stringer("event_id", item).Uint8("version", version).Send()
+			zerolog.Ctx(ctx).Err(err).Uint16("queue_id", queueID).Stringer("event_id", item.EventID).Uint8("version", version).Send()
 			unsupported = append(unsupported, item.EventID)
 
 			continue
@@ -263,7 +311,7 @@ func (queue *Queue) eventListFromItems(ctx context.Context, queueID QueueIDType,
 
 		if unpacker, ok := evPtr.(Unpacker); ok {
 			if err := unpacker.Unpack(); err != nil {
-				zerolog.Ctx(ctx).Err(err).Uint16("queue_id", queueID).Stringer("event_id", item).Uint8("version", version).Msg("Unpack() error")
+				zerolog.Ctx(ctx).Err(err).Uint16("queue_id", queueID).Stringer("event_id", item.EventID).Uint8("version", version).Msg("Unpack() error")
 				unsupported = append(unsupported, item.EventID)
 
 				continue

@@ -13,7 +13,8 @@ import (
 
 	"github.com/rs/zerolog"
 
-	"gitlab.cebc.tools/go/queuedproto.git"
+	"github.com/my-mail-ru/go-queuedproto"
+
 	"gitlab.cebc.tools/go/tp.git/queuedclient"
 )
 
@@ -200,13 +201,13 @@ func TestSharding(t *testing.T) {
 	}
 
 	for _, item := range items.Items {
-		shard, ok := plainEventIDMap[item.ID]
+		shard, ok := plainEventIDMap[item.EventID.ID]
 		if !ok {
 			t.Errorf("got unexpected item %v", item.EventID)
 		}
 
-		if item.Shard != shard {
-			t.Fatalf("item %v: got shard %d, expected %d", item.EventID, item.Shard, shard)
+		if item.EventID.Shard != shard {
+			t.Fatalf("item %v: got shard %d, expected %d", item.EventID, item.EventID.Shard, shard)
 		}
 	}
 

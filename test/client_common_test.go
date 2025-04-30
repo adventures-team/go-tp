@@ -18,15 +18,18 @@ import (
 
 var initConfig sync.Once
 
+func initTestOnlineconf() {
+	initConfig.Do(func() {
+		onlineconf.Initialize(ConfigDir())
+	})
+}
+
 func getTestClient(t *testing.T) (context.Context, *queuedclient.QueuedClient) {
 	ctx := mylog.InitTestZerolog(t).WithContext(context.Background())
 
 	//	zerolog.SetGlobalLevel(zerolog.DebugLevel)
 
-	initConfig.Do(func() {
-		configDir := ConfigDir()
-		onlineconf.Initialize(configDir)
-	})
+	initTestOnlineconf()
 
 	conf := oconf.NewSubtree(onlineconf.GetModule("TREE"), testConfPrefix)
 	queueConf := queueconfig.New(conf, testInstanceName)

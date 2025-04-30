@@ -6,16 +6,18 @@ package tptest
 import "time"
 
 const (
-	testConfPrefix       = "/"
-	testInstanceName     = "test"
-	testRawQueueID       = 65534
-	testAddonsQueueID    = 65533
-	testNoHandlerQueueID = 65532
-	testSleeperQueueID   = 65531
-	testShardingQueueID  = 65530
-	testBatchSize        = 10
-	testDefer            = 5 * time.Second
-	testPollDelay        = time.Second
+	testConfPrefix        = "/"
+	testInstanceName      = "test"
+	testRawQueueID        = 65534
+	testAddonsQueueID     = 65533
+	testNoHandlerQueueID  = 65532
+	testSleeperQueueID    = 65531
+	testShardingQueueID   = 65530
+	testRetryEventQueueID = 65529
+	testUnusedQueueID     = 65528
+	testBatchSize         = 10
+	testDefer             = 5 * time.Second
+	testPollDelay         = time.Second
 
 	logLevelTrace = "trace"
 	logLevelDebug = "debug"

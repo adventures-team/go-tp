@@ -2,6 +2,7 @@ package queueconfig
 
 import (
 	"context"
+	"errors"
 	"math/rand"
 	"strconv"
 	"time"
@@ -239,4 +240,76 @@ func (c *Config) UpdateBatchSize(ctx context.Context, queueID uint16) int {
 	c.logError(ctx, err, DefaultUpdateBatchSize, "using the default")
 
 	return DefaultUpdateBatchSize
+}
+
+// MaxAge возвращает max_age для указанной очереди, или глобально заданное значение. Используется для middleware [tp.WithMaxAge]
+func (c *Config) MaxAge(queueID uint16) (uint32, error) {
+	d, err := c.getDurationPerQueue(queueID, "max_age")
+	if err != nil {
+		return 0, err
+	}
+
+	return uint32(d.Seconds()), nil
+}
+
+// retry_types
+const (
+	RetryConstant = iota
+	RetryLinear
+	RetryExponential
+)
+
+// RetryType возвращает тип задержки повтора retry_type, заданный для указанной очереди, или глобально.
+// Используется для [tp.WithRetry] и [tp.WithRetry2].
+// По умолчанию, возвращается RetryConstant.
+func (c *Config) RetryType(queueID uint16) (int, error) {
+	typ, path, err := c.getStringPerQueue(queueID, "retry_type")
+
+	if err != nil {
+		return RetryConstant, nil
+	}
+
+	switch typ {
+	case "const", "constant":
+		return RetryConstant, nil
+	case "lin", "linear":
+		return RetryLinear, nil
+	case "exp", "exponential":
+		return RetryExponential, nil
+	}
+
+	return 0, &ConfError{
+		Path:  path,
+		Value: typ,
+		Err:   errors.New("unknown retry_type"),
+	}
+}
+
+// RetryLimit возвращает лимит повторных попыток retry_limit для [tp.WithRetry] и [tp.WithRetry2]
+func (c *Config) RetryLimit(queueID uint16, retrySuffix string) (uint32, error) {
+	i, err := c.getIntPerQueue(queueID, "retry"+retrySuffix+"_limit")
+	return uint32(i), err
+}
+
+// RetryDelay возвращает задержку retry_delay для [tp.WithRetry] и [tp.WithRetry2]
+func (c *Config) RetryDelay(queueID uint16, retrySuffix string) (time.Duration, error) {
+	return c.getDurationPerQueue(queueID, "retry"+retrySuffix+"_delay")
+}
+
+// RetryCoeff возвращает коэффициент retry_coeff для [tp.WithRetry] и [tp.WithRetry2] в режимах RetryLinear и RetryExponential
+func (c *Config) RetryCoeff(queueID uint16, retrySuffix string) (time.Duration, error) {
+	return c.getDurationPerQueue(queueID, "retry"+retrySuffix+"_coeff")
+}
+
+// RetryPower возвращает экспоненту retry_exp для [tp.WithRetry] и [tp.WithRetry2] в режиме RetryExponential.
+// По умолчанию, возвращается значение 2.
+func (c *Config) RetryExp(queueID uint16, retrySuffix string) (float64, error) {
+	pow, err := c.getFloatPerQueue(queueID, "retry"+retrySuffix+"_exp")
+	if err != nil {
+		if confErr, ok := err.(*ConfError); ok && confErr.isNotFound {
+			return 2, nil
+		}
+	}
+
+	return pow, err
 }

@@ -7,7 +7,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"gitlab.cebc.tools/go/queuedproto.git"
+	"github.com/my-mail-ru/go-queuedproto"
 )
 
 // GetActive получает активные события из очереди queueID изо всех шардов одновременно.
@@ -84,7 +84,7 @@ func (qc *QueuedClient) collectItemList(estimated int) (ResultFunc, func() queue
 			}
 
 			for i := range shardResult.Items {
-				shardResult.Items[i].Shard = shard
+				shardResult.Items[i].EventID.Shard = shard
 			}
 
 			resultChan <- shardResult
@@ -144,7 +144,7 @@ func (qc *QueuedClient) Delete(ctx context.Context, queueID uint16, eventIDs []q
 	return nil
 }
 
-// Defer устанавливает задержку для указанных событий. Если задержка не указана (delay == 0), используется значение defer_time из конфига.
+// Defer устанавливает задержку обработки для указанных событий. Если задержка не указана (delay == 0), используется значение defer_time из конфига.
 //
 // События выполняются в порядке увеличения времени срабатывания, поэтому можно использовать отрицательную задержку в качестве
 // приоритета (чем больше по модулю отрицательное значение задержки, тем выше приоритет).
@@ -186,13 +186,39 @@ func (qc *QueuedClient) Defer(ctx context.Context, queueID uint16, delay time.Du
 	return nil
 }
 
+// SetActivationTime устанавливает время активации для указанных событий.
+// Обновления производятся пачками по update_batch_size событий.
+func (qc *QueuedClient) SetActivationTime(ctx context.Context, queueID uint16, atime time.Time, eventIDs []queuedproto.EventID) error {
+	err := qc.MakeMulticastRequest(
+		ctx,
+		qc.Config.UpdateBatchSize(ctx, queueID),
+		eventIDs,
+		func(ids []uint64) queuedproto.Request {
+			return queuedproto.ReqUpdateItems{
+				StorageType:   queueID,
+				UnixTime:      uint32(atime.Unix()),
+				IDs:           ids,
+				TimestampType: queuedproto.TimestampAbsolute,
+			}
+		},
+		nil,
+	)
+
+	if err != nil {
+		return fmt.Errorf("SetActivationTime: queue_id=%d: %w", queueID, err)
+	}
+
+	return nil
+}
+
 // PublishOption - опции [Publish]
 type PublishOption func(*publishOptions)
 
-// PublishProcessTime устанавливает время обработки нового события. Если не установлено - см. [PublishInitialDelay]
-func PublishProcessTime(t time.Time) PublishOption {
+// PublishActivationTime устанавливает время обработки нового события. Если не установлено - см. [PublishInitialDelay]
+func PublishActivationTime(t time.Time) PublishOption {
 	return func(opt *publishOptions) {
-		opt.processTime = t
+		opt.activationTime = t
+		opt.needDelay = true
 	}
 }
 
@@ -200,19 +226,24 @@ func PublishProcessTime(t time.Time) PublishOption {
 func PublishInitialDelay(d time.Duration) PublishOption {
 	return func(opt *publishOptions) {
 		opt.initialDelay = d
+		opt.needDelay = true
 	}
 }
 
 type publishOptions struct {
-	initialDelay time.Duration
-	processTime  time.Time
+	activationTime time.Time
+	initialDelay   time.Duration
+	needDelay      bool
 }
 
 // Publish отправляет событие в очередь. Если eventID.ID == 0, queued создаёт новый ID, который возвращается.
 // Если задан eventID.Shard == BalanceShard, шард выбирается по round robin.
 // Если шард задан, а ID - нет, происходит автоинкремент ID в указанном шарде.
 //
-// Если в конфиге задано initial_delay, событие сработает с задержкой.
+// Можно задать время активации события при помощи опции [PublishActivationTime] или задержку [PublishInitialDelay].
+// Если эти опции не заданы, используется задержка из конфига initial_delay.
+// Задержка, заданная при помощи PublishInitialDelay(0) считается заданной явно, дефолтная задержка из конфига в этом случае не берётся.
+// Если это значение не задано для очереди или глобально - событие активируется без задержки.
 //
 // В случае получения не-логической ошибки (!queuedproto.IsSoftError(err)), производится ещё /queueds/multi/retry_count попыток
 // с задержкой /queueds/multi/retry_delay. Если после всех этих попыток ошибка повторяется - она возвращается.
@@ -230,12 +261,12 @@ func (qc *QueuedClient) Publish(ctx context.Context, queueID uint16, eventID que
 		f(&opt)
 	}
 
-	if opt.processTime.IsZero() {
-		if opt.initialDelay == 0 {
+	if opt.activationTime.IsZero() {
+		if !opt.needDelay {
 			opt.initialDelay = qc.Config.InitialDelay(ctx, queueID)
 		}
 
-		opt.processTime = time.Now().Add(opt.initialDelay)
+		opt.activationTime = time.Now().Add(opt.initialDelay)
 	}
 
 	req := queuedproto.ReqAddItem{
@@ -243,7 +274,7 @@ func (qc *QueuedClient) Publish(ctx context.Context, queueID uint16, eventID que
 		ReqID:       atomic.AddUint32(&reqID, 1),
 		StorageType: queueID,
 		ID:          eventID.ID,
-		UnixTime:    uint32(opt.processTime.Unix()),
+		UnixTime:    uint32(opt.activationTime.Unix()),
 		Data:        eventData,
 		Flags:       flags,
 	}
@@ -264,4 +295,64 @@ func (qc *QueuedClient) Publish(ctx context.Context, queueID uint16, eventID que
 	}
 
 	return eventID, nil
+}
+
+// Replace заменяет существующее событие в очереди. ID события должно быть обязательно задано.
+// Если время срабатывания не установлено через опции, оно не изменяется (при помощи [queuedproto.SkipTimeUpdate])
+//
+// В queued есть старый баг (2010 или раньше), из-за которого время активации при использовании запроса обновления записи не меняется.
+// В перловой реализации аддонов есть костыли на этот счёт.
+// Данная реализация учитывает этот баг, время обновляется отдельным запросом, поэтому опциями
+// [PublishActivationTime] или [PublishInitialDelay] пользоваться можно.
+//
+// Возвращается признак установки времени активации, и ошибка.
+func (qc *QueuedClient) Replace(ctx context.Context, queueID uint16, eventID queuedproto.EventID, eventData []byte, opts ...PublishOption) (bool, error) {
+	if eventID.ID == 0 {
+		return false, errors.New("QueuedClient.Replace: missing event ID")
+	}
+
+	req := queuedproto.ReqFullUpdate{
+		StorageType: queueID,
+		UnixTime:    queuedproto.SkipTimeUpdate,
+		Items: []queuedproto.UpdQueueItem{{
+			EventID: eventID,
+			Data:    eventData,
+		}},
+	}
+
+	var opt publishOptions
+
+	for _, f := range opts {
+		f(&opt)
+	}
+
+	if opt.needDelay {
+		if !opt.activationTime.IsZero() {
+			req.UnixTime = uint32(opt.activationTime.Unix())
+		} else {
+			req.UnixTime = uint32(time.Now().Add(opt.initialDelay).Unix())
+		}
+	}
+
+	_, _, err := qc.MakeUnicastRequest(ctx, eventID.Shard, req)
+	if err != nil {
+		return false, fmt.Errorf("Replace: queue_id=%d: %w", queueID, err)
+	}
+
+	if opt.needDelay {
+		// ReqFullUpdate doesn't really set activation time.
+		// this is a VERY (pre-2010) old hack
+		// perl/queue/lib/MR/Queue/Extensions.pm:140
+		if !opt.activationTime.IsZero() {
+			err = qc.SetActivationTime(ctx, queueID, opt.activationTime, []queuedproto.EventID{eventID})
+		} else {
+			if opt.initialDelay == 0 { // XXX a dirty hack to use a zero delay (since protocol doesn't handle subsecond resolution) instead of using the default
+				opt.initialDelay = time.Microsecond
+			}
+
+			err = qc.Defer(ctx, queueID, opt.initialDelay, []queuedproto.EventID{eventID})
+		}
+	}
+
+	return opt.needDelay, err
 }

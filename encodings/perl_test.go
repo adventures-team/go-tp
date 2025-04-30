@@ -8,8 +8,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"gitlab.cebc.tools/go/queuedproto.git"
-	"gitlab.cebc.tools/go/queuedproto.git/addons"
+	"github.com/my-mail-ru/go-queuedproto"
+	"github.com/my-mail-ru/go-queuedproto/addons"
 )
 
 // см. queuedproto/perl_format_test.go

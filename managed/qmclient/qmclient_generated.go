@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"math"
 
-	iproto "gitlab.cebc.tools/go/iproto.git"
+	iproto "github.com/my-mail-ru/go-iproto"
 )
 
 func (recvSetQueueRequest SetQueueRequest) MarshalIProto(buf []byte) ([]byte, error) {

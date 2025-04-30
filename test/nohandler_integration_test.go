@@ -9,7 +9,8 @@ import (
 
 	"github.com/gofrs/uuid"
 
-	"gitlab.cebc.tools/go/queuedproto.git"
+	"github.com/my-mail-ru/go-queuedproto"
+
 	"gitlab.cebc.tools/go/tp.git"
 	"gitlab.cebc.tools/go/tp.git/queueconfig"
 	"gitlab.cebc.tools/go/utils.git/mylog"
@@ -40,7 +41,7 @@ func TestNoHandler(t *testing.T) {
 
 	logger.Info().Stringer("event_id", eventID).Msg("Publish OK, deleting event")
 
-	if err = queue.Queued().Delete(ctx, testNoHandlerQueueID, []queuedproto.EventID{eventID}); err != nil {
+	if err = queue.Client().Delete(ctx, testNoHandlerQueueID, []queuedproto.EventID{eventID}); err != nil {
 		t.Fatal("Delete:", err)
 	}
 }

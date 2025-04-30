@@ -2,6 +2,7 @@
 package tp
 
 // ТУТ АДЪ
+// TODO XXX отпилить это при выкладывании на гитхаб
 
 import (
 	"reflect"

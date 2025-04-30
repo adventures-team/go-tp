@@ -5,7 +5,7 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
-	"gitlab.cebc.tools/go/iproto.git"
+	"github.com/my-mail-ru/go-iproto"
 )
 
 func protobufEncoder(version uint8, valPtr iproto.Marshaler) ([]byte, error) {

@@ -9,8 +9,9 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/my-mail-ru/go-queuedproto"
+
 	easygo "gitlab.cebc.tools/go/easygo.git/iproto"
-	"gitlab.cebc.tools/go/queuedproto.git"
 	"gitlab.cebc.tools/go/tp.git/internal"
 )
 

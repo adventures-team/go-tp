@@ -5,20 +5,21 @@ go 1.24
 toolchain go1.24.1
 
 tool (
-	gitlab.cebc.tools/go/iproto.git/cmd/iprotogen
+	github.com/my-mail-ru/go-iproto/cmd/iprotogen
 	go.uber.org/mock/mockgen
+	golang.org/x/tools/cmd/goimports
 )
 
 require (
 	github.com/gofrs/uuid v4.4.0+incompatible
 	github.com/golang/mock v1.6.0
 	github.com/google/go-cmp v0.7.0
+	github.com/my-mail-ru/go-iproto v0.0.10
+	github.com/my-mail-ru/go-queuedproto v0.0.9
 	github.com/onlineconf/onlineconf-go v1.2.0
 	github.com/rs/zerolog v1.34.0
 	github.com/stretchr/testify v1.10.0
 	gitlab.cebc.tools/go/easygo.git v0.0.7
-	gitlab.cebc.tools/go/iproto.git v0.0.7
-	gitlab.cebc.tools/go/queuedproto.git v0.0.6
 	gitlab.cebc.tools/go/utils.git v0.0.10
 	go.uber.org/mock v0.3.0
 	google.golang.org/protobuf v1.36.6
@@ -29,10 +30,10 @@ require (
 require (
 	github.com/fatih/structtag v1.2.0 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
-	golang.org/x/mod v0.22.0 // indirect
-	golang.org/x/sync v0.11.0 // indirect
+	golang.org/x/mod v0.24.0 // indirect
+	golang.org/x/sync v0.13.0 // indirect
 	golang.org/x/text v0.22.0 // indirect
-	golang.org/x/tools v0.28.0 // indirect
+	golang.org/x/tools v0.32.0 // indirect
 )
 
 require (

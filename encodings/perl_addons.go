@@ -5,9 +5,11 @@ import (
 	"reflect"
 	"sync"
 
-	"gitlab.cebc.tools/go/queuedproto.git"
-	"gitlab.cebc.tools/go/queuedproto.git/addons"
+	"github.com/my-mail-ru/go-queuedproto"
+	"github.com/my-mail-ru/go-queuedproto/addons"
 )
+
+// TODO XXX выпилить рефлексию, т.к. итерация по полям здесь не требуется
 
 // В рантайме используется только быстрая рефлексия (reflect.Value.Field), при первом обращении к типу данные о номерах полей кешируются
 

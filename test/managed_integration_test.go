@@ -14,7 +14,8 @@ import (
 
 	zLog "github.com/rs/zerolog/log"
 
-	"gitlab.cebc.tools/go/queuedproto.git"
+	"github.com/my-mail-ru/go-queuedproto"
+
 	"gitlab.cebc.tools/go/tp.git"
 	"gitlab.cebc.tools/go/tp.git/queueconfig"
 	"gitlab.cebc.tools/go/tp.git/queuedclient"
@@ -24,7 +25,7 @@ import (
 // тесты на управление пулом при помощи онлайнконфа (проще говоря - тест системы целиком)
 
 func testManaged(t *testing.T, doTest func(*tp.StandaloneMaster, *counter, <-chan struct{})) *tp.StandaloneMaster {
-	mylog.TestTimeFormat = "15:04:05.000"
+	setTestLogTime()
 	doneChan := make(chan struct{})
 
 	defer func() {
@@ -70,6 +71,11 @@ func testManaged(t *testing.T, doTest func(*tp.StandaloneMaster, *counter, <-cha
 
 	if workersLeft := cnt.Get(); workersLeft != 0 {
 		zLog.Fatal().Msgf("%d workers are still working", workersLeft)
+	}
+
+	for range 10 {
+		// force queued to process locks
+		_, _ = qm.Client().GetActive(context.Background(), testUnusedQueueID, 100)
 	}
 
 	return qm
@@ -192,7 +198,7 @@ func TestOOM(t *testing.T) {
 	newEvents.Lock() // стопим цикл отправки новых сообщений
 	zLog.Info().Interface("event_ids", eventIDs).Msg("deleting events")
 
-	if err := qm.Queued().Delete(ctx, testSleeperQueueID, eventIDs); err != nil {
+	if err := qm.Client().Delete(ctx, testSleeperQueueID, eventIDs); err != nil {
 		zLog.Fatal().Err(err).Msg("Delete")
 	}
 }
@@ -260,7 +266,7 @@ func TestResize(t *testing.T) {
 
 		select {
 		case <-time.NewTimer(workerPoolSustainDelay).C:
-			panic("should exit earlier") // другого способа выйти из теста из новой горутины нет (а если мы до сюда добрались - значит qm.Stop завис)
+			panic("should exit earlier") // если мы до сюда добрались - значит qm.Stop завис
 
 		case <-doneChan:
 		}
@@ -269,7 +275,7 @@ func TestResize(t *testing.T) {
 	newEvents.Lock() // стопим цикл отправки новых сообщений
 	zLog.Info().Interface("event_ids", eventIDs).Msg("deleting events")
 
-	if err := qm.Queued().Delete(ctx, testSleeperQueueID, eventIDs); err != nil {
+	if err := qm.Client().Delete(ctx, testSleeperQueueID, eventIDs); err != nil {
 		zLog.Fatal().Err(err).Msg("Delete")
 	}
 }
@@ -312,7 +318,7 @@ func TestUpdateDelete(t *testing.T) {
 	newEvents.Lock() // стопим цикл отправки новых сообщений
 	zLog.Info().Interface("event_ids", eventIDs).Msg("deleting events")
 
-	if err := qm.Queued().Delete(ctx, testSleeperQueueID, eventIDs); err != nil {
+	if err := qm.Client().Delete(ctx, testSleeperQueueID, eventIDs); err != nil {
 		zLog.Fatal().Err(err).Msg("Delete")
 	}
 }
@@ -323,4 +329,8 @@ func TestUpdateDeleteLoop(t *testing.T) {
 	for {
 		TestUpdateDelete(t)
 	}
+}
+
+func setTestLogTime() {
+	mylog.TestTimeFormat = "15:04:05.000"
 }

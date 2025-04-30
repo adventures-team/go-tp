@@ -8,7 +8,8 @@ import (
 
 	"github.com/rs/zerolog"
 
-	"gitlab.cebc.tools/go/queuedproto.git/addons"
+	"github.com/my-mail-ru/go-queuedproto/addons"
+
 	"gitlab.cebc.tools/go/tp.git"
 )
 

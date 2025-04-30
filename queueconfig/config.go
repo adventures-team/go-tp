@@ -206,3 +206,21 @@ func (c *Config) getFloatPerInstance(confPath string) (float64, error) {
 
 	return ret, nil
 }
+
+func (c *Config) getFloatPerQueue(queueID uint16, confPath string) (float64, error) {
+	s, usedPath, err := c.getStringPerQueue(queueID, confPath)
+	if err != nil {
+		return 0, err
+	}
+
+	ret, err := strconv.ParseFloat(s, 64)
+	if err != nil {
+		return 0, &ConfError{
+			Path:  usedPath,
+			Value: s,
+			Err:   err,
+		}
+	}
+
+	return ret, nil
+}

@@ -6,7 +6,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"gitlab.cebc.tools/go/queuedproto.git"
+	"github.com/my-mail-ru/go-queuedproto"
 )
 
 const (
@@ -37,51 +37,70 @@ func NewBaseEvent() BaseEvent {
 	}
 }
 
-// baseEventGetter - метод getBaseEvent не включён в интерфейс Event, т.к. не всегда
-// указатель на тип присутствует в явном виде, несмотря на то, что возможность вызова
-// по указателю есть (пример - []UserEvent).
 type baseEventGetter interface {
 	getBaseEvent() *BaseEvent
 }
 
-// getBaseEvent - доступ к кишкам события из юзерской структуры
-func (ev *BaseEvent) getBaseEvent() *BaseEvent {
-	return ev
+func (bev *BaseEvent) getBaseEvent() *BaseEvent {
+	return bev
 }
 
-// getEventID - BaseEvent принимается по значению по причине, описанной для [baseEventGetter].
+// GetEventID - возвращает ID события.
+// Код, работающий с конкретным событием (не через интерфейс) может обращаться к полу EventID напрямую.
+func (bev BaseEvent) GetEventID() queuedproto.EventID { //nolint:unused
+	return bev.EventID
+}
+
+// fromQueueID - ID очереди, из которой прилетело событие
 // метод нужный, не выпиливать, просто golangci-lint не умеет в приватные интерфейсы.
-func (ev BaseEvent) getEventID() queuedproto.EventID { //nolint:unused
-	return ev.EventID
-}
+func (bev BaseEvent) fromQueueID() QueueIDType { //nolint:unused
+	if bev.list == nil {
+		return 0
+	}
 
-// FromQueueID - ID очереди, из которой прилетело событие
-func (ev *BaseEvent) FromQueueID() QueueIDType {
-	return ev.list.queueID
+	return bev.list.queueID
 }
 
 // Done помечает событие обработанным.
 //
 // События удаляются не сразу, а по завершении цикла обработки всех событий, полученных за один запрос из queued.
 // В случае возникновения паник (в т.ч. необработанных), удаление все равно должно произойти до выхода из tp.Queue.Work
-func (ev *BaseEvent) Done() {
-	if ev.flags != nil {
-		oldFlags := ev.flags.Load()
+func (bev BaseEvent) Done() {
+	if bev.flags != nil {
+		oldFlags := bev.flags.Load()
 		newFlags := oldFlags | evIsDeleted
 
-		if !ev.flags.CompareAndSwap(oldFlags, newFlags) {
-			ev.Done()
+		if !bev.flags.CompareAndSwap(oldFlags, newFlags) {
+			bev.Done()
 		}
 	}
 }
 
 // IsDone - вызывался ли метод Done для события.
-func (ev *BaseEvent) IsDone() bool {
-	if ev.flags == nil {
+func (bev BaseEvent) IsDone() bool {
+	if bev.flags == nil {
 		return false
 	}
 
-	return ev.flags.Load()&evIsDeleted != 0
+	return bev.flags.Load()&evIsDeleted != 0
+}
+
+// HasCustomDefer - установлено ли явно время повторной активации вызовом методов [BaseEvent.Defer] или [BaseEvent.Replace]
+func (bev BaseEvent) HasCustomDefer() bool {
+	if bev.flags == nil {
+		return false
+	}
+
+	return bev.flags.Load()&evHasCustomDefer != 0
+}
+
+func (bev BaseEvent) setHasCustomDefer() {
+	oldFlags := bev.flags.Load()
+	newFlags := oldFlags&^evIsDeleted | evHasCustomDefer
+
+	if !bev.flags.CompareAndSwap(oldFlags, newFlags) {
+		bev.setHasCustomDefer()
+	}
 }
 
 // Defer устанавливает задержку события.
@@ -90,30 +109,25 @@ func (ev *BaseEvent) IsDone() bool {
 // либо Defer, проставляется задержка по умолчанию.
 //
 // Если событие было помечено как выполненное при помощи Done, а потом был вызван Defer, пометка на удаление снимается.
-func (ev *BaseEvent) Defer(ctx context.Context, delay time.Duration) error {
-	if err := ev.list.queue.client.Defer(ctx, ev.list.queueID, delay, []queuedproto.EventID{ev.EventID}); err != nil {
+func (bev BaseEvent) Defer(ctx context.Context, delay time.Duration) error {
+	if err := bev.list.queue.client.Defer(ctx, bev.list.queueID, delay, []queuedproto.EventID{bev.EventID}); err != nil {
 		return err
 	}
 
-	if ev.flags != nil {
-		ev.setHasCustomDefer()
+	if bev.flags != nil {
+		bev.setHasCustomDefer()
 	}
 
 	return nil
 }
 
-func (ev *BaseEvent) setHasCustomDefer() {
-	oldFlags := ev.flags.Load()
-	newFlags := oldFlags&^evIsDeleted | evHasCustomDefer
-
-	if !ev.flags.CompareAndSwap(oldFlags, newFlags) {
-		ev.setHasCustomDefer()
-	}
+func (bev BaseEvent) Queue() *Queue {
+	return bev.list.queue
 }
 
 // Publish - враппер к Queue.Publish (см. его доку для описания параметра и возвращаемого значения). Отправляет новое событие в очередь, указанную при регистрации для этого типа методом Queue.Register
-func (ev *BaseEvent) Publish(ctx context.Context, data Event) (eventID queuedproto.EventID, err error) {
-	return ev.list.queue.Publish(ctx, data)
+func (bev BaseEvent) Publish(ctx context.Context, data Event) (eventID queuedproto.EventID, err error) {
+	return bev.list.queue.Publish(ctx, data)
 }
 
 // MarshalIProto - не поддерживается. Тип BaseEvent не предназначен для передачи по протоколу
