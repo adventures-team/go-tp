@@ -1,79 +1,78 @@
-# More info on config here: https://golangci-lint.run/usage/configuration/
-run:
-  deadline: 10m
-  issues-exit-code: 1
-  tests: true
-  skip-dirs:
-    - bin
-
-output:
-  format: colored-line-number
-  print-issued-lines: true
-  print-linter-name: true
-
-linters-settings:
-  govet:
-    check-shadowing: true
-  dupl:
-    threshold: 100
-  goconst:
-    min-len: 2
-    min-occurrences: 2
-  gocritic:
-    enabled-checks:
-      - nilValReturn
-  revive:
-    rules:
-      - name: package-comments
-        disabled: true
-
+version: "2"
 linters:
-  disable-all: true
+  default: none
   enable:
-    - revive
-    - govet
-    - errcheck
-    - ineffassign
-    - typecheck
-    - goconst
-    - gosec
-    - goimports
-    - gosimple
-    - unused
-    - staticcheck # enable before push
-    - gocyclo
-    # - dupl # - it's very slow, enable if you really know why you need it
-    - gocognit
-    - prealloc
-    - gochecknoinits
-    - wsl
-    - gocritic
     - bodyclose
+    - errcheck
+    - gochecknoinits
+    - gocognit
+    - goconst
+    - gocritic
+    - gocyclo
+    - gosec
+    - govet
+    - ineffassign
+    - prealloc
+    - revive
+    - staticcheck
+    - unused
     - wastedassign
-
-issues:
-  exclude-use-default: false
-  exclude:
-    # _ instead of err checks
-    - G104
-    - G115
-    # errcheck: Almost all programs ignore errors on these functions and in most cases it's ok
-    - Error return value of .((os\.)?std(out|err)\..*|.*Close|.*Flush|os\.Remove(All)?|.*printf?|.*println|os\.(Un)?Setenv|.*Rollback). is not checked
-    # ugorji/codec meta field
-    - _struct` is unused
-    - "not declared by package utf8"
-    - "unicode/utf8/utf8.go"
-    - "exported: .* should have comment .*"
-  exclude-rules:
-    - path: "design/"
-      linters:
-        - revive
-      text: "dot-imports:"
-    - path: ".*\\.*_test\\.go$"
-      linters:
-        - dupl
-        - wsl
-        - gosec
-        - prealloc
-        - gocognit
-        - gocyclo
+    - wsl
+  settings:
+    dupl:
+      threshold: 100
+    goconst:
+      min-len: 2
+      min-occurrences: 2
+    gocritic:
+      enabled-checks:
+        - nilValReturn
+    revive:
+      rules:
+        - name: package-comments
+          disabled: true
+  exclusions:
+    generated: lax
+    rules:
+      - linters:
+          - revive
+        path: design/
+        text: 'dot-imports:'
+      - linters:
+          - dupl
+          - gocognit
+          - gocyclo
+          - gosec
+          - prealloc
+          - wsl
+        path: .*\.*_test\.go$
+      - linters:
+          - staticcheck
+        text: QF1008
+      - path: (.+)\.go$
+        text: G104
+      - path: (.+)\.go$
+        text: G115
+      - path: (.+)\.go$
+        text: Error return value of .((os\.)?std(out|err)\..*|.*Close|.*Flush|os\.Remove(All)?|.*printf?|.*println|os\.(Un)?Setenv|.*Rollback). is not checked
+      - path: (.+)\.go$
+        text: _struct` is unused
+      - path: (.+)\.go$
+        text: not declared by package utf8
+      - path: (.+)\.go$
+        text: unicode/utf8/utf8.go
+      - path: (.+)\.go$
+        text: 'exported: .* should have comment .*'
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  enable:
+    - goimports
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
