@@ -15,7 +15,6 @@ import (
 	"gitlab.cebc.tools/go/tp.git"
 	"gitlab.cebc.tools/go/tp.git/queueconfig"
 	"gitlab.cebc.tools/go/tp.git/queuedclient"
-	"gitlab.cebc.tools/go/utils.git/oconf"
 )
 
 var (
@@ -30,6 +29,8 @@ var (
 	confWorkersMax         int32
 	confWorkersMaxPerQueue int32
 )
+
+var reloadChan = make(chan struct{}, 1)
 
 func resetConfig() {
 	confOOMSoftLimit.Store("100Gb")
@@ -61,13 +62,12 @@ var confMissingStrings = []string{
 	queuedclient.ConfPingInterval,
 }
 
-func newMockConf(t *testing.T, queueID tp.QueueIDType) oconf.OnlineConf {
+func newMockConf(t *testing.T, queueID tp.QueueIDType) queueconfig.OnlineConf {
 	resetConfig()
 
 	conf := NewMockOnlineConf(gomock.NewController(t))
 	qstr := strconv.Itoa(int(queueID))
-	iprefix := "/tp/go/" + testInstanceName + "/"
-	qprefix := iprefix + qstr + "/"
+	qprefix := "/" + qstr + "/"
 
 	// queuedclient
 	conf.EXPECT().GetInt(queuedclient.ConfMinPID, queuedclient.DefaultMinPID).AnyTimes().Return(queuedclient.DefaultMinPID)
@@ -78,29 +78,40 @@ func newMockConf(t *testing.T, queueID tp.QueueIDType) oconf.OnlineConf {
 		conf.EXPECT().GetStringIfExists(confPath).AnyTimes().Return("", false)
 	}
 
+	// global
+	gconf := NewMockOnlineConf(gomock.NewController(t))
+
+	conf.EXPECT().Subtree("/tp/go").AnyTimes().Return(gconf)
+
+	gconf.EXPECT().Subscribe("/").AnyTimes().Return(reloadChan, nil)
+	gconf.EXPECT().GetStringIfExists("/oom_soft_downscale_rate").AnyTimes().Return("-666", true)
+
 	// per-instance
-	conf.EXPECT().GetStringIfExists(iprefix+"queue_ids").AnyTimes().Return(qstr, true)
-	conf.EXPECT().GetStringIfExists(iprefix + "log_level").AnyTimes().DoAndReturn(func(string) (string, bool) { return confLogLevel, true })
-	conf.EXPECT().GetStringIfExists(iprefix + "oom_soft_limit").AnyTimes().DoAndReturn(func(string) (string, bool) { return confOOMSoftLimit.Load().(string), true })
-	conf.EXPECT().GetStringIfExists(iprefix + "oom_hard_limit").AnyTimes().DoAndReturn(func(string) (string, bool) { return confOOMHardLimit.Load().(string), true })
-	conf.EXPECT().GetStringIfExists(iprefix+"oom_soft_downscale_rate").AnyTimes().Return("", false)
-	conf.EXPECT().GetStringIfExists("/tp/go/oom_soft_downscale_rate").AnyTimes().Return("-666", true)
-	conf.EXPECT().GetStringIfExists(iprefix+"oom_check_period").AnyTimes().Return("2s", true)
-	conf.EXPECT().GetIntIfExists(iprefix + "workers_max").AnyTimes().DoAndReturn(func(string) (int, bool) { return int(atomic.LoadInt32(&confWorkersMax)), true })
-	conf.EXPECT().GetIntIfExists(iprefix + "workers_max_per_queue").AnyTimes().DoAndReturn(func(string) (int, bool) { return int(atomic.LoadInt32(&confWorkersMaxPerQueue)), true })
+	iconf := NewMockOnlineConf(gomock.NewController(t))
+
+	conf.EXPECT().Subtree("/tp/go/" + testInstanceName).AnyTimes().Return(iconf)
+
+	iconf.EXPECT().GetStringIfExists("/queue_ids").AnyTimes().Return(qstr, true)
+	iconf.EXPECT().GetStringIfExists("/log_level").AnyTimes().DoAndReturn(func(string) (string, bool) { return confLogLevel, true })
+	iconf.EXPECT().GetStringIfExists("/oom_soft_limit").AnyTimes().DoAndReturn(func(string) (string, bool) { return confOOMSoftLimit.Load().(string), true })
+	iconf.EXPECT().GetStringIfExists("/oom_hard_limit").AnyTimes().DoAndReturn(func(string) (string, bool) { return confOOMHardLimit.Load().(string), true })
+	iconf.EXPECT().GetStringIfExists("/oom_soft_downscale_rate").AnyTimes().Return("", false)
+	iconf.EXPECT().GetStringIfExists("/oom_check_period").AnyTimes().Return("2s", true)
+	iconf.EXPECT().GetIntErr("/workers_max").AnyTimes().DoAndReturn(func(string) (int, error) { return int(atomic.LoadInt32(&confWorkersMax)), nil })
+	iconf.EXPECT().GetIntErr("/workers_max_per_queue").AnyTimes().DoAndReturn(func(string) (int, error) { return int(atomic.LoadInt32(&confWorkersMaxPerQueue)), nil })
 
 	// per-queue
-	conf.EXPECT().GetStringIfExists(qprefix+"defer_time").AnyTimes().Return("1", true)
-	conf.EXPECT().GetStringIfExists(qprefix+"defer_time_jitter").AnyTimes().Return("100ms", true) // TODO в протоколе секунды, какие 100мс )) после активного тестирования увеличить.
-	conf.EXPECT().GetStringIfExists(qprefix+"initial_delay").AnyTimes().Return("0s", true)
-	conf.EXPECT().GetIntIfExists(qprefix + "workers").AnyTimes().DoAndReturn(func(string) (int, bool) { return int(atomic.LoadInt32(&confWorkers)), true })
-	conf.EXPECT().GetIntIfExists(qprefix + "fetch_batch_size").AnyTimes().DoAndReturn(func(string) (int, bool) { return confFetchBatchSize, true })
-	conf.EXPECT().GetIntIfExists(qprefix+"update_batch_size").AnyTimes().Return(queueconfig.DefaultUpdateBatchSize, true)
-	conf.EXPECT().GetStringIfExists(qprefix+"retry_type").AnyTimes().Return("exp", true)
-	conf.EXPECT().GetIntIfExists(qprefix+"retry_limit").AnyTimes().Return(5, true)
-	conf.EXPECT().GetStringIfExists(qprefix+"retry_delay").AnyTimes().Return("1s", true)
-	conf.EXPECT().GetStringIfExists(qprefix+"retry_coeff").AnyTimes().Return("500ms", true)
-	conf.EXPECT().GetStringIfExists(qprefix+"retry_exp").AnyTimes().Return("2", true)
+	iconf.EXPECT().GetStringIfExists(qprefix+"defer_time").AnyTimes().Return("1", true)
+	iconf.EXPECT().GetStringIfExists(qprefix+"defer_time_jitter").AnyTimes().Return("100ms", true) // TODO в протоколе секунды, какие 100мс )) после активного тестирования увеличить.
+	iconf.EXPECT().GetStringIfExists(qprefix+"initial_delay").AnyTimes().Return("0s", true)
+	iconf.EXPECT().GetIntErr(qprefix + "workers").AnyTimes().DoAndReturn(func(string) (int, error) { return int(atomic.LoadInt32(&confWorkers)), nil })
+	iconf.EXPECT().GetIntErr(qprefix + "fetch_batch_size").AnyTimes().DoAndReturn(func(string) (int, error) { return confFetchBatchSize, nil })
+	iconf.EXPECT().GetIntErr(qprefix+"update_batch_size").AnyTimes().Return(queueconfig.DefaultUpdateBatchSize, nil)
+	iconf.EXPECT().GetStringIfExists(qprefix+"retry_type").AnyTimes().Return("exp", true)
+	iconf.EXPECT().GetIntErr(qprefix+"retry_limit").AnyTimes().Return(5, nil)
+	iconf.EXPECT().GetStringIfExists(qprefix+"retry_delay").AnyTimes().Return("1s", true)
+	iconf.EXPECT().GetStringIfExists(qprefix+"retry_coeff").AnyTimes().Return("500ms", true)
+	iconf.EXPECT().GetStringIfExists(qprefix+"retry_exp").AnyTimes().Return("2", true)
 
 	return conf
 }

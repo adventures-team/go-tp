@@ -58,8 +58,8 @@ func TestBatch(t *testing.T) {
 
 	for i := 0; i < testBatchSize; i++ {
 		testData := make([]byte, 10)
-		_, err := rand.Read(testData) //nolint
 
+		_, err := rand.Read(testData) //nolint
 		if err != nil {
 			t.Fatalf("rand.Read: %v", err)
 		}
@@ -162,7 +162,6 @@ func TestSharding(t *testing.T) {
 			Shard: queuedclient.BalanceShard,
 			ID:    uint64(i + 1),
 		}, queuedproto.FlagIgnoreWrongItem, []byte{})
-
 		if err != nil {
 			zLog.Fatal().Err(err).Send()
 		}

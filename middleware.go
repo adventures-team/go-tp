@@ -75,7 +75,7 @@ type retryOpt struct {
 	onRetryExhausted func(EventWithRetry)
 }
 
-// OnRetry определяет пользовательский обработчик, который будет вызван при ретрае
+// OnRetry определяет пользовательский обработчик, который будет вызван при ретрае.
 // Используется для реализации кастомной обработки события при ретрае, будь то логгирование, отправка метрики и т.п.
 func OnRetry[T EventWithRetry](f func(T)) RetryOption {
 	return func(opt *retryOpt) {
@@ -85,7 +85,7 @@ func OnRetry[T EventWithRetry](f func(T)) RetryOption {
 	}
 }
 
-// OnRetryExhausted определяет пользовательский обработчик, который будет вызван при исчерпании лимита ретраев
+// OnRetryExhausted определяет пользовательский обработчик, который будет вызван при исчерпании лимита ретраев.
 // Используется для реализации кастомной обработки события при ретрае, будь то логгирование, отправка метрики и т.п.
 func OnRetryExhausted[T EventWithRetry](f func(T)) RetryOption {
 	return func(opt *retryOpt) {
@@ -323,7 +323,7 @@ func OnRetry2[T EventWithRetry2](f func(T)) Retry2Option {
 	}
 }
 
-// OnRetry2Exhausted аналог OnRetryExhausted для WithRetry2
+// OnRetry2Exhausted аналог OnRetryExhausted для WithRetry2.
 // В обработчик так же передаётся имя счётчика — cnt
 func OnRetry2Exhausted[T EventWithRetry2](f func(T, string)) Retry2Option {
 	return func(opt *retry2Opt) {

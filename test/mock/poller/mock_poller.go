@@ -5,6 +5,7 @@
 //
 //	mockgen -destination test/mock/poller/mock_poller.go -typed -package mock_poller gitlab.cebc.tools/go/tp.git/workerpool Poller,Worker,WorkerStat
 //
+
 // Package mock_poller is a generated GoMock package.
 package mock_poller
 
@@ -20,6 +21,7 @@ import (
 type MockPoller struct {
 	ctrl     *gomock.Controller
 	recorder *MockPollerMockRecorder
+	isgomock struct{}
 }
 
 // MockPollerMockRecorder is the mock recorder for MockPoller.
@@ -48,37 +50,37 @@ func (m *MockPoller) EntityIDName() string {
 }
 
 // EntityIDName indicates an expected call of EntityIDName.
-func (mr *MockPollerMockRecorder) EntityIDName() *PollerEntityIDNameCall {
+func (mr *MockPollerMockRecorder) EntityIDName() *MockPollerEntityIDNameCall {
 	mr.mock.ctrl.T.Helper()
 	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EntityIDName", reflect.TypeOf((*MockPoller)(nil).EntityIDName))
-	return &PollerEntityIDNameCall{Call: call}
+	return &MockPollerEntityIDNameCall{Call: call}
 }
 
-// PollerEntityIDNameCall wrap *gomock.Call
-type PollerEntityIDNameCall struct {
+// MockPollerEntityIDNameCall wrap *gomock.Call
+type MockPollerEntityIDNameCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *PollerEntityIDNameCall) Return(arg0 string) *PollerEntityIDNameCall {
+func (c *MockPollerEntityIDNameCall) Return(arg0 string) *MockPollerEntityIDNameCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *PollerEntityIDNameCall) Do(f func() string) *PollerEntityIDNameCall {
+func (c *MockPollerEntityIDNameCall) Do(f func() string) *MockPollerEntityIDNameCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *PollerEntityIDNameCall) DoAndReturn(f func() string) *PollerEntityIDNameCall {
+func (c *MockPollerEntityIDNameCall) DoAndReturn(f func() string) *MockPollerEntityIDNameCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // Poll mocks base method.
-func (m *MockPoller) Poll(arg0 uint16) workerpool.Worker {
+func (m *MockPoller) Poll(arg0 workerpool.JobTypeID) workerpool.Worker {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Poll", arg0)
 	ret0, _ := ret[0].(workerpool.Worker)
@@ -86,31 +88,31 @@ func (m *MockPoller) Poll(arg0 uint16) workerpool.Worker {
 }
 
 // Poll indicates an expected call of Poll.
-func (mr *MockPollerMockRecorder) Poll(arg0 any) *PollerPollCall {
+func (mr *MockPollerMockRecorder) Poll(arg0 any) *MockPollerPollCall {
 	mr.mock.ctrl.T.Helper()
 	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Poll", reflect.TypeOf((*MockPoller)(nil).Poll), arg0)
-	return &PollerPollCall{Call: call}
+	return &MockPollerPollCall{Call: call}
 }
 
-// PollerPollCall wrap *gomock.Call
-type PollerPollCall struct {
+// MockPollerPollCall wrap *gomock.Call
+type MockPollerPollCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *PollerPollCall) Return(arg0 workerpool.Worker) *PollerPollCall {
+func (c *MockPollerPollCall) Return(arg0 workerpool.Worker) *MockPollerPollCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *PollerPollCall) Do(f func(uint16) workerpool.Worker) *PollerPollCall {
+func (c *MockPollerPollCall) Do(f func(workerpool.JobTypeID) workerpool.Worker) *MockPollerPollCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *PollerPollCall) DoAndReturn(f func(uint16) workerpool.Worker) *PollerPollCall {
+func (c *MockPollerPollCall) DoAndReturn(f func(workerpool.JobTypeID) workerpool.Worker) *MockPollerPollCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -119,6 +121,7 @@ func (c *PollerPollCall) DoAndReturn(f func(uint16) workerpool.Worker) *PollerPo
 type MockWorker struct {
 	ctrl     *gomock.Controller
 	recorder *MockWorkerMockRecorder
+	isgomock struct{}
 }
 
 // MockWorkerMockRecorder is the mock recorder for MockWorker.
@@ -147,31 +150,31 @@ func (m *MockWorker) Stat() workerpool.WorkerStat {
 }
 
 // Stat indicates an expected call of Stat.
-func (mr *MockWorkerMockRecorder) Stat() *WorkerStatCall {
+func (mr *MockWorkerMockRecorder) Stat() *MockWorkerStatCall {
 	mr.mock.ctrl.T.Helper()
 	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stat", reflect.TypeOf((*MockWorker)(nil).Stat))
-	return &WorkerStatCall{Call: call}
+	return &MockWorkerStatCall{Call: call}
 }
 
-// WorkerStatCall wrap *gomock.Call
-type WorkerStatCall struct {
+// MockWorkerStatCall wrap *gomock.Call
+type MockWorkerStatCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *WorkerStatCall) Return(arg0 workerpool.WorkerStat) *WorkerStatCall {
+func (c *MockWorkerStatCall) Return(arg0 workerpool.WorkerStat) *MockWorkerStatCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *WorkerStatCall) Do(f func() workerpool.WorkerStat) *WorkerStatCall {
+func (c *MockWorkerStatCall) Do(f func() workerpool.WorkerStat) *MockWorkerStatCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *WorkerStatCall) DoAndReturn(f func() workerpool.WorkerStat) *WorkerStatCall {
+func (c *MockWorkerStatCall) DoAndReturn(f func() workerpool.WorkerStat) *MockWorkerStatCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -183,31 +186,31 @@ func (m *MockWorker) Work() {
 }
 
 // Work indicates an expected call of Work.
-func (mr *MockWorkerMockRecorder) Work() *WorkerWorkCall {
+func (mr *MockWorkerMockRecorder) Work() *MockWorkerWorkCall {
 	mr.mock.ctrl.T.Helper()
 	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Work", reflect.TypeOf((*MockWorker)(nil).Work))
-	return &WorkerWorkCall{Call: call}
+	return &MockWorkerWorkCall{Call: call}
 }
 
-// WorkerWorkCall wrap *gomock.Call
-type WorkerWorkCall struct {
+// MockWorkerWorkCall wrap *gomock.Call
+type MockWorkerWorkCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *WorkerWorkCall) Return() *WorkerWorkCall {
+func (c *MockWorkerWorkCall) Return() *MockWorkerWorkCall {
 	c.Call = c.Call.Return()
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *WorkerWorkCall) Do(f func()) *WorkerWorkCall {
+func (c *MockWorkerWorkCall) Do(f func()) *MockWorkerWorkCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *WorkerWorkCall) DoAndReturn(f func()) *WorkerWorkCall {
+func (c *MockWorkerWorkCall) DoAndReturn(f func()) *MockWorkerWorkCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -216,6 +219,7 @@ func (c *WorkerWorkCall) DoAndReturn(f func()) *WorkerWorkCall {
 type MockWorkerStat struct {
 	ctrl     *gomock.Controller
 	recorder *MockWorkerStatMockRecorder
+	isgomock struct{}
 }
 
 // MockWorkerStatMockRecorder is the mock recorder for MockWorkerStat.
@@ -244,31 +248,31 @@ func (m *MockWorkerStat) Errors() uint32 {
 }
 
 // Errors indicates an expected call of Errors.
-func (mr *MockWorkerStatMockRecorder) Errors() *WorkerStatErrorsCall {
+func (mr *MockWorkerStatMockRecorder) Errors() *MockWorkerStatErrorsCall {
 	mr.mock.ctrl.T.Helper()
 	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Errors", reflect.TypeOf((*MockWorkerStat)(nil).Errors))
-	return &WorkerStatErrorsCall{Call: call}
+	return &MockWorkerStatErrorsCall{Call: call}
 }
 
-// WorkerStatErrorsCall wrap *gomock.Call
-type WorkerStatErrorsCall struct {
+// MockWorkerStatErrorsCall wrap *gomock.Call
+type MockWorkerStatErrorsCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *WorkerStatErrorsCall) Return(arg0 uint32) *WorkerStatErrorsCall {
+func (c *MockWorkerStatErrorsCall) Return(arg0 uint32) *MockWorkerStatErrorsCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *WorkerStatErrorsCall) Do(f func() uint32) *WorkerStatErrorsCall {
+func (c *MockWorkerStatErrorsCall) Do(f func() uint32) *MockWorkerStatErrorsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *WorkerStatErrorsCall) DoAndReturn(f func() uint32) *WorkerStatErrorsCall {
+func (c *MockWorkerStatErrorsCall) DoAndReturn(f func() uint32) *MockWorkerStatErrorsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -282,31 +286,31 @@ func (m *MockWorkerStat) Processed() uint32 {
 }
 
 // Processed indicates an expected call of Processed.
-func (mr *MockWorkerStatMockRecorder) Processed() *WorkerStatProcessedCall {
+func (mr *MockWorkerStatMockRecorder) Processed() *MockWorkerStatProcessedCall {
 	mr.mock.ctrl.T.Helper()
 	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Processed", reflect.TypeOf((*MockWorkerStat)(nil).Processed))
-	return &WorkerStatProcessedCall{Call: call}
+	return &MockWorkerStatProcessedCall{Call: call}
 }
 
-// WorkerStatProcessedCall wrap *gomock.Call
-type WorkerStatProcessedCall struct {
+// MockWorkerStatProcessedCall wrap *gomock.Call
+type MockWorkerStatProcessedCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *WorkerStatProcessedCall) Return(arg0 uint32) *WorkerStatProcessedCall {
+func (c *MockWorkerStatProcessedCall) Return(arg0 uint32) *MockWorkerStatProcessedCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *WorkerStatProcessedCall) Do(f func() uint32) *WorkerStatProcessedCall {
+func (c *MockWorkerStatProcessedCall) Do(f func() uint32) *MockWorkerStatProcessedCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *WorkerStatProcessedCall) DoAndReturn(f func() uint32) *WorkerStatProcessedCall {
+func (c *MockWorkerStatProcessedCall) DoAndReturn(f func() uint32) *MockWorkerStatProcessedCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

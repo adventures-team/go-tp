@@ -2,16 +2,17 @@ package queueconfig
 
 import (
 	"context"
+	"errors"
 	"path"
 	"regexp"
 	"strconv"
 	"sync"
 	"time"
 
+	"github.com/onlineconf/onlineconf-go/v2"
 	"kythe.io/kythe/go/util/datasize"
 
 	"gitlab.cebc.tools/go/utils.git/mytime"
-	"gitlab.cebc.tools/go/utils.git/oconf"
 )
 
 const globalPath = "/tp/go"
@@ -19,25 +20,71 @@ const globalPath = "/tp/go"
 // CSVRegex - значения в конфиге через запятую, с опциональными пробелами.
 var CSVRegex = regexp.MustCompile(`\s*,\s*`)
 
-// TODO чтобы не писать доку (а без доки всё равно юзеру это имя покажут) таким внутренним вещам, которые нужны в неск.
-// пакетах, их надо перенести в internal/. Как их поднакопится - надо сделать.
+// OnlineConfImpl - зависимость от библиотеки onlineconf-go/v2.
+// Интерфейс не совместим с используемым внутри [OnlineConf], если необходим этот интерфейс,
+// нужно использовать [NewAdapter]
+type OnlineConfImpl interface {
+	Subtree(string) *onlineconf.Subtree
+	GetString(string, string) string
+	GetStringIfExists(string) (string, bool)
+	GetInt(string, int) int
+	GetIntErr(string) (int, error)
+	Subscribe(path string) (chan struct{}, error)
+}
+
+// OnlineConfAdapter обеспечивает совместимость библиотеки onlineconf-go/v2 с используемым
+// внутри tp представлением [OnlineConf].
+type OnlineConfAdapter struct {
+	OnlineConfImpl
+}
+
+// NewAdapter преобразует интерфейс, реализуемый библиотекой onlineconf-go/v2 во внутреннее
+// представление tp ([OnlineConf]).
+func NewAdapter(conf OnlineConfImpl) OnlineConf {
+	return OnlineConfAdapter{OnlineConfImpl: conf}
+}
+
+func (oconf OnlineConfAdapter) Subtree(path string) OnlineConf {
+	return OnlineConfAdapter{OnlineConfImpl: oconf.OnlineConfImpl.Subtree(path)}
+}
+
+// OnlineConf - зависимость от абстрактного онлайнконфа (без зависимости от внешней библиотеки onlineconf-go/v2).
+// Используется внутри tp.
+type OnlineConf interface {
+	Subtree(string) OnlineConf
+	GetString(string, string) string
+	GetStringIfExists(string) (string, bool)
+	GetInt(string, int) int
+	GetIntErr(string) (int, error)
+	Subscribe(path string) (chan struct{}, error)
+}
 
 // Config - настройки обработчика очередей. Можно пользоваться, как обычным объектом с интерфейсом Onlineconf для получения настроек относительно корня проекта.
 // Также предусмотрены методы для получения настроек per-instance и pre-queue.
 type Config struct {
-	oconf.OnlineConf                  // для работы с глобальными настройками уровня проекта - например, списком серверов очередей - можно пользоваться этим объектом, как обычным интерфейсом OnlineConf
-	global           oconf.OnlineConf // глобальные настройки очередей (/tp/go)
-	instance         oconf.OnlineConf // настройки инстанса (/tp/go/$InstanceName)
-	pathErrors       sync.Map         // сюда пишутся пути, про которые уже жаловались в лог. обращение к мэпу идёт только при ошибках.
+	OnlineConf            // для работы с глобальными настройками уровня проекта - например, списком серверов очередей - можно пользоваться этим объектом, как обычным интерфейсом OnlineConf
+	global     OnlineConf // глобальные настройки очередей (/tp/go)
+	instance   OnlineConf // настройки инстанса (/tp/go/$InstanceName)
+	pathErrors sync.Map   // сюда пишутся пути, про которые уже жаловались в лог. обращение к мэпу идёт только при ошибках.
 }
 
 // New возвращает новый объект конфига. oconf - корень проекта (не обязательно TREE).
-func New(conf oconf.OnlineConf, instanceName string) *Config {
+func New(conf OnlineConfImpl, instanceName string) *Config {
+	return NewInternal(OnlineConfAdapter{OnlineConfImpl: conf}, instanceName)
+}
+
+// NewInternal возвращает новый объект конфига. oconf - корень проекта (не обязательно TREE).
+// Для внутреннего использования, а также для тестов.
+func NewInternal(conf OnlineConf, instanceName string) *Config {
 	return &Config{
 		OnlineConf: conf,
-		global:     oconf.NewSubtree(conf, globalPath), // TODO отрефакторить наконец онлайнконф на гитхабе!
-		instance:   oconf.NewSubtree(conf, path.Join(globalPath, instanceName)),
+		global:     conf.Subtree(globalPath),
+		instance:   conf.Subtree(path.Join(globalPath, instanceName)),
 	}
+}
+
+func (c *Config) Subscribe() (chan struct{}, error) {
+	return c.global.Subscribe("/")
 }
 
 func (c *Config) getStringPerInstance(confPath string) (string, error) {
@@ -53,61 +100,76 @@ func (c *Config) getStringPerInstance(confPath string) (string, error) {
 }
 
 // в случае, если не найдено ничего, в ошибке возвращается путь про per-queue значение
+// NB в методах get*PerQueue используется [path.Join], пэтому указывать ведущий слеш в confPath
+// не требуется, однако это сделано для соответствия стиля с PerInstance
 func (c *Config) getStringPerQueue(queueID uint16, confPath string) (str, usedPath string, err error) {
-	perQueuePath := path.Join(strconv.Itoa(int(queueID)), confPath)
+	perQueuePath := path.Join("/", strconv.Itoa(int(queueID)), confPath)
 	if s, ok := c.instance.GetStringIfExists(perQueuePath); ok {
 		return s, perQueuePath, nil
 	}
 
 	s, err := c.getStringPerInstance(confPath)
-	/* см. ниже коммент в getIntPerQueue
-	if err == nil {
-		return s, confPath, nil
-	}
-
-	if err.isNotFound {
-		err.Path = perQueuePath
-	}
-
-	return "", perQueuePath, err
-	*/
-	return s, confPath, err
-}
-
-func (c *Config) getIntPerInstance(confPath string) (int, error) {
-	if i, ok := c.instance.GetIntIfExists(confPath); ok {
-		return i, nil
-	}
-
-	if i, ok := c.global.GetIntIfExists(confPath); ok {
-		return i, nil
-	}
-
-	return 0, errNotFound(confPath)
-}
-
-// в случае, если не найдено ничего, в ошибке возвращается путь про per-queue значение
-func (c *Config) getIntPerQueue(queueID uint16, confPath string) (int, error) {
-	perQueuePath := path.Join(strconv.Itoa(int(queueID)), confPath)
-	if i, ok := c.instance.GetIntIfExists(perQueuePath); ok {
-		return i, nil
-	}
-
-	i, err := c.getIntPerInstance(confPath)
-	/* раскомментить, если вдруг понадобится инфа об очереди, для которой не нашли параметра. обычно это нужно
-	   при ошибках парзинга - а про не найденный параметр вроде как полезнее будет показать, что отсутствует дефолт.
-
+	/*
 		if err == nil {
-			return i, nil
+			return s, confPath, nil
 		}
 
 		if err.isNotFound {
 			err.Path = perQueuePath
 		}
 
-		return 0, err
+		return "", perQueuePath, err
 	*/
-	return i, err
+	return s, confPath, err
+}
+
+func (c *Config) getIntPerInstance(confPath string) (int, error) {
+	i, err := c.instance.GetIntErr(confPath)
+	if err == nil {
+		return i, nil
+	}
+
+	if !errors.Is(err, onlineconf.ErrNotFound) {
+		return 0, err
+	}
+
+	i, err = c.global.GetIntErr(confPath)
+	if err == nil {
+		return i, nil
+	}
+
+	if !errors.Is(err, onlineconf.ErrNotFound) {
+		return 0, err
+	}
+
+	return 0, errNotFound(confPath)
+}
+
+// в случае, если не найдено ничего, в ошибке возвращается путь про per-queue значение
+// NB в методах get*PerQueue используется [path.Join], пэтому указывать ведущий слеш в confPath
+// не требуется, однако это сделано для соответствия стиля с PerInstance
+func (c *Config) getIntPerQueue(queueID uint16, confPath string) (int, error) {
+	perQueuePath := path.Join("/", strconv.Itoa(int(queueID)), confPath)
+
+	i, err := c.instance.GetIntErr(perQueuePath)
+	if err == nil {
+		return i, nil
+	}
+
+	if !errors.Is(err, onlineconf.ErrNotFound) {
+		return 0, err
+	}
+
+	i, err = c.getIntPerInstance(confPath)
+	if err == nil {
+		return i, nil
+	}
+
+	if !isNotFound(err) {
+		return 0, err
+	}
+
+	return 0, errNotFound(perQueuePath)
 }
 
 func (c *Config) getSizePerInstance(confPath string) (uint64, error) {

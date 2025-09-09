@@ -5,6 +5,7 @@
 //
 //	mockgen -destination test/mock/iproto/mock_iproto.go -typed -package mock_iproto gitlab.cebc.tools/go/tp.git/managed/qmclient Connection
 //
+
 // Package mock_iproto is a generated GoMock package.
 package mock_iproto
 
@@ -22,6 +23,7 @@ import (
 type MockConnection struct {
 	ctrl     *gomock.Controller
 	recorder *MockConnectionMockRecorder
+	isgomock struct{}
 }
 
 // MockConnectionMockRecorder is the mock recorder for MockConnection.
@@ -42,40 +44,40 @@ func (m *MockConnection) EXPECT() *MockConnectionMockRecorder {
 }
 
 // Call mocks base method.
-func (m *MockConnection) Call(arg0 context.Context, arg1 uint32, arg2 []byte) ([]byte, error) {
+func (m *MockConnection) Call(ctx context.Context, message uint32, data []byte) ([]byte, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Call", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "Call", ctx, message, data)
 	ret0, _ := ret[0].([]byte)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Call indicates an expected call of Call.
-func (mr *MockConnectionMockRecorder) Call(arg0, arg1, arg2 any) *ConnectionCallCall {
+func (mr *MockConnectionMockRecorder) Call(ctx, message, data any) *MockConnectionCallCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Call", reflect.TypeOf((*MockConnection)(nil).Call), arg0, arg1, arg2)
-	return &ConnectionCallCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Call", reflect.TypeOf((*MockConnection)(nil).Call), ctx, message, data)
+	return &MockConnectionCallCall{Call: call}
 }
 
-// ConnectionCallCall wrap *gomock.Call
-type ConnectionCallCall struct {
+// MockConnectionCallCall wrap *gomock.Call
+type MockConnectionCallCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *ConnectionCallCall) Return(arg0 []byte, arg1 error) *ConnectionCallCall {
+func (c *MockConnectionCallCall) Return(arg0 []byte, arg1 error) *MockConnectionCallCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *ConnectionCallCall) Do(f func(context.Context, uint32, []byte) ([]byte, error)) *ConnectionCallCall {
+func (c *MockConnectionCallCall) Do(f func(context.Context, uint32, []byte) ([]byte, error)) *MockConnectionCallCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *ConnectionCallCall) DoAndReturn(f func(context.Context, uint32, []byte) ([]byte, error)) *ConnectionCallCall {
+func (c *MockConnectionCallCall) DoAndReturn(f func(context.Context, uint32, []byte) ([]byte, error)) *MockConnectionCallCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -87,31 +89,31 @@ func (m *MockConnection) Close() {
 }
 
 // Close indicates an expected call of Close.
-func (mr *MockConnectionMockRecorder) Close() *ConnectionCloseCall {
+func (mr *MockConnectionMockRecorder) Close() *MockConnectionCloseCall {
 	mr.mock.ctrl.T.Helper()
 	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockConnection)(nil).Close))
-	return &ConnectionCloseCall{Call: call}
+	return &MockConnectionCloseCall{Call: call}
 }
 
-// ConnectionCloseCall wrap *gomock.Call
-type ConnectionCloseCall struct {
+// MockConnectionCloseCall wrap *gomock.Call
+type MockConnectionCloseCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *ConnectionCloseCall) Return() *ConnectionCloseCall {
+func (c *MockConnectionCloseCall) Return() *MockConnectionCloseCall {
 	c.Call = c.Call.Return()
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *ConnectionCloseCall) Do(f func()) *ConnectionCloseCall {
+func (c *MockConnectionCloseCall) Do(f func()) *MockConnectionCloseCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *ConnectionCloseCall) DoAndReturn(f func()) *ConnectionCloseCall {
+func (c *MockConnectionCloseCall) DoAndReturn(f func()) *MockConnectionCloseCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -125,69 +127,69 @@ func (m *MockConnection) Done() <-chan struct{} {
 }
 
 // Done indicates an expected call of Done.
-func (mr *MockConnectionMockRecorder) Done() *ConnectionDoneCall {
+func (mr *MockConnectionMockRecorder) Done() *MockConnectionDoneCall {
 	mr.mock.ctrl.T.Helper()
 	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Done", reflect.TypeOf((*MockConnection)(nil).Done))
-	return &ConnectionDoneCall{Call: call}
+	return &MockConnectionDoneCall{Call: call}
 }
 
-// ConnectionDoneCall wrap *gomock.Call
-type ConnectionDoneCall struct {
+// MockConnectionDoneCall wrap *gomock.Call
+type MockConnectionDoneCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *ConnectionDoneCall) Return(arg0 <-chan struct{}) *ConnectionDoneCall {
+func (c *MockConnectionDoneCall) Return(arg0 <-chan struct{}) *MockConnectionDoneCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *ConnectionDoneCall) Do(f func() <-chan struct{}) *ConnectionDoneCall {
+func (c *MockConnectionDoneCall) Do(f func() <-chan struct{}) *MockConnectionDoneCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *ConnectionDoneCall) DoAndReturn(f func() <-chan struct{}) *ConnectionDoneCall {
+func (c *MockConnectionDoneCall) DoAndReturn(f func() <-chan struct{}) *MockConnectionDoneCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // GetBytes mocks base method.
-func (m *MockConnection) GetBytes(arg0 int) []byte {
+func (m *MockConnection) GetBytes(n int) []byte {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetBytes", arg0)
+	ret := m.ctrl.Call(m, "GetBytes", n)
 	ret0, _ := ret[0].([]byte)
 	return ret0
 }
 
 // GetBytes indicates an expected call of GetBytes.
-func (mr *MockConnectionMockRecorder) GetBytes(arg0 any) *ConnectionGetBytesCall {
+func (mr *MockConnectionMockRecorder) GetBytes(n any) *MockConnectionGetBytesCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBytes", reflect.TypeOf((*MockConnection)(nil).GetBytes), arg0)
-	return &ConnectionGetBytesCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBytes", reflect.TypeOf((*MockConnection)(nil).GetBytes), n)
+	return &MockConnectionGetBytesCall{Call: call}
 }
 
-// ConnectionGetBytesCall wrap *gomock.Call
-type ConnectionGetBytesCall struct {
+// MockConnectionGetBytesCall wrap *gomock.Call
+type MockConnectionGetBytesCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *ConnectionGetBytesCall) Return(arg0 []byte) *ConnectionGetBytesCall {
+func (c *MockConnectionGetBytesCall) Return(arg0 []byte) *MockConnectionGetBytesCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *ConnectionGetBytesCall) Do(f func(int) []byte) *ConnectionGetBytesCall {
+func (c *MockConnectionGetBytesCall) Do(f func(int) []byte) *MockConnectionGetBytesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *ConnectionGetBytesCall) DoAndReturn(f func(int) []byte) *ConnectionGetBytesCall {
+func (c *MockConnectionGetBytesCall) DoAndReturn(f func(int) []byte) *MockConnectionGetBytesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -201,69 +203,69 @@ func (m *MockConnection) LocalAddr() net.Addr {
 }
 
 // LocalAddr indicates an expected call of LocalAddr.
-func (mr *MockConnectionMockRecorder) LocalAddr() *ConnectionLocalAddrCall {
+func (mr *MockConnectionMockRecorder) LocalAddr() *MockConnectionLocalAddrCall {
 	mr.mock.ctrl.T.Helper()
 	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LocalAddr", reflect.TypeOf((*MockConnection)(nil).LocalAddr))
-	return &ConnectionLocalAddrCall{Call: call}
+	return &MockConnectionLocalAddrCall{Call: call}
 }
 
-// ConnectionLocalAddrCall wrap *gomock.Call
-type ConnectionLocalAddrCall struct {
+// MockConnectionLocalAddrCall wrap *gomock.Call
+type MockConnectionLocalAddrCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *ConnectionLocalAddrCall) Return(arg0 net.Addr) *ConnectionLocalAddrCall {
+func (c *MockConnectionLocalAddrCall) Return(arg0 net.Addr) *MockConnectionLocalAddrCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *ConnectionLocalAddrCall) Do(f func() net.Addr) *ConnectionLocalAddrCall {
+func (c *MockConnectionLocalAddrCall) Do(f func() net.Addr) *MockConnectionLocalAddrCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *ConnectionLocalAddrCall) DoAndReturn(f func() net.Addr) *ConnectionLocalAddrCall {
+func (c *MockConnectionLocalAddrCall) DoAndReturn(f func() net.Addr) *MockConnectionLocalAddrCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // Notify mocks base method.
-func (m *MockConnection) Notify(arg0 context.Context, arg1 uint32, arg2 []byte) error {
+func (m *MockConnection) Notify(ctx context.Context, message uint32, data []byte) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Notify", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "Notify", ctx, message, data)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Notify indicates an expected call of Notify.
-func (mr *MockConnectionMockRecorder) Notify(arg0, arg1, arg2 any) *ConnectionNotifyCall {
+func (mr *MockConnectionMockRecorder) Notify(ctx, message, data any) *MockConnectionNotifyCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Notify", reflect.TypeOf((*MockConnection)(nil).Notify), arg0, arg1, arg2)
-	return &ConnectionNotifyCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Notify", reflect.TypeOf((*MockConnection)(nil).Notify), ctx, message, data)
+	return &MockConnectionNotifyCall{Call: call}
 }
 
-// ConnectionNotifyCall wrap *gomock.Call
-type ConnectionNotifyCall struct {
+// MockConnectionNotifyCall wrap *gomock.Call
+type MockConnectionNotifyCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *ConnectionNotifyCall) Return(arg0 error) *ConnectionNotifyCall {
+func (c *MockConnectionNotifyCall) Return(arg0 error) *MockConnectionNotifyCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *ConnectionNotifyCall) Do(f func(context.Context, uint32, []byte) error) *ConnectionNotifyCall {
+func (c *MockConnectionNotifyCall) Do(f func(context.Context, uint32, []byte) error) *MockConnectionNotifyCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *ConnectionNotifyCall) DoAndReturn(f func(context.Context, uint32, []byte) error) *ConnectionNotifyCall {
+func (c *MockConnectionNotifyCall) DoAndReturn(f func(context.Context, uint32, []byte) error) *MockConnectionNotifyCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -275,67 +277,67 @@ func (m *MockConnection) OnClose(arg0 func()) {
 }
 
 // OnClose indicates an expected call of OnClose.
-func (mr *MockConnectionMockRecorder) OnClose(arg0 any) *ConnectionOnCloseCall {
+func (mr *MockConnectionMockRecorder) OnClose(arg0 any) *MockConnectionOnCloseCall {
 	mr.mock.ctrl.T.Helper()
 	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OnClose", reflect.TypeOf((*MockConnection)(nil).OnClose), arg0)
-	return &ConnectionOnCloseCall{Call: call}
+	return &MockConnectionOnCloseCall{Call: call}
 }
 
-// ConnectionOnCloseCall wrap *gomock.Call
-type ConnectionOnCloseCall struct {
+// MockConnectionOnCloseCall wrap *gomock.Call
+type MockConnectionOnCloseCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *ConnectionOnCloseCall) Return() *ConnectionOnCloseCall {
+func (c *MockConnectionOnCloseCall) Return() *MockConnectionOnCloseCall {
 	c.Call = c.Call.Return()
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *ConnectionOnCloseCall) Do(f func(func())) *ConnectionOnCloseCall {
+func (c *MockConnectionOnCloseCall) Do(f func(func())) *MockConnectionOnCloseCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *ConnectionOnCloseCall) DoAndReturn(f func(func())) *ConnectionOnCloseCall {
+func (c *MockConnectionOnCloseCall) DoAndReturn(f func(func())) *MockConnectionOnCloseCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // PutBytes mocks base method.
-func (m *MockConnection) PutBytes(arg0 []byte) {
+func (m *MockConnection) PutBytes(p []byte) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "PutBytes", arg0)
+	m.ctrl.Call(m, "PutBytes", p)
 }
 
 // PutBytes indicates an expected call of PutBytes.
-func (mr *MockConnectionMockRecorder) PutBytes(arg0 any) *ConnectionPutBytesCall {
+func (mr *MockConnectionMockRecorder) PutBytes(p any) *MockConnectionPutBytesCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PutBytes", reflect.TypeOf((*MockConnection)(nil).PutBytes), arg0)
-	return &ConnectionPutBytesCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PutBytes", reflect.TypeOf((*MockConnection)(nil).PutBytes), p)
+	return &MockConnectionPutBytesCall{Call: call}
 }
 
-// ConnectionPutBytesCall wrap *gomock.Call
-type ConnectionPutBytesCall struct {
+// MockConnectionPutBytesCall wrap *gomock.Call
+type MockConnectionPutBytesCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *ConnectionPutBytesCall) Return() *ConnectionPutBytesCall {
+func (c *MockConnectionPutBytesCall) Return() *MockConnectionPutBytesCall {
 	c.Call = c.Call.Return()
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *ConnectionPutBytesCall) Do(f func([]byte)) *ConnectionPutBytesCall {
+func (c *MockConnectionPutBytesCall) Do(f func([]byte)) *MockConnectionPutBytesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *ConnectionPutBytesCall) DoAndReturn(f func([]byte)) *ConnectionPutBytesCall {
+func (c *MockConnectionPutBytesCall) DoAndReturn(f func([]byte)) *MockConnectionPutBytesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -349,69 +351,69 @@ func (m *MockConnection) RemoteAddr() net.Addr {
 }
 
 // RemoteAddr indicates an expected call of RemoteAddr.
-func (mr *MockConnectionMockRecorder) RemoteAddr() *ConnectionRemoteAddrCall {
+func (mr *MockConnectionMockRecorder) RemoteAddr() *MockConnectionRemoteAddrCall {
 	mr.mock.ctrl.T.Helper()
 	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoteAddr", reflect.TypeOf((*MockConnection)(nil).RemoteAddr))
-	return &ConnectionRemoteAddrCall{Call: call}
+	return &MockConnectionRemoteAddrCall{Call: call}
 }
 
-// ConnectionRemoteAddrCall wrap *gomock.Call
-type ConnectionRemoteAddrCall struct {
+// MockConnectionRemoteAddrCall wrap *gomock.Call
+type MockConnectionRemoteAddrCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *ConnectionRemoteAddrCall) Return(arg0 net.Addr) *ConnectionRemoteAddrCall {
+func (c *MockConnectionRemoteAddrCall) Return(arg0 net.Addr) *MockConnectionRemoteAddrCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *ConnectionRemoteAddrCall) Do(f func() net.Addr) *ConnectionRemoteAddrCall {
+func (c *MockConnectionRemoteAddrCall) Do(f func() net.Addr) *MockConnectionRemoteAddrCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *ConnectionRemoteAddrCall) DoAndReturn(f func() net.Addr) *ConnectionRemoteAddrCall {
+func (c *MockConnectionRemoteAddrCall) DoAndReturn(f func() net.Addr) *MockConnectionRemoteAddrCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // Send mocks base method.
-func (m *MockConnection) Send(arg0 context.Context, arg1 iproto.Packet) error {
+func (m *MockConnection) Send(ctx context.Context, packet iproto.Packet) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Send", arg0, arg1)
+	ret := m.ctrl.Call(m, "Send", ctx, packet)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Send indicates an expected call of Send.
-func (mr *MockConnectionMockRecorder) Send(arg0, arg1 any) *ConnectionSendCall {
+func (mr *MockConnectionMockRecorder) Send(ctx, packet any) *MockConnectionSendCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Send", reflect.TypeOf((*MockConnection)(nil).Send), arg0, arg1)
-	return &ConnectionSendCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Send", reflect.TypeOf((*MockConnection)(nil).Send), ctx, packet)
+	return &MockConnectionSendCall{Call: call}
 }
 
-// ConnectionSendCall wrap *gomock.Call
-type ConnectionSendCall struct {
+// MockConnectionSendCall wrap *gomock.Call
+type MockConnectionSendCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *ConnectionSendCall) Return(arg0 error) *ConnectionSendCall {
+func (c *MockConnectionSendCall) Return(arg0 error) *MockConnectionSendCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *ConnectionSendCall) Do(f func(context.Context, iproto.Packet) error) *ConnectionSendCall {
+func (c *MockConnectionSendCall) Do(f func(context.Context, iproto.Packet) error) *MockConnectionSendCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *ConnectionSendCall) DoAndReturn(f func(context.Context, iproto.Packet) error) *ConnectionSendCall {
+func (c *MockConnectionSendCall) DoAndReturn(f func(context.Context, iproto.Packet) error) *MockConnectionSendCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -423,31 +425,31 @@ func (m *MockConnection) Shutdown() {
 }
 
 // Shutdown indicates an expected call of Shutdown.
-func (mr *MockConnectionMockRecorder) Shutdown() *ConnectionShutdownCall {
+func (mr *MockConnectionMockRecorder) Shutdown() *MockConnectionShutdownCall {
 	mr.mock.ctrl.T.Helper()
 	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Shutdown", reflect.TypeOf((*MockConnection)(nil).Shutdown))
-	return &ConnectionShutdownCall{Call: call}
+	return &MockConnectionShutdownCall{Call: call}
 }
 
-// ConnectionShutdownCall wrap *gomock.Call
-type ConnectionShutdownCall struct {
+// MockConnectionShutdownCall wrap *gomock.Call
+type MockConnectionShutdownCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *ConnectionShutdownCall) Return() *ConnectionShutdownCall {
+func (c *MockConnectionShutdownCall) Return() *MockConnectionShutdownCall {
 	c.Call = c.Call.Return()
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *ConnectionShutdownCall) Do(f func()) *ConnectionShutdownCall {
+func (c *MockConnectionShutdownCall) Do(f func()) *MockConnectionShutdownCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *ConnectionShutdownCall) DoAndReturn(f func()) *ConnectionShutdownCall {
+func (c *MockConnectionShutdownCall) DoAndReturn(f func()) *MockConnectionShutdownCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

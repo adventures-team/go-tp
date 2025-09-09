@@ -47,7 +47,6 @@ func (qc *QueuedClient) MakeUnicastRequest(ctx context.Context, shard uint, req 
 	}
 
 	reqBytes, err := req.MarshalIProto(internal.AllocBytes())
-
 	if err != nil {
 		return 0, nil, err
 	}
@@ -58,8 +57,8 @@ func (qc *QueuedClient) MakeUnicastRequest(ctx context.Context, shard uint, req 
 	for {
 		usedShard = qc.balanceShard(shard)
 		endpoint := qc.shards[usedShard]
-		respBytes, err = endpoint.Call(ctx, cmd, reqBytes)
 
+		respBytes, err = endpoint.Call(ctx, cmd, reqBytes)
 		if err == nil {
 			if len(respBytes) == 0 {
 				return usedShard, nil, ErrEmptyResponse
@@ -228,6 +227,7 @@ func (qc *QueuedClient) reqMultiProcessShard(ctx context.Context, batchSize int,
 	defer func() {
 		if reason := recover(); reason != nil {
 			mylog.LogPanic(zerolog.Ctx(ctx).Error(), reason).Uint("shard", shard).Stringer("queued", endpoint.RemoteAddr()).Msg("panic in MakeMulticastRequest")
+
 			errChan <- fmt.Errorf("shard #%d (%s): %w", shard, endpoint.RemoteAddr(), ErrPanic)
 		}
 
@@ -244,7 +244,6 @@ func (qc *QueuedClient) reqMultiProcessShard(ctx context.Context, batchSize int,
 		req := reqFunc(batch)
 
 		respBytes, op, err := qc.reqMultiRetryLoop(ctx, shard, endpoint, req)
-
 		if err != nil {
 			// TODO логгировать номера ивентов в том же формате, как и везде - будет ли админам польза от этого?
 			errChan <- fmt.Errorf("shard #%d (%s), event_ids=%v: %s%w", shard, endpoint.RemoteAddr(), batch, op, err)
@@ -282,7 +281,6 @@ func (qc *QueuedClient) reqMultiRetryLoop(ctx context.Context, shard uint, endpo
 			Msg("iproto.Call")
 
 		respBytes, err = endpoint.Call(ctx, req.Cmd(), reqBytes)
-
 		if err == nil {
 			op = ""
 

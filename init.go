@@ -9,7 +9,6 @@ import (
 	"gitlab.cebc.tools/go/tp.git/queueconfig"
 	"gitlab.cebc.tools/go/tp.git/workerpool"
 	"gitlab.cebc.tools/go/utils.git/mylog"
-	"gitlab.cebc.tools/go/utils.git/oconf"
 )
 
 // DefaultProducerInstance - имя инстанса в онлайнконфе по умолчанию для продюсеров (веб-сервисы, и т.д.)
@@ -17,16 +16,16 @@ const DefaultProducerInstance = "producer"
 
 // Config - конфиг для инициализации обработчика или продюсера очередей.
 type Config struct {
-	Config       oconf.OnlineConf // Обязательный параметр. Не стал делать чтение из флага - путь завязан на проект, т.е. на набор обрабатываемых событий, поэтому должен формироваться тем же (разработчиком или генератором), что и вызовы Register
-	InstanceName string           // По умолчанию, для обработчиков читается из командной строки из флага -instance, для продюсеров - DefaultProducerInstance ("producer")
-	Logger       *zerolog.Logger  // По умолчанию, вызывается mylog.InitZerolog()
+	Config       queueconfig.OnlineConf // Обязательный параметр. Не стал делать чтение из флага - путь завязан на проект, т.е. на набор обрабатываемых событий, поэтому должен формироваться тем же (разработчиком или генератором), что и вызовы Register
+	InstanceName string                 // По умолчанию, для обработчиков читается из командной строки из флага -instance, для продюсеров - DefaultProducerInstance ("producer")
+	Logger       *zerolog.Logger        // По умолчанию, вызывается mylog.InitZerolog()
 }
 
 // InitProcessor - инициализация типового обработчика очередей. Простейший случай:
 //
 //	func main() {
-//		conf := oconf.NewSubtree(onlineconf.GetModule("TREE"), "/project/queued")
-//		qm := tp.Config{Config: conf}.InitProcessor()
+//		conf, err := onlineconf.OpenSubtree("TREE", "/project/queued")
+//		qm := tp.Config{Config: queueconfig.NewAdapter(conf)}.InitProcessor()
 //		app := NewService(myServiceConfig{...})
 //
 //		err := qm.Register(QueueID, &QueueEvent{}, app)
@@ -62,8 +61,7 @@ func (conf Config) InitProcessor() *StandaloneMaster {
 	instanceLogger := conf.Logger.With().Str("instance", conf.InstanceName).Logger()
 	ctx := instanceLogger.WithContext(context.Background())
 
-	queue, err := Init(ctx, queueconfig.New(conf.Config, conf.InstanceName))
-
+	queue, err := Init(ctx, queueconfig.NewInternal(conf.Config, conf.InstanceName))
 	if err != nil {
 		instanceLogger.Fatal().Err(err).Msg("error initializing queue processor")
 	}
@@ -80,8 +78,8 @@ func (conf Config) InitProcessor() *StandaloneMaster {
 // InitProducer - инициализация типового продюсера (веб-сервис, и т.д.):
 //
 //	func main() {
-//		conf := oconf.NewSubtree(onlineconf.GetModule("TREE"), "/project/queued")
-//		queue := tp.Config{Config: conf}.InitProducer()
+//		conf, err := onlineconf.OpenSubtree("TREE", "/project/queued")
+//		queue := tp.Config{Config: queueconfig.NewAdapter(conf)}.InitProducer()
 //
 //		err := queue.Register(QueueID, &QueueEvent{}, nil)
 //		if err != nil { zLog.Fatal().Err(err).Send() }
@@ -124,8 +122,8 @@ func (conf Config) InitProducer() *Queue {
 	}
 
 	ctx := conf.Logger.WithContext(context.Background())
-	queue, err := Init(ctx, queueconfig.New(conf.Config, conf.InstanceName))
 
+	queue, err := Init(ctx, queueconfig.NewInternal(conf.Config, conf.InstanceName))
 	if err != nil {
 		conf.Logger.Fatal().Err(err).Msg("error initializing queue processor")
 	}

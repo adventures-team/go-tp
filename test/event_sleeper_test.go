@@ -64,6 +64,7 @@ func (svc *testService) HandleSleeper(ctx context.Context, events []eventSleeper
 
 			zLog.Info().Dur("actual_delay", delay).Send()
 			svc.Counter.Done()
+
 			continue
 		}
 

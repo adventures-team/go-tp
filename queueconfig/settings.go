@@ -14,7 +14,7 @@ import (
 
 // OOMSoftLimit получает oom_soft_limit. По умолчанию - 0 (проверку нужно пропустить).
 func (c *Config) OOMSoftLimit(ctx context.Context) uint64 {
-	lim, err := c.getSizePerInstance("oom_soft_limit")
+	lim, err := c.getSizePerInstance("/oom_soft_limit")
 	if err != nil {
 		c.logError(ctx, err, nil, "skipping soft memory limit check")
 	}
@@ -24,7 +24,7 @@ func (c *Config) OOMSoftLimit(ctx context.Context) uint64 {
 
 // OOMHardLimit получает oom_hard_limit. По умолчанию - 0 (проверку нужно пропустить).
 func (c *Config) OOMHardLimit(ctx context.Context) uint64 {
-	lim, err := c.getSizePerInstance("oom_hard_limit")
+	lim, err := c.getSizePerInstance("/oom_hard_limit")
 	if err != nil {
 		c.logError(ctx, err, nil, "skipping hard memory limit check")
 	}
@@ -34,7 +34,7 @@ func (c *Config) OOMHardLimit(ctx context.Context) uint64 {
 
 // OOMSoftDownscaleRate получает oom_soft_downscale_rate. По умолчанию: DefaultDownscaleRate.
 func (c *Config) OOMSoftDownscaleRate(ctx context.Context) float64 {
-	rate, err := c.getFloatPerInstance("oom_soft_downscale_rate")
+	rate, err := c.getFloatPerInstance("/oom_soft_downscale_rate")
 
 	if rate < 0 {
 		err = &ConfError{
@@ -57,7 +57,7 @@ func (c *Config) OOMSoftDownscaleRate(ctx context.Context) float64 {
 
 // OOMCheckPeriod получает oom_check_period. По умолчанию: DefaultOOMCheckPeriod.
 func (c *Config) OOMCheckPeriod(ctx context.Context) time.Duration {
-	d, err := c.getDurationPerInstance("oom_check_period")
+	d, err := c.getDurationPerInstance("/oom_check_period")
 	if err == nil {
 		return d
 	}
@@ -68,8 +68,9 @@ func (c *Config) OOMCheckPeriod(ctx context.Context) time.Duration {
 }
 
 // WorkersMaxCount получает workers_max
+// TODO логика не соответствует доке и standalone.go - поправить.
 func (c *Config) WorkersMaxCount(ctx context.Context) (int, error) {
-	count, err := c.getIntPerInstance("workers_max")
+	count, err := c.getIntPerInstance("/workers_max")
 	if count < 0 {
 		err = &ConfError{
 			Path:  "workers_max",
@@ -88,7 +89,7 @@ func (c *Config) WorkersMaxCount(ctx context.Context) (int, error) {
 
 // SlotsCount получает slots_count
 func (c *Config) SlotsCount(ctx context.Context) (int, error) {
-	count, err := c.getIntPerInstance("slots_count")
+	count, err := c.getIntPerInstance("/slots_count")
 	if count < 0 {
 		err = &ConfError{
 			Path:  "slots_count",
@@ -108,7 +109,7 @@ func (c *Config) SlotsCount(ctx context.Context) (int, error) {
 // QueueIDs получает queue_ids, который задаётся в виде разделённых через запятую интов (см. CSVRegex).
 // Если задан пустой список (пустая строка), ошибкой это не считается (требуется холостой запуск, либо остановка всех запущенных очередей)
 func (c *Config) QueueIDs() ([]uint16, error) {
-	str, err := c.getStringPerInstance("queue_ids")
+	str, err := c.getStringPerInstance("/queue_ids")
 	if err != nil {
 		return nil, err
 	}
@@ -138,7 +139,7 @@ func (c *Config) QueueIDs() ([]uint16, error) {
 
 // LogLevel получает log_level. По умолчанию: DefaultLogLevel.
 func (c *Config) LogLevel(ctx context.Context) zerolog.Level {
-	str, err := c.getStringPerInstance("log_level")
+	str, err := c.getStringPerInstance("/log_level")
 	if err != nil {
 		c.logError(ctx, err, DefaultLogLevel, "using the default")
 
@@ -165,13 +166,13 @@ func (c *Config) LogLevel(ctx context.Context) zerolog.Level {
 
 // WorkersCount получает workers для указанной очереди, но не больше workers_max_per_queue
 func (c *Config) WorkersCount(ctx context.Context, queueID uint16) (int, error) {
-	count, err := c.getIntPerQueue(queueID, "workers")
+	count, err := c.getIntPerQueue(queueID, "/workers")
 	if err != nil {
 		c.logError(ctx, err, nil, "workers parameter is mandatory")
 		return 0, err
 	}
 
-	maxCount, err := c.getIntPerInstance("workers_max_per_queue")
+	maxCount, err := c.getIntPerInstance("/workers_max_per_queue")
 	if err != nil {
 		c.logError(ctx, err, -1, "ignoring invalid workers_max_per_queue")
 		return count, nil
@@ -191,13 +192,13 @@ func (c *Config) WorkersCount(ctx context.Context, queueID uint16) (int, error) 
 // DeferTime получает defer_time для указанной очереди. Dалидное значение возвращается всегда (default: DefaultDeferTime), ошибку надо просто напечатать в лог.
 // К времени добавляется рандомное значение, максимум defer_time_jitter (default: DefaultDeferTimeJitter)
 func (c *Config) DeferTime(ctx context.Context, queueID uint16) time.Duration {
-	deferTime, err := c.getDurationPerQueue(queueID, "defer_time")
+	deferTime, err := c.getDurationPerQueue(queueID, "/defer_time")
 	if err != nil {
 		deferTime = DefaultDeferTime
 		c.logError(ctx, err, DefaultDeferTime, "using the default")
 	}
 
-	jitter, err := c.getDurationPerQueue(queueID, "defer_time_jitter")
+	jitter, err := c.getDurationPerQueue(queueID, "/defer_time_jitter")
 	if err != nil {
 		jitter = DefaultDeferTimeJitter
 		c.logError(ctx, err, DefaultDeferTimeJitter, "using the default")
@@ -208,7 +209,7 @@ func (c *Config) DeferTime(ctx context.Context, queueID uint16) time.Duration {
 
 // InitialDelay получает initial_delay для указанной очереди. По умолчанию: DefaultInitialDelay.
 func (c *Config) InitialDelay(ctx context.Context, queueID uint16) time.Duration {
-	d, err := c.getDurationPerQueue(queueID, "initial_delay")
+	d, err := c.getDurationPerQueue(queueID, "/initial_delay")
 	if err == nil {
 		return d
 	}
@@ -220,7 +221,7 @@ func (c *Config) InitialDelay(ctx context.Context, queueID uint16) time.Duration
 
 // FetchBatchSize получает fetch_batch_size для указанной очереди. Если оно не задано, возвращается DefaultFetchBatchSize
 func (c *Config) FetchBatchSize(ctx context.Context, queueID uint16) int {
-	bsize, err := c.getIntPerQueue(queueID, "fetch_batch_size")
+	bsize, err := c.getIntPerQueue(queueID, "/fetch_batch_size")
 	if err == nil {
 		return bsize
 	}
@@ -232,7 +233,7 @@ func (c *Config) FetchBatchSize(ctx context.Context, queueID uint16) int {
 
 // UpdateBatchSize возвращает update_batch_size для указанной очереди. Если оно не задано, возвращается DefaultUpdateBatchSize
 func (c *Config) UpdateBatchSize(ctx context.Context, queueID uint16) int {
-	bsize, err := c.getIntPerQueue(queueID, "update_batch_size")
+	bsize, err := c.getIntPerQueue(queueID, "/update_batch_size")
 	if err == nil {
 		return bsize
 	}
@@ -244,7 +245,7 @@ func (c *Config) UpdateBatchSize(ctx context.Context, queueID uint16) int {
 
 // MaxAge возвращает max_age для указанной очереди, или глобально заданное значение. Используется для middleware [tp.WithMaxAge]
 func (c *Config) MaxAge(queueID uint16) (uint32, error) {
-	d, err := c.getDurationPerQueue(queueID, "max_age")
+	d, err := c.getDurationPerQueue(queueID, "/max_age")
 	if err != nil {
 		return 0, err
 	}
@@ -263,8 +264,7 @@ const (
 // Используется для [tp.WithRetry] и [tp.WithRetry2].
 // По умолчанию, возвращается RetryConstant.
 func (c *Config) RetryType(queueID uint16) (int, error) {
-	typ, path, err := c.getStringPerQueue(queueID, "retry_type")
-
+	typ, path, err := c.getStringPerQueue(queueID, "/retry_type")
 	if err != nil {
 		return RetryConstant, nil
 	}
@@ -287,24 +287,24 @@ func (c *Config) RetryType(queueID uint16) (int, error) {
 
 // RetryLimit возвращает лимит повторных попыток retry_limit для [tp.WithRetry] и [tp.WithRetry2]
 func (c *Config) RetryLimit(queueID uint16, retrySuffix string) (uint32, error) {
-	i, err := c.getIntPerQueue(queueID, "retry"+retrySuffix+"_limit")
+	i, err := c.getIntPerQueue(queueID, "/retry"+retrySuffix+"_limit")
 	return uint32(i), err
 }
 
 // RetryDelay возвращает задержку retry_delay для [tp.WithRetry] и [tp.WithRetry2]
 func (c *Config) RetryDelay(queueID uint16, retrySuffix string) (time.Duration, error) {
-	return c.getDurationPerQueue(queueID, "retry"+retrySuffix+"_delay")
+	return c.getDurationPerQueue(queueID, "/retry"+retrySuffix+"_delay")
 }
 
 // RetryCoeff возвращает коэффициент retry_coeff для [tp.WithRetry] и [tp.WithRetry2] в режимах RetryLinear и RetryExponential
 func (c *Config) RetryCoeff(queueID uint16, retrySuffix string) (time.Duration, error) {
-	return c.getDurationPerQueue(queueID, "retry"+retrySuffix+"_coeff")
+	return c.getDurationPerQueue(queueID, "/retry"+retrySuffix+"_coeff")
 }
 
 // RetryPower возвращает экспоненту retry_exp для [tp.WithRetry] и [tp.WithRetry2] в режиме RetryExponential.
 // По умолчанию, возвращается значение 2.
 func (c *Config) RetryExp(queueID uint16, retrySuffix string) (float64, error) {
-	pow, err := c.getFloatPerQueue(queueID, "retry"+retrySuffix+"_exp")
+	pow, err := c.getFloatPerQueue(queueID, "/retry"+retrySuffix+"_exp")
 	if err != nil {
 		if confErr, ok := err.(*ConfError); ok && confErr.isNotFound {
 			return 2, nil

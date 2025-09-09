@@ -71,12 +71,14 @@ func main() {
 	defer func() {
 		ctx2, cancel2 := setupContext(opt) // the old one may be already cancelled
 		defer cancel2()
+
 		queueCleanup(ctx2, opt, "final")
 	}()
 
 	pool := NewConnPool(opt)
 
 	go refreshStats(ctx, opt, pool)
+
 	pool.Run(ctx)
 }
 

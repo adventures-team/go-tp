@@ -28,7 +28,6 @@ func (qc *QueuedClient) GetActive(ctx context.Context, queueID uint16, count int
 		StorageType: queueID,
 		Count:       uint32(count),
 	}, count)
-
 	if err != nil {
 		err = fmt.Errorf("GetActive: queue_id=%d, %w", queueID, err)
 	}
@@ -46,7 +45,6 @@ func (qc *QueuedClient) GetByIDsBroadcast(ctx context.Context, queueID uint16, e
 		StorageType: queueID,
 		IDs:         eventIDs,
 	}, len(eventIDs))
-
 	if err != nil {
 		err = fmt.Errorf("GetByIDs: queue_id=%d, event_ids=%v: %w", queueID, eventIDs, err)
 	}
@@ -136,7 +134,6 @@ func (qc *QueuedClient) Delete(ctx context.Context, queueID uint16, eventIDs []q
 		},
 		nil,
 	)
-
 	if err != nil {
 		return fmt.Errorf("Delete: queue_id=%d: %w", queueID, err)
 	}
@@ -178,7 +175,6 @@ func (qc *QueuedClient) Defer(ctx context.Context, queueID uint16, delay time.Du
 		},
 		nil,
 	)
-
 	if err != nil {
 		return fmt.Errorf("Defer: queue_id=%d: %w", queueID, err)
 	}
@@ -203,7 +199,6 @@ func (qc *QueuedClient) SetActivationTime(ctx context.Context, queueID uint16, a
 		},
 		nil,
 	)
-
 	if err != nil {
 		return fmt.Errorf("SetActivationTime: queue_id=%d: %w", queueID, err)
 	}

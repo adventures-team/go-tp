@@ -250,7 +250,8 @@ func (qm *StandaloneMaster) Run() {
 	}
 
 	go qm.run(ctx) // менеджер конфига запускается асинхронно, т.к. просто посылает команды пулу
-	qm.pool.Run()  // пул должен запускаться синхронно, чтобы выход из Manage происходил после окончания всей обработки
+
+	qm.pool.Run() // пул должен запускаться синхронно, чтобы выход из Manage происходил после окончания всей обработки
 }
 
 func (qm *StandaloneMaster) run(ctx context.Context) {
@@ -263,12 +264,15 @@ func (qm *StandaloneMaster) run(ctx context.Context) {
 		}
 	}()
 
-	updateChan := make(chan struct{}, 1) // если конфиг несколько раз изменился во время процессинга, достаточно потом перечитать только 1 раз
 	reloadSigChan := make(chan os.Signal, 1)
 	exitSigChan := make(chan os.Signal, 1)
 
-	/*onlineconf.SetUpdateChan(updateChan) TODO refactor onlineconf!!!!!!!!!!*/
 	signal.Notify(reloadSigChan, SignalReload)
+
+	updateChan, err := qm.Config().Subscribe()
+	if err != nil {
+		qm.logger.Fatal().Err(err).Msg("onlineconf.Subscribe")
+	}
 
 	for _, sig := range SignalsExit {
 		signal.Notify(exitSigChan, sig)

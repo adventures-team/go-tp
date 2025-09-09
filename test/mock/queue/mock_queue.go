@@ -5,6 +5,7 @@
 //
 //	mockgen -destination test/mock/queue/mock_queue.go -typed -package mock_queue gitlab.cebc.tools/go/tp.git/managed/master Queue
 //
+
 // Package mock_queue is a generated GoMock package.
 package mock_queue
 
@@ -18,6 +19,7 @@ import (
 type MockQueue struct {
 	ctrl     *gomock.Controller
 	recorder *MockQueueMockRecorder
+	isgomock struct{}
 }
 
 // MockQueueMockRecorder is the mock recorder for MockQueue.
@@ -38,39 +40,39 @@ func (m *MockQueue) EXPECT() *MockQueueMockRecorder {
 }
 
 // IsRegistered mocks base method.
-func (m *MockQueue) IsRegistered(arg0 uint16) bool {
+func (m *MockQueue) IsRegistered(queueID uint16) bool {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "IsRegistered", arg0)
+	ret := m.ctrl.Call(m, "IsRegistered", queueID)
 	ret0, _ := ret[0].(bool)
 	return ret0
 }
 
 // IsRegistered indicates an expected call of IsRegistered.
-func (mr *MockQueueMockRecorder) IsRegistered(arg0 any) *QueueIsRegisteredCall {
+func (mr *MockQueueMockRecorder) IsRegistered(queueID any) *MockQueueIsRegisteredCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsRegistered", reflect.TypeOf((*MockQueue)(nil).IsRegistered), arg0)
-	return &QueueIsRegisteredCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsRegistered", reflect.TypeOf((*MockQueue)(nil).IsRegistered), queueID)
+	return &MockQueueIsRegisteredCall{Call: call}
 }
 
-// QueueIsRegisteredCall wrap *gomock.Call
-type QueueIsRegisteredCall struct {
+// MockQueueIsRegisteredCall wrap *gomock.Call
+type MockQueueIsRegisteredCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *QueueIsRegisteredCall) Return(arg0 bool) *QueueIsRegisteredCall {
+func (c *MockQueueIsRegisteredCall) Return(arg0 bool) *MockQueueIsRegisteredCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *QueueIsRegisteredCall) Do(f func(uint16) bool) *QueueIsRegisteredCall {
+func (c *MockQueueIsRegisteredCall) Do(f func(uint16) bool) *MockQueueIsRegisteredCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *QueueIsRegisteredCall) DoAndReturn(f func(uint16) bool) *QueueIsRegisteredCall {
+func (c *MockQueueIsRegisteredCall) DoAndReturn(f func(uint16) bool) *MockQueueIsRegisteredCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

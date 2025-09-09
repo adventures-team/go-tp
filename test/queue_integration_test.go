@@ -5,27 +5,29 @@ package tptest
 
 import (
 	"context"
+	"path/filepath"
 	"testing"
 
-	"github.com/onlineconf/onlineconf-go"
+	"github.com/onlineconf/onlineconf-go/v2"
 
 	"gitlab.cebc.tools/go/tp.git"
 	"gitlab.cebc.tools/go/tp.git/queueconfig"
 	"gitlab.cebc.tools/go/tp.git/workerpool"
 	"gitlab.cebc.tools/go/utils.git/mylog"
-	"gitlab.cebc.tools/go/utils.git/oconf"
 )
 
 func TestQueueWorker(t *testing.T) {
-	initTestOnlineconf()
-
 	logger := mylog.InitTestZerolog(t)
 	ctx := logger.WithContext(context.Background())
 
-	conf := oconf.NewSubtree(onlineconf.GetModule("TREE"), testConfPrefix)
-	queueConf := queueconfig.New(conf, testInstanceName)
-	queue, err := tp.Init(ctx, queueConf)
+	conf, err := onlineconf.OpenSubtree(filepath.Join(ConfigDir(), "TREE.cdb"), testConfPrefix)
+	if err != nil {
+		t.Fatal(err)
+	}
 
+	queueConf := queueconfig.New(conf, testInstanceName)
+
+	queue, err := tp.Init(ctx, queueConf)
 	if err != nil {
 		t.Fatal("error initializing queue processor:", err)
 	}

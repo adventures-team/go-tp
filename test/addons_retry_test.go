@@ -52,12 +52,12 @@ func TestAddonsRetry(t *testing.T) {
 	}
 
 	err := tp.Register(qm.Queue, tp.WithRetry(handler.handle))
-
 	if err != nil {
 		zLog.Fatal().Err(err).Msg("Queue.Register")
 	}
 
 	ctx := context.Background()
+
 	eventID, err := qm.Publish(ctx, &retryEvent{}, queuedclient.PublishActivationTime(time.Now().Add(time.Second)))
 	if err != nil {
 		zLog.Panic().Err(err).Msg("Publish")

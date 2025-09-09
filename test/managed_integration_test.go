@@ -8,7 +8,6 @@ import (
 	"os"
 	"sync"
 	"sync/atomic"
-	"syscall"
 	"testing"
 	"time"
 
@@ -23,9 +22,9 @@ import (
 )
 
 // тесты на управление пулом при помощи онлайнконфа (проще говоря - тест системы целиком)
-
 func testManaged(t *testing.T, doTest func(*tp.StandaloneMaster, *counter, <-chan struct{})) *tp.StandaloneMaster {
 	setTestLogTime()
+
 	doneChan := make(chan struct{})
 
 	defer func() {
@@ -67,6 +66,7 @@ func testManaged(t *testing.T, doTest func(*tp.StandaloneMaster, *counter, <-cha
 	}()
 
 	go doTest(qm, cnt, doneChan)
+
 	qm.Run()
 
 	if workersLeft := cnt.Get(); workersLeft != 0 {
@@ -82,10 +82,9 @@ func testManaged(t *testing.T, doTest func(*tp.StandaloneMaster, *counter, <-cha
 }
 
 func reloadConfig() {
-	time.Sleep(100 * time.Millisecond) // race condition с запуском менеджера (это не проблема - в проде посылать себе сигналы/закладываться на последовательность выполнения горутин мы точно не будем)
-
-	if err := syscall.Kill(os.Getpid(), tp.SignalReload); err != nil {
-		zLog.Err(err).Msg("syscall.Kill")
+	select {
+	case reloadChan <- struct{}{}:
+	default:
 	}
 }
 
@@ -101,7 +100,6 @@ func TestDeferred(t *testing.T) {
 				DurationMax: durationMax,
 				Percentage:  40, // ускорять тест тут )) поставить больше вероятность успешного окончания
 			})
-
 			if err != nil {
 				zLog.Panic().Err(err).Msg("Publish")
 			}
@@ -149,12 +147,12 @@ func TestOOM(t *testing.T) {
 	qm := testManaged(t, func(qm *tp.StandaloneMaster, cnt *counter, doneChan <-chan struct{}) {
 		for i := 0; i < 50; i++ {
 			newEvents.Lock()
+
 			eventID, err := qm.Publish(ctx, &eventSleeper{
 				DurationMin: durationMin,
 				DurationMax: durationMax,
 				Percentage:  5, // чтобы события успешно завершались (удалялись) с низкой вероятностью, и их осталось достаточно для теста на кол-во воркеров
 			})
-
 			if err != nil {
 				zLog.Panic().Err(err).Msg("Publish")
 			}
@@ -219,7 +217,6 @@ func TestResize(t *testing.T) {
 				DurationMax: durationMax,
 				Percentage:  5,
 			})
-
 			if err != nil {
 				zLog.Err(err).Msg("Publish")
 			}
@@ -232,9 +229,7 @@ func TestResize(t *testing.T) {
 		}
 
 		newEvents.Unlock()
-
 		doPreTestDelay()
-
 		setWorkersMax(workersMaxLimit, workerPoolSustainDelay)
 
 		if workersGot := cnt.Get(); workersGot > workersMaxLimit {
@@ -297,7 +292,6 @@ func TestUpdateDelete(t *testing.T) {
 				DurationMax: 20 * time.Millisecond,
 				Percentage:  0,
 			})
-
 			if err != nil {
 				zLog.Panic().Err(err).Msg("Publish")
 			}
