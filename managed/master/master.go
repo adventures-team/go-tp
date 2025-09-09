@@ -68,6 +68,7 @@ func NewManagedMaster(queue Queue, pool Pool, poller workerpool.Poller, logger *
 		id := uint32(i)
 		stat[id] = stats.New(id)
 	}
+
 	slotStats <- stat
 
 	return &ManagedMaster{
@@ -171,12 +172,15 @@ func (mm *ManagedMaster) delay(queueID uint32) float64 {
 
 func (mm *ManagedMaster) resetDelay(queueID uint32) {
 	delays := <-mm.delays
+
 	delays[queueID] = 0
+
 	mm.delays <- delays
 }
 
 func (mm *ManagedMaster) slotStat(slotID uint32) SlotStat {
 	ss := <-mm.slotStats
+
 	defer func() { mm.slotStats <- ss }()
 
 	stat, ok := ss[slotID]
@@ -195,6 +199,7 @@ func (mm *ManagedMaster) Stats() qmclient.StatsData {
 	now := uint32(time.Now().Unix())
 
 	ss := <-mm.slotStats
+
 	defer func() { mm.slotStats <- ss }()
 
 	for i, slState := range slotStates {

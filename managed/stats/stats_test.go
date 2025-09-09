@@ -61,6 +61,7 @@ func TestSetQueueID(t *testing.T) {
 		}
 
 		queue := slot.queue(queueID)
+
 		got, want := queue.startedAt, uint32(time.Now().Unix())
 		if want-got > 1 {
 			t.Errorf("Queue has invalid startedAt: got %d, want ~ %d", got, want)
@@ -75,7 +76,6 @@ func TestSetQueueID(t *testing.T) {
 		if want-got > 1 {
 			t.Errorf("Queue has invalid stoppedAt: got %d, want %d", got, want)
 		}
-
 	})
 
 	t.Run("the same queue", func(t *testing.T) {
@@ -103,13 +103,13 @@ func TestSetQueueID(t *testing.T) {
 		got, want := firstQueue.stoppedAt, uint32(time.Now().Unix())
 		if want-got > 1 {
 			t.Errorf("Queue has invalid stoppedAt: got %d, want ~ %d", got, want)
-
 		}
 
 		got, want = firstQueue.current.started, uint32(0)
 		if want != got {
 			t.Errorf("Queue has invalid started: got %d, want %d", got, want)
 		}
+
 		got, want = firstQueue.current.stopped, uint32(1)
 		if want != got {
 			t.Errorf("Queue has invalid stopped: got %d, want %d", got, want)
@@ -122,6 +122,7 @@ func TestSetQueueID(t *testing.T) {
 		secondQueueID := firstQueueID + 1
 
 		slot.SetQueueID(firstQueueID)
+
 		firstQueue := slot.queue(firstQueueID)
 		firstQueue.current.processed = 1
 		firstQueue.current.loops = 11
@@ -183,10 +184,12 @@ func TestIncrementQueueLoop(t *testing.T) {
 	slot.IncrementQueueLoop(queueID)
 
 	queue := slot.queues[queueID]
+
 	got, want := queue.current.loops, uint32(1)
 	if got != want {
 		t.Errorf("Queue current.loops after increment = %d; want %d", got, want)
 	}
+
 	got, want = queue.total.loops, uint32(1)
 	if got != want {
 		t.Errorf("Queue total.loops after increment = %d; want %d", got, want)
@@ -201,10 +204,12 @@ func TestAddQueueWaitTime(t *testing.T) {
 	slot.AddQueueWaitTime(queueID, waitTime)
 
 	queue := slot.queues[queueID]
+
 	got, want := queue.current.waitTime, waitTime
 	if got != want {
 		t.Errorf("Queue current.waitTime after call = %f; want %f", got, want)
 	}
+
 	got, want = queue.total.waitTime, waitTime
 	if got != want {
 		t.Errorf("Queue total.waitTime after call = %f; want %f", got, want)
@@ -219,10 +224,12 @@ func TestAddQueueWorkTime(t *testing.T) {
 	slot.AddQueueWorkTime(queueID, workTime)
 
 	queue := slot.queues[queueID]
+
 	got, want := queue.current.workTime, workTime
 	if got != want {
 		t.Errorf("Queue current.workTime after call = %f; want %f", got, want)
 	}
+
 	got, want = queue.total.workTime, workTime
 	if got != want {
 		t.Errorf("Queue total.workTime after call = %f; want %f", got, want)
@@ -237,10 +244,12 @@ func TestAddQueueProcessed(t *testing.T) {
 	slot.AddQueueProcessed(queueID, processed)
 
 	queue := slot.queues[queueID]
+
 	got, want := queue.current.processed, processed
 	if got != want {
 		t.Errorf("Queue current.processed = %d; want %d", got, want)
 	}
+
 	got, want = queue.total.processed, processed
 	if got != want {
 		t.Errorf("Queue total.processed = %d; want %d", got, want)
@@ -255,10 +264,12 @@ func TestAddQueueErrors(t *testing.T) {
 	slot.AddQueueErrors(queueID, errors)
 
 	queue := slot.queues[queueID]
+
 	got, want := queue.current.errors, errors
 	if got != want {
 		t.Errorf("Queue current.errors = %d; want %d", got, want)
 	}
+
 	got, want = queue.total.errors, errors
 	if got != want {
 		t.Errorf("Queue total.errors = %d; want %d", got, want)
@@ -364,6 +375,5 @@ func TestSlotStat(t *testing.T) {
 		if diff := cmp.Diff(want, got, cmpopts.SortSlices(func(a, b QueueStat) bool { return a.ID < b.ID })); diff != "" {
 			t.Errorf("Stat() returned unexpected difference (-want +got):\n%s", diff)
 		}
-
 	})
 }

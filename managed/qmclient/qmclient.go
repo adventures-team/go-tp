@@ -143,7 +143,6 @@ func (c *Client) Run(ctx context.Context) {
 			Logger:         logAdapter,
 		},
 	})
-
 	if err != nil {
 		log.Fatal().Err(err).Send()
 	}
@@ -177,7 +176,6 @@ func (c *Client) ServeIProto(ctx context.Context, conn easygo.Conn, packet easyg
 			},
 			Data: data,
 		})
-
 		if err != nil {
 			log.Error().Err(err).Send()
 		}
@@ -209,7 +207,6 @@ func (c *Client) ServeIProto(ctx context.Context, conn easygo.Conn, packet easyg
 				Cluster: cluster,
 			},
 		}.MarshalIProto(internal.AllocBytes())
-
 		if err != nil {
 			log.Error().Err(err).Send()
 			break
@@ -223,7 +220,6 @@ func (c *Client) ServeIProto(ctx context.Context, conn easygo.Conn, packet easyg
 			},
 			Data: data,
 		})
-
 		if err != nil {
 			log.Error().Err(err).Send()
 		}

@@ -5,7 +5,7 @@ import (
 	"encoding/binary"
 	"os"
 
-	"gitlab.cebc.tools/go/utils.git/oconf"
+	"gitlab.cebc.tools/go/tp.git/queueconfig"
 )
 
 // GetPID - хак для получения ID, обеспечивающего уникальность в протоколе при добавлении событий.
@@ -18,7 +18,7 @@ import (
 //
 // Чтобы генерить рандомный "pid" всегда, можно задать в онлайнконфе /queueds/main/min_pid больше максимально
 // возможного pid для платформы (32768 для linux, 99999 для *bsd - поэтому лучше вписывать "совсем много", если планируется тестировать на макбуках без докера)
-func GetPID(conf oconf.OnlineConf) (uint32, error) {
+func GetPID(conf queueconfig.OnlineConf) (uint32, error) {
 	pid := os.Getpid()
 	minPID := conf.GetInt(ConfMinPID, DefaultMinPID)
 

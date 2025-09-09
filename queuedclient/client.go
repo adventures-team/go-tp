@@ -103,7 +103,6 @@ func Dial(ctx context.Context, conf *queueconfig.Config) (*QueuedClient, error) 
 				Logger:         logAdapter,
 			},
 		})
-
 		if err != nil {
 			return nil, fmt.Errorf("Dial %s: %w", server, err)
 		}

@@ -133,7 +133,6 @@ func (cp *ConnPool) connLoop(ctx context.Context) error {
 			Logger:         cp.logger,
 		},
 	})
-
 	if err != nil {
 		return err
 	}

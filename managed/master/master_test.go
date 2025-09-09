@@ -27,8 +27,10 @@ func TestAssignSlot(t *testing.T) {
 		p := mock_slotpool.NewMockPool(ctrl)
 		slotID := uint32(0)
 		queueID := uint32(10)
+
 		slotStats := make(chan map[uint32]SlotStat, 1)
 		slotStats <- make(map[uint32]SlotStat)
+
 		mm := ManagedMaster{
 			queue:     q,
 			pool:      p,
@@ -42,6 +44,7 @@ func TestAssignSlot(t *testing.T) {
 			if w.ID != queueID {
 				t.Error("unexpected queueID")
 			}
+
 			return nil
 		})
 
@@ -57,8 +60,10 @@ func TestAssignSlot(t *testing.T) {
 		p := mock_slotpool.NewMockPool(ctrl)
 		slotID := uint32(0)
 		queueID := uint32(0)
+
 		slotStats := make(chan map[uint32]SlotStat, 1)
 		slotStats <- make(map[uint32]SlotStat)
+
 		mm := ManagedMaster{
 			queue:     q,
 			pool:      p,
@@ -81,9 +86,12 @@ func TestAssignSlot(t *testing.T) {
 		p := mock_slotpool.NewMockPool(ctrl)
 		slotID := uint32(0)
 		queueID := uint32(0)
+
 		slotStats := make(chan map[uint32]SlotStat, 1)
 		stats := make(map[uint32]SlotStat)
+
 		slotStats <- stats
+
 		mm := ManagedMaster{
 			queue:     q,
 			pool:      p,
@@ -101,7 +109,9 @@ func TestAssignSlot(t *testing.T) {
 		}
 
 		stat := stats[0].Stat()
-		gotSlotErrors, wantSlotErrors := stat.SlotErrors, 1
+		gotSlotErrors := stat.SlotErrors
+		wantSlotErrors := 1
+
 		if gotSlotErrors != wantSlotErrors {
 			t.Errorf("unexpected number of slot errors: got %d, want %d", gotSlotErrors, wantSlotErrors)
 		}
@@ -117,8 +127,10 @@ func TestAssignSlot(t *testing.T) {
 		p := mock_slotpool.NewMockPool(ctrl)
 		slotID := uint32(0)
 		queueID := uint32(10)
+
 		slotStats := make(chan map[uint32]SlotStat, 1)
 		slotStats <- make(map[uint32]SlotStat)
+
 		mm := ManagedMaster{
 			queue:     q,
 			pool:      p,
@@ -143,8 +155,10 @@ func TestAssignSlot(t *testing.T) {
 		p := mock_slotpool.NewMockPool(ctrl)
 		slotID := uint32(0)
 		queueID := uint32(10)
+
 		slotStats := make(chan map[uint32]SlotStat, 1)
 		slotStats <- make(map[uint32]SlotStat)
+
 		mm := ManagedMaster{
 			queue:     q,
 			pool:      p,
@@ -228,8 +242,10 @@ func TestDelay(t *testing.T) {
 
 func TestResetDelay(t *testing.T) {
 	queueID := uint32(100)
+
 	delays := make(chan map[uint32]float64, 1)
 	delays <- map[uint32]float64{queueID: 100}
+
 	mm := ManagedMaster{delays: delays}
 
 	mm.resetDelay(queueID)
@@ -244,28 +260,34 @@ func TestResetDelay(t *testing.T) {
 
 func BenchmarkDelay(b *testing.B) {
 	queueID := uint32(100)
+
 	delays := make(chan map[uint32]float64, 1)
 	delays <- make(map[uint32]float64)
+
 	mm := &ManagedMaster{
 		delays: delays,
 	}
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for range b.N {
 		mm.delay(queueID)
 	}
 }
 
 func BenchmarkResetDelay(b *testing.B) {
 	queueID := uint32(100)
+
 	delays := make(chan map[uint32]float64, 1)
 	delays <- make(map[uint32]float64)
+
 	mm := &ManagedMaster{
 		delays: delays,
 	}
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for range b.N {
 		mm.resetDelay(queueID)
 	}
 }
@@ -364,8 +386,10 @@ func TestStats(t *testing.T) {
 		}
 
 		pool.EXPECT().SlotStates().MaxTimes(2).Return([]slotpool.SlotState{slot})
+
 		slotStats := make(chan map[uint32]SlotStat, 1)
 		slotStats <- map[uint32]SlotStat{0: slotStat}
+
 		mm := ManagedMaster{
 			pool:      pool,
 			logger:    &zerolog.Logger{},
@@ -452,8 +476,10 @@ func TestStats(t *testing.T) {
 		}
 
 		pool.EXPECT().SlotStates().MaxTimes(2).Return([]slotpool.SlotState{slot})
+
 		slotStats := make(chan map[uint32]SlotStat, 1)
 		slotStats <- map[uint32]SlotStat{0: slotStat}
+
 		mm := ManagedMaster{
 			pool:      pool,
 			logger:    &zerolog.Logger{},
@@ -573,8 +599,10 @@ func TestStats(t *testing.T) {
 		}}
 
 		pool.EXPECT().SlotStates().MaxTimes(2).Return([]slotpool.SlotState{slot})
+
 		slotStats := make(chan map[uint32]SlotStat, 1)
 		slotStats <- map[uint32]SlotStat{0: slotStat}
+
 		mm := ManagedMaster{
 			pool:      pool,
 			logger:    &zerolog.Logger{},

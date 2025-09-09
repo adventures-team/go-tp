@@ -37,6 +37,11 @@ func errNotFound(path string) *ConfError {
 	}
 }
 
+func isNotFound(err error) bool {
+	confErr, ok := err.(*ConfError)
+	return ok && confErr.isNotFound
+}
+
 var (
 	_ error                      = &ConfError{}
 	_ zerolog.LogObjectMarshaler = &ConfError{}

@@ -39,6 +39,7 @@ func TestServeIProto_cmdStat(t *testing.T) {
 			Data:    data,
 			Cluster: "generic",
 		}
+
 		iprotoResp, err := statsResp.MarshalIProto(internal.AllocBytes())
 		if err != nil {
 			t.Fatal("statsResp.MarshalIProto: ", err)

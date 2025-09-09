@@ -5,6 +5,7 @@
 //
 //	mockgen -destination test/mock/slotpool/mock_slotpool.go -typed -package mock_slotpool gitlab.cebc.tools/go/tp.git/managed/master Pool
 //
+
 // Package mock_slotpool is a generated GoMock package.
 package mock_slotpool
 
@@ -20,6 +21,7 @@ import (
 type MockPool struct {
 	ctrl     *gomock.Controller
 	recorder *MockPoolMockRecorder
+	isgomock struct{}
 }
 
 // MockPoolMockRecorder is the mock recorder for MockPool.
@@ -46,69 +48,69 @@ func (m *MockPool) AddSlot() {
 }
 
 // AddSlot indicates an expected call of AddSlot.
-func (mr *MockPoolMockRecorder) AddSlot() *PoolAddSlotCall {
+func (mr *MockPoolMockRecorder) AddSlot() *MockPoolAddSlotCall {
 	mr.mock.ctrl.T.Helper()
 	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddSlot", reflect.TypeOf((*MockPool)(nil).AddSlot))
-	return &PoolAddSlotCall{Call: call}
+	return &MockPoolAddSlotCall{Call: call}
 }
 
-// PoolAddSlotCall wrap *gomock.Call
-type PoolAddSlotCall struct {
+// MockPoolAddSlotCall wrap *gomock.Call
+type MockPoolAddSlotCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *PoolAddSlotCall) Return() *PoolAddSlotCall {
+func (c *MockPoolAddSlotCall) Return() *MockPoolAddSlotCall {
 	c.Call = c.Call.Return()
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *PoolAddSlotCall) Do(f func()) *PoolAddSlotCall {
+func (c *MockPoolAddSlotCall) Do(f func()) *MockPoolAddSlotCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *PoolAddSlotCall) DoAndReturn(f func()) *PoolAddSlotCall {
+func (c *MockPoolAddSlotCall) DoAndReturn(f func()) *MockPoolAddSlotCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // AssignSlot mocks base method.
-func (m *MockPool) AssignSlot(arg0 uint32, arg1 slotpool.Work) error {
+func (m *MockPool) AssignSlot(id uint32, w slotpool.Work) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AssignSlot", arg0, arg1)
+	ret := m.ctrl.Call(m, "AssignSlot", id, w)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // AssignSlot indicates an expected call of AssignSlot.
-func (mr *MockPoolMockRecorder) AssignSlot(arg0, arg1 any) *PoolAssignSlotCall {
+func (mr *MockPoolMockRecorder) AssignSlot(id, w any) *MockPoolAssignSlotCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AssignSlot", reflect.TypeOf((*MockPool)(nil).AssignSlot), arg0, arg1)
-	return &PoolAssignSlotCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AssignSlot", reflect.TypeOf((*MockPool)(nil).AssignSlot), id, w)
+	return &MockPoolAssignSlotCall{Call: call}
 }
 
-// PoolAssignSlotCall wrap *gomock.Call
-type PoolAssignSlotCall struct {
+// MockPoolAssignSlotCall wrap *gomock.Call
+type MockPoolAssignSlotCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *PoolAssignSlotCall) Return(arg0 error) *PoolAssignSlotCall {
+func (c *MockPoolAssignSlotCall) Return(arg0 error) *MockPoolAssignSlotCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *PoolAssignSlotCall) Do(f func(uint32, slotpool.Work) error) *PoolAssignSlotCall {
+func (c *MockPoolAssignSlotCall) Do(f func(uint32, slotpool.Work) error) *MockPoolAssignSlotCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *PoolAssignSlotCall) DoAndReturn(f func(uint32, slotpool.Work) error) *PoolAssignSlotCall {
+func (c *MockPoolAssignSlotCall) DoAndReturn(f func(uint32, slotpool.Work) error) *MockPoolAssignSlotCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -120,69 +122,69 @@ func (m *MockPool) Finish() {
 }
 
 // Finish indicates an expected call of Finish.
-func (mr *MockPoolMockRecorder) Finish() *PoolFinishCall {
+func (mr *MockPoolMockRecorder) Finish() *MockPoolFinishCall {
 	mr.mock.ctrl.T.Helper()
 	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Finish", reflect.TypeOf((*MockPool)(nil).Finish))
-	return &PoolFinishCall{Call: call}
+	return &MockPoolFinishCall{Call: call}
 }
 
-// PoolFinishCall wrap *gomock.Call
-type PoolFinishCall struct {
+// MockPoolFinishCall wrap *gomock.Call
+type MockPoolFinishCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *PoolFinishCall) Return() *PoolFinishCall {
+func (c *MockPoolFinishCall) Return() *MockPoolFinishCall {
 	c.Call = c.Call.Return()
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *PoolFinishCall) Do(f func()) *PoolFinishCall {
+func (c *MockPoolFinishCall) Do(f func()) *MockPoolFinishCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *PoolFinishCall) DoAndReturn(f func()) *PoolFinishCall {
+func (c *MockPoolFinishCall) DoAndReturn(f func()) *MockPoolFinishCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // ReleaseSlot mocks base method.
-func (m *MockPool) ReleaseSlot(arg0 uint32) error {
+func (m *MockPool) ReleaseSlot(id uint32) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ReleaseSlot", arg0)
+	ret := m.ctrl.Call(m, "ReleaseSlot", id)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // ReleaseSlot indicates an expected call of ReleaseSlot.
-func (mr *MockPoolMockRecorder) ReleaseSlot(arg0 any) *PoolReleaseSlotCall {
+func (mr *MockPoolMockRecorder) ReleaseSlot(id any) *MockPoolReleaseSlotCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReleaseSlot", reflect.TypeOf((*MockPool)(nil).ReleaseSlot), arg0)
-	return &PoolReleaseSlotCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReleaseSlot", reflect.TypeOf((*MockPool)(nil).ReleaseSlot), id)
+	return &MockPoolReleaseSlotCall{Call: call}
 }
 
-// PoolReleaseSlotCall wrap *gomock.Call
-type PoolReleaseSlotCall struct {
+// MockPoolReleaseSlotCall wrap *gomock.Call
+type MockPoolReleaseSlotCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *PoolReleaseSlotCall) Return(arg0 error) *PoolReleaseSlotCall {
+func (c *MockPoolReleaseSlotCall) Return(arg0 error) *MockPoolReleaseSlotCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *PoolReleaseSlotCall) Do(f func(uint32) error) *PoolReleaseSlotCall {
+func (c *MockPoolReleaseSlotCall) Do(f func(uint32) error) *MockPoolReleaseSlotCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *PoolReleaseSlotCall) DoAndReturn(f func(uint32) error) *PoolReleaseSlotCall {
+func (c *MockPoolReleaseSlotCall) DoAndReturn(f func(uint32) error) *MockPoolReleaseSlotCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -194,31 +196,31 @@ func (m *MockPool) RemoveSlot() {
 }
 
 // RemoveSlot indicates an expected call of RemoveSlot.
-func (mr *MockPoolMockRecorder) RemoveSlot() *PoolRemoveSlotCall {
+func (mr *MockPoolMockRecorder) RemoveSlot() *MockPoolRemoveSlotCall {
 	mr.mock.ctrl.T.Helper()
 	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveSlot", reflect.TypeOf((*MockPool)(nil).RemoveSlot))
-	return &PoolRemoveSlotCall{Call: call}
+	return &MockPoolRemoveSlotCall{Call: call}
 }
 
-// PoolRemoveSlotCall wrap *gomock.Call
-type PoolRemoveSlotCall struct {
+// MockPoolRemoveSlotCall wrap *gomock.Call
+type MockPoolRemoveSlotCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *PoolRemoveSlotCall) Return() *PoolRemoveSlotCall {
+func (c *MockPoolRemoveSlotCall) Return() *MockPoolRemoveSlotCall {
 	c.Call = c.Call.Return()
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *PoolRemoveSlotCall) Do(f func()) *PoolRemoveSlotCall {
+func (c *MockPoolRemoveSlotCall) Do(f func()) *MockPoolRemoveSlotCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *PoolRemoveSlotCall) DoAndReturn(f func()) *PoolRemoveSlotCall {
+func (c *MockPoolRemoveSlotCall) DoAndReturn(f func()) *MockPoolRemoveSlotCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -232,31 +234,31 @@ func (m *MockPool) SlotStates() []slotpool.SlotState {
 }
 
 // SlotStates indicates an expected call of SlotStates.
-func (mr *MockPoolMockRecorder) SlotStates() *PoolSlotStatesCall {
+func (mr *MockPoolMockRecorder) SlotStates() *MockPoolSlotStatesCall {
 	mr.mock.ctrl.T.Helper()
 	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SlotStates", reflect.TypeOf((*MockPool)(nil).SlotStates))
-	return &PoolSlotStatesCall{Call: call}
+	return &MockPoolSlotStatesCall{Call: call}
 }
 
-// PoolSlotStatesCall wrap *gomock.Call
-type PoolSlotStatesCall struct {
+// MockPoolSlotStatesCall wrap *gomock.Call
+type MockPoolSlotStatesCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *PoolSlotStatesCall) Return(arg0 []slotpool.SlotState) *PoolSlotStatesCall {
+func (c *MockPoolSlotStatesCall) Return(arg0 []slotpool.SlotState) *MockPoolSlotStatesCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *PoolSlotStatesCall) Do(f func() []slotpool.SlotState) *PoolSlotStatesCall {
+func (c *MockPoolSlotStatesCall) Do(f func() []slotpool.SlotState) *MockPoolSlotStatesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *PoolSlotStatesCall) DoAndReturn(f func() []slotpool.SlotState) *PoolSlotStatesCall {
+func (c *MockPoolSlotStatesCall) DoAndReturn(f func() []slotpool.SlotState) *MockPoolSlotStatesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

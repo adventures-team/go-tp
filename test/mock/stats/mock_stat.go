@@ -5,6 +5,7 @@
 //
 //	mockgen -destination test/mock/stats/mock_stat.go -typed -package mock_stat gitlab.cebc.tools/go/tp.git/managed/master SlotStat
 //
+
 // Package mock_stat is a generated GoMock package.
 package mock_stat
 
@@ -20,6 +21,7 @@ import (
 type MockSlotStat struct {
 	ctrl     *gomock.Controller
 	recorder *MockSlotStatMockRecorder
+	isgomock struct{}
 }
 
 // MockSlotStatMockRecorder is the mock recorder for MockSlotStat.
@@ -40,181 +42,181 @@ func (m *MockSlotStat) EXPECT() *MockSlotStatMockRecorder {
 }
 
 // AddQueueErrors mocks base method.
-func (m *MockSlotStat) AddQueueErrors(arg0, arg1 uint32) {
+func (m *MockSlotStat) AddQueueErrors(queueID, n uint32) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "AddQueueErrors", arg0, arg1)
+	m.ctrl.Call(m, "AddQueueErrors", queueID, n)
 }
 
 // AddQueueErrors indicates an expected call of AddQueueErrors.
-func (mr *MockSlotStatMockRecorder) AddQueueErrors(arg0, arg1 any) *SlotStatAddQueueErrorsCall {
+func (mr *MockSlotStatMockRecorder) AddQueueErrors(queueID, n any) *MockSlotStatAddQueueErrorsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddQueueErrors", reflect.TypeOf((*MockSlotStat)(nil).AddQueueErrors), arg0, arg1)
-	return &SlotStatAddQueueErrorsCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddQueueErrors", reflect.TypeOf((*MockSlotStat)(nil).AddQueueErrors), queueID, n)
+	return &MockSlotStatAddQueueErrorsCall{Call: call}
 }
 
-// SlotStatAddQueueErrorsCall wrap *gomock.Call
-type SlotStatAddQueueErrorsCall struct {
+// MockSlotStatAddQueueErrorsCall wrap *gomock.Call
+type MockSlotStatAddQueueErrorsCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *SlotStatAddQueueErrorsCall) Return() *SlotStatAddQueueErrorsCall {
+func (c *MockSlotStatAddQueueErrorsCall) Return() *MockSlotStatAddQueueErrorsCall {
 	c.Call = c.Call.Return()
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *SlotStatAddQueueErrorsCall) Do(f func(uint32, uint32)) *SlotStatAddQueueErrorsCall {
+func (c *MockSlotStatAddQueueErrorsCall) Do(f func(uint32, uint32)) *MockSlotStatAddQueueErrorsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *SlotStatAddQueueErrorsCall) DoAndReturn(f func(uint32, uint32)) *SlotStatAddQueueErrorsCall {
+func (c *MockSlotStatAddQueueErrorsCall) DoAndReturn(f func(uint32, uint32)) *MockSlotStatAddQueueErrorsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // AddQueueProcessed mocks base method.
-func (m *MockSlotStat) AddQueueProcessed(arg0, arg1 uint32) {
+func (m *MockSlotStat) AddQueueProcessed(queueID, n uint32) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "AddQueueProcessed", arg0, arg1)
+	m.ctrl.Call(m, "AddQueueProcessed", queueID, n)
 }
 
 // AddQueueProcessed indicates an expected call of AddQueueProcessed.
-func (mr *MockSlotStatMockRecorder) AddQueueProcessed(arg0, arg1 any) *SlotStatAddQueueProcessedCall {
+func (mr *MockSlotStatMockRecorder) AddQueueProcessed(queueID, n any) *MockSlotStatAddQueueProcessedCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddQueueProcessed", reflect.TypeOf((*MockSlotStat)(nil).AddQueueProcessed), arg0, arg1)
-	return &SlotStatAddQueueProcessedCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddQueueProcessed", reflect.TypeOf((*MockSlotStat)(nil).AddQueueProcessed), queueID, n)
+	return &MockSlotStatAddQueueProcessedCall{Call: call}
 }
 
-// SlotStatAddQueueProcessedCall wrap *gomock.Call
-type SlotStatAddQueueProcessedCall struct {
+// MockSlotStatAddQueueProcessedCall wrap *gomock.Call
+type MockSlotStatAddQueueProcessedCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *SlotStatAddQueueProcessedCall) Return() *SlotStatAddQueueProcessedCall {
+func (c *MockSlotStatAddQueueProcessedCall) Return() *MockSlotStatAddQueueProcessedCall {
 	c.Call = c.Call.Return()
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *SlotStatAddQueueProcessedCall) Do(f func(uint32, uint32)) *SlotStatAddQueueProcessedCall {
+func (c *MockSlotStatAddQueueProcessedCall) Do(f func(uint32, uint32)) *MockSlotStatAddQueueProcessedCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *SlotStatAddQueueProcessedCall) DoAndReturn(f func(uint32, uint32)) *SlotStatAddQueueProcessedCall {
+func (c *MockSlotStatAddQueueProcessedCall) DoAndReturn(f func(uint32, uint32)) *MockSlotStatAddQueueProcessedCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // AddQueueWaitTime mocks base method.
-func (m *MockSlotStat) AddQueueWaitTime(arg0 uint32, arg1 float64) {
+func (m *MockSlotStat) AddQueueWaitTime(queueID uint32, t float64) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "AddQueueWaitTime", arg0, arg1)
+	m.ctrl.Call(m, "AddQueueWaitTime", queueID, t)
 }
 
 // AddQueueWaitTime indicates an expected call of AddQueueWaitTime.
-func (mr *MockSlotStatMockRecorder) AddQueueWaitTime(arg0, arg1 any) *SlotStatAddQueueWaitTimeCall {
+func (mr *MockSlotStatMockRecorder) AddQueueWaitTime(queueID, t any) *MockSlotStatAddQueueWaitTimeCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddQueueWaitTime", reflect.TypeOf((*MockSlotStat)(nil).AddQueueWaitTime), arg0, arg1)
-	return &SlotStatAddQueueWaitTimeCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddQueueWaitTime", reflect.TypeOf((*MockSlotStat)(nil).AddQueueWaitTime), queueID, t)
+	return &MockSlotStatAddQueueWaitTimeCall{Call: call}
 }
 
-// SlotStatAddQueueWaitTimeCall wrap *gomock.Call
-type SlotStatAddQueueWaitTimeCall struct {
+// MockSlotStatAddQueueWaitTimeCall wrap *gomock.Call
+type MockSlotStatAddQueueWaitTimeCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *SlotStatAddQueueWaitTimeCall) Return() *SlotStatAddQueueWaitTimeCall {
+func (c *MockSlotStatAddQueueWaitTimeCall) Return() *MockSlotStatAddQueueWaitTimeCall {
 	c.Call = c.Call.Return()
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *SlotStatAddQueueWaitTimeCall) Do(f func(uint32, float64)) *SlotStatAddQueueWaitTimeCall {
+func (c *MockSlotStatAddQueueWaitTimeCall) Do(f func(uint32, float64)) *MockSlotStatAddQueueWaitTimeCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *SlotStatAddQueueWaitTimeCall) DoAndReturn(f func(uint32, float64)) *SlotStatAddQueueWaitTimeCall {
+func (c *MockSlotStatAddQueueWaitTimeCall) DoAndReturn(f func(uint32, float64)) *MockSlotStatAddQueueWaitTimeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // AddQueueWorkTime mocks base method.
-func (m *MockSlotStat) AddQueueWorkTime(arg0 uint32, arg1 float64) {
+func (m *MockSlotStat) AddQueueWorkTime(queueID uint32, t float64) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "AddQueueWorkTime", arg0, arg1)
+	m.ctrl.Call(m, "AddQueueWorkTime", queueID, t)
 }
 
 // AddQueueWorkTime indicates an expected call of AddQueueWorkTime.
-func (mr *MockSlotStatMockRecorder) AddQueueWorkTime(arg0, arg1 any) *SlotStatAddQueueWorkTimeCall {
+func (mr *MockSlotStatMockRecorder) AddQueueWorkTime(queueID, t any) *MockSlotStatAddQueueWorkTimeCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddQueueWorkTime", reflect.TypeOf((*MockSlotStat)(nil).AddQueueWorkTime), arg0, arg1)
-	return &SlotStatAddQueueWorkTimeCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddQueueWorkTime", reflect.TypeOf((*MockSlotStat)(nil).AddQueueWorkTime), queueID, t)
+	return &MockSlotStatAddQueueWorkTimeCall{Call: call}
 }
 
-// SlotStatAddQueueWorkTimeCall wrap *gomock.Call
-type SlotStatAddQueueWorkTimeCall struct {
+// MockSlotStatAddQueueWorkTimeCall wrap *gomock.Call
+type MockSlotStatAddQueueWorkTimeCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *SlotStatAddQueueWorkTimeCall) Return() *SlotStatAddQueueWorkTimeCall {
+func (c *MockSlotStatAddQueueWorkTimeCall) Return() *MockSlotStatAddQueueWorkTimeCall {
 	c.Call = c.Call.Return()
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *SlotStatAddQueueWorkTimeCall) Do(f func(uint32, float64)) *SlotStatAddQueueWorkTimeCall {
+func (c *MockSlotStatAddQueueWorkTimeCall) Do(f func(uint32, float64)) *MockSlotStatAddQueueWorkTimeCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *SlotStatAddQueueWorkTimeCall) DoAndReturn(f func(uint32, float64)) *SlotStatAddQueueWorkTimeCall {
+func (c *MockSlotStatAddQueueWorkTimeCall) DoAndReturn(f func(uint32, float64)) *MockSlotStatAddQueueWorkTimeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // IncrementQueueLoop mocks base method.
-func (m *MockSlotStat) IncrementQueueLoop(arg0 uint32) {
+func (m *MockSlotStat) IncrementQueueLoop(queueID uint32) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "IncrementQueueLoop", arg0)
+	m.ctrl.Call(m, "IncrementQueueLoop", queueID)
 }
 
 // IncrementQueueLoop indicates an expected call of IncrementQueueLoop.
-func (mr *MockSlotStatMockRecorder) IncrementQueueLoop(arg0 any) *SlotStatIncrementQueueLoopCall {
+func (mr *MockSlotStatMockRecorder) IncrementQueueLoop(queueID any) *MockSlotStatIncrementQueueLoopCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IncrementQueueLoop", reflect.TypeOf((*MockSlotStat)(nil).IncrementQueueLoop), arg0)
-	return &SlotStatIncrementQueueLoopCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IncrementQueueLoop", reflect.TypeOf((*MockSlotStat)(nil).IncrementQueueLoop), queueID)
+	return &MockSlotStatIncrementQueueLoopCall{Call: call}
 }
 
-// SlotStatIncrementQueueLoopCall wrap *gomock.Call
-type SlotStatIncrementQueueLoopCall struct {
+// MockSlotStatIncrementQueueLoopCall wrap *gomock.Call
+type MockSlotStatIncrementQueueLoopCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *SlotStatIncrementQueueLoopCall) Return() *SlotStatIncrementQueueLoopCall {
+func (c *MockSlotStatIncrementQueueLoopCall) Return() *MockSlotStatIncrementQueueLoopCall {
 	c.Call = c.Call.Return()
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *SlotStatIncrementQueueLoopCall) Do(f func(uint32)) *SlotStatIncrementQueueLoopCall {
+func (c *MockSlotStatIncrementQueueLoopCall) Do(f func(uint32)) *MockSlotStatIncrementQueueLoopCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *SlotStatIncrementQueueLoopCall) DoAndReturn(f func(uint32)) *SlotStatIncrementQueueLoopCall {
+func (c *MockSlotStatIncrementQueueLoopCall) DoAndReturn(f func(uint32)) *MockSlotStatIncrementQueueLoopCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -226,103 +228,103 @@ func (m *MockSlotStat) IncrementSlotError() {
 }
 
 // IncrementSlotError indicates an expected call of IncrementSlotError.
-func (mr *MockSlotStatMockRecorder) IncrementSlotError() *SlotStatIncrementSlotErrorCall {
+func (mr *MockSlotStatMockRecorder) IncrementSlotError() *MockSlotStatIncrementSlotErrorCall {
 	mr.mock.ctrl.T.Helper()
 	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IncrementSlotError", reflect.TypeOf((*MockSlotStat)(nil).IncrementSlotError))
-	return &SlotStatIncrementSlotErrorCall{Call: call}
+	return &MockSlotStatIncrementSlotErrorCall{Call: call}
 }
 
-// SlotStatIncrementSlotErrorCall wrap *gomock.Call
-type SlotStatIncrementSlotErrorCall struct {
+// MockSlotStatIncrementSlotErrorCall wrap *gomock.Call
+type MockSlotStatIncrementSlotErrorCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *SlotStatIncrementSlotErrorCall) Return() *SlotStatIncrementSlotErrorCall {
+func (c *MockSlotStatIncrementSlotErrorCall) Return() *MockSlotStatIncrementSlotErrorCall {
 	c.Call = c.Call.Return()
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *SlotStatIncrementSlotErrorCall) Do(f func()) *SlotStatIncrementSlotErrorCall {
+func (c *MockSlotStatIncrementSlotErrorCall) Do(f func()) *MockSlotStatIncrementSlotErrorCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *SlotStatIncrementSlotErrorCall) DoAndReturn(f func()) *SlotStatIncrementSlotErrorCall {
+func (c *MockSlotStatIncrementSlotErrorCall) DoAndReturn(f func()) *MockSlotStatIncrementSlotErrorCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // SetQueueID mocks base method.
-func (m *MockSlotStat) SetQueueID(arg0 uint32) {
+func (m *MockSlotStat) SetQueueID(id uint32) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "SetQueueID", arg0)
+	m.ctrl.Call(m, "SetQueueID", id)
 }
 
 // SetQueueID indicates an expected call of SetQueueID.
-func (mr *MockSlotStatMockRecorder) SetQueueID(arg0 any) *SlotStatSetQueueIDCall {
+func (mr *MockSlotStatMockRecorder) SetQueueID(id any) *MockSlotStatSetQueueIDCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetQueueID", reflect.TypeOf((*MockSlotStat)(nil).SetQueueID), arg0)
-	return &SlotStatSetQueueIDCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetQueueID", reflect.TypeOf((*MockSlotStat)(nil).SetQueueID), id)
+	return &MockSlotStatSetQueueIDCall{Call: call}
 }
 
-// SlotStatSetQueueIDCall wrap *gomock.Call
-type SlotStatSetQueueIDCall struct {
+// MockSlotStatSetQueueIDCall wrap *gomock.Call
+type MockSlotStatSetQueueIDCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *SlotStatSetQueueIDCall) Return() *SlotStatSetQueueIDCall {
+func (c *MockSlotStatSetQueueIDCall) Return() *MockSlotStatSetQueueIDCall {
 	c.Call = c.Call.Return()
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *SlotStatSetQueueIDCall) Do(f func(uint32)) *SlotStatSetQueueIDCall {
+func (c *MockSlotStatSetQueueIDCall) Do(f func(uint32)) *MockSlotStatSetQueueIDCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *SlotStatSetQueueIDCall) DoAndReturn(f func(uint32)) *SlotStatSetQueueIDCall {
+func (c *MockSlotStatSetQueueIDCall) DoAndReturn(f func(uint32)) *MockSlotStatSetQueueIDCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // SetState mocks base method.
-func (m *MockSlotStat) SetState(arg0 stats.State) {
+func (m *MockSlotStat) SetState(state stats.State) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "SetState", arg0)
+	m.ctrl.Call(m, "SetState", state)
 }
 
 // SetState indicates an expected call of SetState.
-func (mr *MockSlotStatMockRecorder) SetState(arg0 any) *SlotStatSetStateCall {
+func (mr *MockSlotStatMockRecorder) SetState(state any) *MockSlotStatSetStateCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetState", reflect.TypeOf((*MockSlotStat)(nil).SetState), arg0)
-	return &SlotStatSetStateCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetState", reflect.TypeOf((*MockSlotStat)(nil).SetState), state)
+	return &MockSlotStatSetStateCall{Call: call}
 }
 
-// SlotStatSetStateCall wrap *gomock.Call
-type SlotStatSetStateCall struct {
+// MockSlotStatSetStateCall wrap *gomock.Call
+type MockSlotStatSetStateCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *SlotStatSetStateCall) Return() *SlotStatSetStateCall {
+func (c *MockSlotStatSetStateCall) Return() *MockSlotStatSetStateCall {
 	c.Call = c.Call.Return()
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *SlotStatSetStateCall) Do(f func(stats.State)) *SlotStatSetStateCall {
+func (c *MockSlotStatSetStateCall) Do(f func(stats.State)) *MockSlotStatSetStateCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *SlotStatSetStateCall) DoAndReturn(f func(stats.State)) *SlotStatSetStateCall {
+func (c *MockSlotStatSetStateCall) DoAndReturn(f func(stats.State)) *MockSlotStatSetStateCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -336,31 +338,31 @@ func (m *MockSlotStat) Stat() stats.SlotStat {
 }
 
 // Stat indicates an expected call of Stat.
-func (mr *MockSlotStatMockRecorder) Stat() *SlotStatStatCall {
+func (mr *MockSlotStatMockRecorder) Stat() *MockSlotStatStatCall {
 	mr.mock.ctrl.T.Helper()
 	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stat", reflect.TypeOf((*MockSlotStat)(nil).Stat))
-	return &SlotStatStatCall{Call: call}
+	return &MockSlotStatStatCall{Call: call}
 }
 
-// SlotStatStatCall wrap *gomock.Call
-type SlotStatStatCall struct {
+// MockSlotStatStatCall wrap *gomock.Call
+type MockSlotStatStatCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *SlotStatStatCall) Return(arg0 stats.SlotStat) *SlotStatStatCall {
+func (c *MockSlotStatStatCall) Return(arg0 stats.SlotStat) *MockSlotStatStatCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *SlotStatStatCall) Do(f func() stats.SlotStat) *SlotStatStatCall {
+func (c *MockSlotStatStatCall) Do(f func() stats.SlotStat) *MockSlotStatStatCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *SlotStatStatCall) DoAndReturn(f func() stats.SlotStat) *SlotStatStatCall {
+func (c *MockSlotStatStatCall) DoAndReturn(f func() stats.SlotStat) *MockSlotStatStatCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

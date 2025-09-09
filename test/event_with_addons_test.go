@@ -36,7 +36,7 @@ type (
 
 		TrackID uint32
 		ExternalID   uint32
-		Name    string
+		Name    string `iproto:"ber"`
 	}
 )
 

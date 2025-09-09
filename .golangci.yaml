@@ -17,7 +17,7 @@ linters:
     - staticcheck
     - unused
     - wastedassign
-    - wsl
+    - wsl_v5
   settings:
     dupl:
       threshold: 100

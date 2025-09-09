@@ -11,7 +11,7 @@ type SimpleEvent struct {
 	tp.BaseEvent
 
 	UserID   uint32
-	UserName string
+	UserName string `iproto:"ber"`
 }
 
 func (SimpleEvent) Version() uint8 {

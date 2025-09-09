@@ -61,6 +61,7 @@ func New(slotsCount int) *Pool {
 // AddSlot adds new slot to the pool.
 func (p *Pool) AddSlot() {
 	st := <-p.state
+
 	defer func() { p.state <- st }()
 
 	count := uint32(len(st.slots))
@@ -106,6 +107,7 @@ func (p *Pool) AddSlot() {
 // RemoveSlot releases last slot and remove it.
 func (p *Pool) RemoveSlot() {
 	st := <-p.state
+
 	defer func() { p.state <- st }()
 
 	l := uint32(len(st.slots))
@@ -126,6 +128,7 @@ func (p *Pool) RemoveSlot() {
 // AssignSlot drops pending work and exectue new one after the current work is completed.
 func (p *Pool) AssignSlot(id uint32, w Work) error {
 	st := <-p.state
+
 	defer func() { p.state <- st }()
 
 	slot, ok := st.slots[id]
@@ -146,6 +149,7 @@ LOOP:
 	}
 
 	slot.work <- w
+
 	slot.updatedAt = time.Now().Unix()
 
 	return nil
@@ -154,6 +158,7 @@ LOOP:
 // ReleaseSlot removes work from the slot.
 func (p *Pool) ReleaseSlot(id uint32) error {
 	st := <-p.state
+
 	defer func() { p.state <- st }()
 
 	slot, ok := st.slots[id]
@@ -166,6 +171,7 @@ func (p *Pool) ReleaseSlot(id uint32) error {
 	}
 
 	slot.release <- struct{}{}
+
 	slot.updatedAt = time.Now().Unix()
 
 	return nil
@@ -197,6 +203,7 @@ func (p *Pool) Finish() {
 
 func (p *Pool) SlotStates() []SlotState {
 	st := <-p.state
+
 	defer func() { p.state <- st }()
 
 	states := make([]SlotState, 0, len(st.slots))

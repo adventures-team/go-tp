@@ -129,6 +129,7 @@ func (s *Slot) SetQueueID(id uint32) {
 func (s *Slot) SetState(state State) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	s.state = state
 }
 
@@ -136,6 +137,7 @@ func (s *Slot) SetState(state State) {
 func (s *Slot) IncrementQueueLoop(queueID uint32) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	q := s.queue(queueID)
 	q.incrementLoop()
 }
@@ -144,6 +146,7 @@ func (s *Slot) IncrementQueueLoop(queueID uint32) {
 func (s *Slot) AddQueueWaitTime(queueID uint32, t float64) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	q := s.queue(queueID)
 	q.addWaitTime(t)
 }
@@ -152,6 +155,7 @@ func (s *Slot) AddQueueWaitTime(queueID uint32, t float64) {
 func (s *Slot) AddQueueWorkTime(queueID uint32, t float64) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	q := s.queue(queueID)
 	q.addWorkTime(t)
 }
@@ -160,6 +164,7 @@ func (s *Slot) AddQueueWorkTime(queueID uint32, t float64) {
 func (s *Slot) AddQueueProcessed(queueID, n uint32) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	q := s.queue(queueID)
 	q.addProcessed(n)
 }
@@ -168,6 +173,7 @@ func (s *Slot) AddQueueProcessed(queueID, n uint32) {
 func (s *Slot) AddQueueErrors(queueID, n uint32) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	q := s.queue(queueID)
 	q.addErrors(n)
 }

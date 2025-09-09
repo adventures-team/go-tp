@@ -2,11 +2,7 @@ GO = go
 GOSRC = $(shell find . -type f -name '*.go')
 TEST_TIMEOUT = 10s
 LINT_TIMEOUT = 5m
-
-# Устанавливаем для gotip язык явно, чтобы для экспериментов с дженериками не приходилось править язык в go.mod.
-# 2022-06-08: перешли на go1.18, однако у коллег локально могут быть устаревшие версии, поэтому пока юзаем этот костыль.
-# При обновлении версии в go.mod этот блок нужно выпилить.
-GOFLAGS=-gcflags=all=-lang=$(shell go version | cut -d\  -f3 | cut -d. -f1,2)
+GOFLAGS =
 
 .PHONY: all
 all: format deps test full-lint doc queued-stresser
@@ -43,7 +39,7 @@ full-lint:
 
 .PHONY: format
 format:
-	find . -name '*.go' | grep -v /vendor/ | xargs go tool goimports -local gitlab.cebc.tools/ -l -w
+	find . -name '*.go' | grep -v /vendor/ | xargs $(GO) tool goimports -local gitlab.cebc.tools/ -l -w
 
 .PHONY: test
 test:
@@ -72,16 +68,24 @@ bench:
 	$(GO) test $(GOFLAGS) -v -bench . -run Benchmark ./...
 
 .PHONY: generate
-generate:
+generate: generate-mocks generate-iproto generate-cdb
+
+.PHONY: generate-iproto
+generate-iproto:
 	$(GO) generate ./...
 
-.PHONY: generate_mocks
-generate_mocks:
-	go tool mockgen -destination test/mock/queue/mock_queue.go -typed -package mock_queue gitlab.cebc.tools/go/tp.git/managed/master Queue
-	go tool mockgen -destination test/mock/slotpool/mock_slotpool.go -typed -package mock_slotpool gitlab.cebc.tools/go/tp.git/managed/master Pool
-	go tool mockgen -destination test/mock/stats/mock_stat.go -typed -package mock_stat gitlab.cebc.tools/go/tp.git/managed/master SlotStat
-	go tool mockgen -destination test/mock/poller/mock_poller.go -typed -package mock_poller gitlab.cebc.tools/go/tp.git/workerpool Poller,Worker,WorkerStat
-	go tool mockgen -destination test/mock/iproto/mock_iproto.go -typed -package mock_iproto gitlab.cebc.tools/go/tp.git/managed/qmclient Connection
+.PHONY: generate-mocks
+generate-mocks:
+	$(GO) tool mockgen -destination test/mock/queue/mock_queue.go -typed -package mock_queue gitlab.cebc.tools/go/tp.git/managed/master Queue
+	$(GO) tool mockgen -destination test/mock/slotpool/mock_slotpool.go -typed -package mock_slotpool gitlab.cebc.tools/go/tp.git/managed/master Pool
+	$(GO) tool mockgen -destination test/mock/stats/mock_stat.go -typed -package mock_stat gitlab.cebc.tools/go/tp.git/managed/master SlotStat
+	$(GO) tool mockgen -destination test/mock/poller/mock_poller.go -typed -package mock_poller gitlab.cebc.tools/go/tp.git/workerpool Poller,Worker,WorkerStat
+	$(GO) tool mockgen -destination test/mock/iproto/mock_iproto.go -typed -package mock_iproto gitlab.cebc.tools/go/tp.git/managed/qmclient Connection
+
+.PHONY: generate-cdb
+generate-cdb:
+	$(GO) tool yaml2cdb -in test/examples/config.yaml -out test/examples/config.cdb
+	$(GO) tool yaml2cdb -in dev-env/qm/conf/config.yaml -out dev-env/qm/conf/TREE.cdb
 
 .PHONY: doc
 doc: API.md # doc/index.html
