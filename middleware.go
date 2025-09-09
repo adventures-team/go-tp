@@ -142,7 +142,11 @@ func OnRetryExhausted[T EventWithRetry](f func(T)) RetryOption {
 //	    }
 //	}))
 func WithRetry[EvType EventWithRetry, EvSlice ~[]EvType](handler Handler[EvType, EvSlice], opts ...RetryOption) Handler[EvType, EvSlice] {
-	opt := &retryOpt{}
+	opt := &retryOpt{
+		onRetry:          func(EventWithRetry) {},
+		onRetryExhausted: func(EventWithRetry) {},
+	}
+
 	for _, f := range opts {
 		f(opt)
 	}
@@ -347,8 +351,10 @@ type retry2Opt struct {
 
 func WithRetry2[EvType EventWithRetry2, EvSlice ~[]EvType](handler Handler[EvType, EvSlice], opts ...Retry2Option) Handler[EvType, EvSlice] { //nolint:gocognit
 	opt := retry2Opt{
-		retry1: "1",
-		retry2: "2",
+		retry1:           "1",
+		retry2:           "2",
+		onRetry:          func(EventWithRetry2) {},
+		onRetryExhausted: func(EventWithRetry2, string) {},
 	}
 
 	for _, f := range opts {
