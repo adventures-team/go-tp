@@ -13,7 +13,6 @@ tool (
 
 require (
 	github.com/gofrs/uuid v4.4.0+incompatible
-	github.com/golang/mock v1.6.0
 	github.com/google/go-cmp v0.7.0
 	github.com/my-mail-ru/go-iproto v0.0.11
 	github.com/my-mail-ru/go-queuedproto v0.0.9

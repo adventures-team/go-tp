@@ -151,7 +151,7 @@ func (s *Slot) AddQueueWaitTime(queueID uint32, t float64) {
 	q.addWaitTime(t)
 }
 
-// AddQueueWaitTime adds the provided time to the queue workTime.
+// AddQueueWorkTime adds the provided time to the queue workTime.
 func (s *Slot) AddQueueWorkTime(queueID uint32, t float64) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

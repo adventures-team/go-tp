@@ -14,18 +14,34 @@ import (
 // DefaultProducerInstance - имя инстанса в онлайнконфе по умолчанию для продюсеров (веб-сервисы, и т.д.)
 const DefaultProducerInstance = "producer"
 
-// Config - конфиг для инициализации обработчика или продюсера очередей.
-type Config struct {
-	Config       queueconfig.OnlineConf // Обязательный параметр. Не стал делать чтение из флага - путь завязан на проект, т.е. на набор обрабатываемых событий, поэтому должен формироваться тем же (разработчиком или генератором), что и вызовы Register
-	InstanceName string                 // По умолчанию, для обработчиков читается из командной строки из флага -instance, для продюсеров - DefaultProducerInstance ("producer")
-	Logger       *zerolog.Logger        // По умолчанию, вызывается mylog.InitZerolog()
+type InitOptions struct {
+	instanceName string
+	logger       *zerolog.Logger
+}
+
+type InitOption func(*InitOptions)
+
+// WithInstanceName устанавливает имя инстанса.
+// По умолчанию, для обработчиков читается из командной строки из флага -instance, для продюсеров - DefaultProducerInstance ("producer")
+func WithInstanceName(instanceName string) InitOption {
+	return func(opt *InitOptions) {
+		opt.instanceName = instanceName
+	}
+}
+
+// WithLogger устанавливает логгер.
+// По умолчанию, вызывается mylog.InitZerolog()
+func WithLogger(logger *zerolog.Logger) InitOption {
+	return func(opt *InitOptions) {
+		opt.logger = logger
+	}
 }
 
 // InitProcessor - инициализация типового обработчика очередей. Простейший случай:
 //
 //	func main() {
 //		conf, err := onlineconf.OpenSubtree("TREE", "/project/queued")
-//		qm := tp.Config{Config: queueconfig.NewAdapter(conf)}.InitProcessor()
+//		qm := tp.InitProcessor(conf)
 //		app := NewService(myServiceConfig{...})
 //
 //		err := qm.Register(QueueID, &QueueEvent{}, app)
@@ -37,31 +53,37 @@ type Config struct {
 //		qm.Manage()
 //	}
 //
-// Параметр Config.Config обязателен. Если Config.InstanceName не задан - читается параметр командной строки -instance.
-// В таком случае, flag.Parse() вызывать из main() до вызова Config.Init не следует (обходить определением глобальной переменной с флагом не стал, чтобы этот флаг не появился во всех бинарниках, импортирующих эту библиотеку).
-// Logger по умолчанию инициализируется при помощи mylog.InitZerolog(), из тестов можно использовать mylog.InitTestZerolog(t).
+// Опции:
+//   - [WithInstanceName] - по умолчанию - читается параметр командной строки -instance (flag.Parse() из main() в этом случае вызывать до вызова InitProcessor не следует).
+//   - [WithLogger] - если не указано явно, инициализируется при помощи mylog.InitZerolog.
 //
 // В случае ошибки инициализации происходит выход (zerolog.Logger.Fatal). Предполагается вызов из функции main.
-func (conf Config) InitProcessor() *StandaloneMaster {
-	if conf.Logger == nil {
-		conf.Logger = mylog.InitZerolog()
+func InitProcessor[T queueconfig.OnlineConf](conf queueconfig.OnlineConfWithSubtree[T], opts ...InitOption) *StandaloneMaster {
+	var opt InitOptions
+
+	for _, f := range opts {
+		f(&opt)
 	}
 
-	if conf.InstanceName == "" {
+	if opt.logger == nil {
+		opt.logger = mylog.InitZerolog()
+	}
+
+	if opt.instanceName == "" {
 		instanceParam := flag.String("instance", "", "queue processor instance name")
 		flag.Parse()
 
 		if *instanceParam == "" {
-			conf.Logger.Fatal().Msg("-instance parameter is required when Config.InstanceName is not set")
+			opt.logger.Fatal().Msg("-instance parameter is required when Config.InstanceName is not set")
 		}
 
-		conf.InstanceName = *instanceParam
+		opt.instanceName = *instanceParam
 	}
 
-	instanceLogger := conf.Logger.With().Str("instance", conf.InstanceName).Logger()
+	instanceLogger := opt.logger.With().Str("instance", opt.instanceName).Logger()
 	ctx := instanceLogger.WithContext(context.Background())
 
-	queue, err := Init(ctx, queueconfig.NewInternal(conf.Config, conf.InstanceName))
+	queue, err := Init(ctx, queueconfig.New(conf, opt.instanceName))
 	if err != nil {
 		instanceLogger.Fatal().Err(err).Msg("error initializing queue processor")
 	}
@@ -79,7 +101,7 @@ func (conf Config) InitProcessor() *StandaloneMaster {
 //
 //	func main() {
 //		conf, err := onlineconf.OpenSubtree("TREE", "/project/queued")
-//		queue := tp.Config{Config: queueconfig.NewAdapter(conf)}.InitProducer()
+//		queue := tp.InitProducer(conf)
 //
 //		err := queue.Register(QueueID, &QueueEvent{}, nil)
 //		if err != nil { zLog.Fatal().Err(err).Send() }
@@ -108,24 +130,29 @@ func (conf Config) InitProcessor() *StandaloneMaster {
 //		...
 //	}
 //
-// Параметр Config.Config обязателен. Если Config.InstanceName не задан - используется DefaultProducerInstance ("producer").
-// Logger по умолчанию инициализируется при помощи mylog.InitZerolog(), из тестов можно использовать mylog.InitTestZerolog(t).
+// Опции:
+//   - [WithInstanceName] - по умолчанию, `producer`
+//   - [WithLogger] - если не указано явно, инициализируется при помощи mylog.InitZerolog.
 //
 // В случае ошибки инициализации происходит выход (zerolog.Logger.Fatal). Предполагается вызов из функции main.
-func (conf Config) InitProducer() *Queue {
-	if conf.Logger == nil {
-		conf.Logger = mylog.InitZerolog()
+func InitProducer[T queueconfig.OnlineConf](conf queueconfig.OnlineConfWithSubtree[T], opts ...InitOption) *Queue {
+	opt := InitOptions{
+		instanceName: DefaultProducerInstance,
 	}
 
-	if conf.InstanceName == "" {
-		conf.InstanceName = DefaultProducerInstance
+	for _, f := range opts {
+		f(&opt)
 	}
 
-	ctx := conf.Logger.WithContext(context.Background())
+	if opt.logger == nil {
+		opt.logger = mylog.InitZerolog()
+	}
 
-	queue, err := Init(ctx, queueconfig.NewInternal(conf.Config, conf.InstanceName))
+	ctx := opt.logger.WithContext(context.Background())
+
+	queue, err := Init(ctx, queueconfig.New(conf, opt.instanceName))
 	if err != nil {
-		conf.Logger.Fatal().Err(err).Msg("error initializing queue processor")
+		opt.logger.Fatal().Err(err).Msg("error initializing queue processor")
 	}
 
 	return queue

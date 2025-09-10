@@ -40,7 +40,7 @@ func TestAssignSlot(t *testing.T) {
 		}
 
 		q.EXPECT().IsRegistered(uint16(queueID)).Return(true)
-		p.EXPECT().AssignSlot(slotID, gomock.Any()).DoAndReturn(func(u uint32, w slotpool.Work) error {
+		p.EXPECT().AssignSlot(slotID, gomock.Any()).DoAndReturn(func(_ uint32, w slotpool.Work) error {
 			if w.ID != queueID {
 				t.Error("unexpected queueID")
 			}

@@ -9,9 +9,7 @@ import (
 )
 
 func sendData(id uint32, name string) {
-	queue := tp.Config{
-		Config: getConfig(),
-	}.InitProducer()
+	queue := tp.InitProducer(getConfig())
 
 	eventID, err := queue.Publish(context.Background(), &SimpleEvent{UserID: id, UserName: name})
 	if err != nil {

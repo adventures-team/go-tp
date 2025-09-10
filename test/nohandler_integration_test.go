@@ -22,7 +22,7 @@ func TestNoHandler(t *testing.T) {
 	ctx := logger.WithContext(context.Background())
 
 	conf := newMockConf(t, testNoHandlerQueueID)
-	queueConf := queueconfig.NewInternal(conf, testInstanceName)
+	queueConf := queueconfig.New(conf, testInstanceName)
 
 	queue, err := tp.Init(ctx, queueConf)
 	if err != nil {
