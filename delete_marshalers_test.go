@@ -1,5 +1,4 @@
 //go:build !integration
-// +build !integration
 
 package tp_test
 
@@ -15,8 +14,8 @@ type (
 	// TestAPI - пример типа с объектами для доступа к базам
 	TestAPI struct {
 		tp.DisableMarshaler
-		DB    interface{}
-		MyBox interface{}
+		DB    any
+		MyBox any
 	}
 
 	// testEvent - пример события с объектом API, которому отключён маршалер, но это не должно мешать отключению
@@ -44,7 +43,7 @@ type (
 	}
 )
 
-func checkMarshalers(t *testing.T, val interface{}) {
+func checkMarshalers(t *testing.T, val any) {
 	if _, ok := val.(addons.PerlAddon); ok {
 		t.Errorf("%T must not implement addons.PerlAddon", val)
 	}

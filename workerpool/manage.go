@@ -4,7 +4,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	zLog "github.com/rs/zerolog/log"
+	zlog "github.com/rs/zerolog/log"
 
 	"gitlab.cebc.tools/go/utils.git/myatomic"
 )
@@ -37,7 +37,7 @@ func (wp *WorkerPool) Run() {
 			// Поэтому - копипаста с дефолтом.
 			select {
 			case swc := <-wp.setWorkerCountChan:
-				wp.setWorkerCount(jobs, swc)
+				wp.handleSetWorkerCount(jobs, swc)
 
 			case hasJob := <-wp.hasJobChan:
 				wp.onHasJob(jobs, hasJob)
@@ -55,7 +55,7 @@ func (wp *WorkerPool) Run() {
 
 			select {
 			case swc := <-wp.setWorkerCountChan:
-				wp.setWorkerCount(jobs, swc)
+				wp.handleSetWorkerCount(jobs, swc)
 
 			case hasJob := <-wp.hasJobChan:
 				wp.onHasJob(jobs, hasJob)
@@ -164,7 +164,7 @@ func (wp *WorkerPool) onJobDone(jobs jobMap, jobID JobTypeID) {
 
 	job.running--
 	if job.running <= 0 && job.requested <= 0 {
-		delete(jobs, jobID) // см.коммент в setWorkerCount, + удалением записи страхуемся от ухода в отрицательные значения при паниках в странных местах
+		delete(jobs, jobID) // см.коммент в handleSetWorkerCount, + удалением записи страхуемся от ухода в отрицательные значения при паниках в странных местах
 		return
 	}
 
@@ -184,7 +184,7 @@ func (wp *WorkerPool) onStop(jobs jobMap) bool {
 			jobs[jobID] = job
 		}
 
-		zLog.Trace().Uint16("job_id", jobID).Int("jobs_running", job.running).Msg("jobs pending on stop request")
+		zlog.Trace().Uint16("job_id", jobID).Int("jobs_running", job.running).Msg("jobs pending on stop request")
 	}
 
 	if stopper, ok := wp.Poller.(Stopper); ok {
@@ -196,7 +196,7 @@ func (wp *WorkerPool) onStop(jobs jobMap) bool {
 	return true
 }
 
-func (wp *WorkerPool) setWorkerCount(jobs jobMap, swc setWorkerCountReq) {
+func (wp *WorkerPool) handleSetWorkerCount(jobs jobMap, swc setWorkerCountReq) {
 	job, ok := jobs[swc.jobID]
 
 	if !ok {

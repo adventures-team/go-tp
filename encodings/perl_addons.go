@@ -69,7 +69,7 @@ type addonMarshaler interface {
 var _ addonMarshaler = addons.PerlAddon(nil)
 
 // decodeAddonsData декодирует данные аддонов в юзерскую структуру события eventPtr
-func decodeAddonsData(eventPtr interface{}, addonsFromEvent []queuedproto.PerlAddonData) error {
+func decodeAddonsData(eventPtr any, addonsFromEvent []queuedproto.PerlAddonData) error {
 	supportedAddons := getEventTypeAddons(eventPtr)
 	if supportedAddons == nil {
 		return nil
@@ -93,7 +93,7 @@ func decodeAddonsData(eventPtr interface{}, addonsFromEvent []queuedproto.PerlAd
 	return nil
 }
 
-func encodeAddonsData(event interface{}) ([]queuedproto.PerlAddonData, error) {
+func encodeAddonsData(event any) ([]queuedproto.PerlAddonData, error) {
 	supportedAddons := getEventTypeAddons(event)
 	if supportedAddons == nil {
 		return nil, nil
@@ -123,7 +123,7 @@ func encodeAddonsData(event interface{}) ([]queuedproto.PerlAddonData, error) {
 // данные для каждого типа кешируются.
 //
 // TODO защиты от cache stampede нет - учитывая, что кешируем навсегда, и вычисление списка быстрое (структуры по 5-20 полей), наверноe, оно не нужно.
-func getEventTypeAddons(event interface{}) (supportedAddons *eventTypeAddons) {
+func getEventTypeAddons(event any) (supportedAddons *eventTypeAddons) {
 	typ := reflect.TypeOf(event)
 
 	if cachedI, ok := eventTypeAddonCache.Load(typ); ok {

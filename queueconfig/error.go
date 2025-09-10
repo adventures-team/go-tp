@@ -22,11 +22,11 @@ var (
 //
 // При выводе в zerolog методом Err, поля будут напечатаны отдельно (без преобразование в одну строку методом Error).
 type ConfError struct {
-	Path       string      // Путь к неправильному значению
-	Value      string      // Ошибочное значение. Если параметр не найден - пустое
-	Err        error       // Ошибка парзинга, либо ErrNotFound для ненайденных значений
-	Default    interface{} // Значение по умолчанию
-	isNotFound bool        // Err = ErrNotFound, для упрощения проверок в логике конфига
+	Path       string // Путь к неправильному значению
+	Value      string // Ошибочное значение. Если параметр не найден - пустое
+	Err        error  // Ошибка парзинга, либо ErrNotFound для ненайденных значений
+	Default    any    // Значение по умолчанию
+	isNotFound bool   // Err = ErrNotFound, для упрощения проверок в логике конфига
 }
 
 func errNotFound(path string) *ConfError {

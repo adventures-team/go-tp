@@ -133,35 +133,35 @@ func TestSetQueueID(t *testing.T) {
 		slot.SetQueueID(firstQueueID)
 
 		if firstQueue.current.processed != 0 {
-			t.Errorf("Queue current.processed should be reset")
+			t.Error("Queue current.processed should be reset")
 		}
 
 		if firstQueue.current.loops != 0 {
-			t.Errorf("Queue current.loops should be reset")
+			t.Error("Queue current.loops should be reset")
 		}
 
 		if firstQueue.current.workTime != 0 {
-			t.Errorf("Queue current.workTime should be reset")
+			t.Error("Queue current.workTime should be reset")
 		}
 
 		if firstQueue.current.waitTime != 0 {
-			t.Errorf("Queue current.waitTime should be reset")
+			t.Error("Queue current.waitTime should be reset")
 		}
 
 		if firstQueue.total.processed != 0 {
-			t.Errorf("Queue total.processed should be reset")
+			t.Error("Queue total.processed should be reset")
 		}
 
 		if firstQueue.total.loops != 0 {
-			t.Errorf("Queue total.loops should be reset")
+			t.Error("Queue total.loops should be reset")
 		}
 
 		if firstQueue.total.workTime != 0 {
-			t.Errorf("Queue total.workTime should be reset")
+			t.Error("Queue total.workTime should be reset")
 		}
 
 		if firstQueue.total.waitTime != 0 {
-			t.Errorf("Queue total.waitTime should be reset")
+			t.Error("Queue total.waitTime should be reset")
 		}
 	})
 }

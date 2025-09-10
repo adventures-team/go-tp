@@ -1,5 +1,4 @@
 //go:build integration
-// +build integration
 
 package tptest
 
@@ -53,7 +52,7 @@ func TestSingle(t *testing.T) {
 
 func TestBatch(t *testing.T) {
 	ctx, client := getTestClient(t)
-	zLog := zerolog.Ctx(ctx)
+	zlog := zerolog.Ctx(ctx)
 	byID := eventDataMap{}
 
 	for i := 0; i < testBatchSize; i++ {
@@ -69,7 +68,7 @@ func TestBatch(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		zLog.Info().Stringer("eventID", eventID).Msg("event published")
+		zlog.Info().Stringer("eventID", eventID).Msg("event published")
 
 		if rand.Intn(2) == 1 {
 			err = client.Defer(ctx, testRawQueueID, testDefer, []queuedproto.EventID{eventID})
@@ -77,7 +76,7 @@ func TestBatch(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			zLog.Info().Stringer("eventID", eventID).Stringer("duration", testDefer).Msg("event deferred")
+			zlog.Info().Stringer("eventID", eventID).Stringer("duration", testDefer).Msg("event deferred")
 		}
 
 		byID[eventID] = testData
@@ -86,9 +85,9 @@ func TestBatch(t *testing.T) {
 	started := time.Now()
 	iter := 1
 
-	zLog.Info().Float64("now", float64(time.Now().UnixMicro())/1_000_000).Send() // убедиться, что работает для разных вариантов округления
+	zlog.Info().Float64("now", float64(time.Now().UnixMicro())/1_000_000).Send() // убедиться, что работает для разных вариантов округления
 
-	getItems(ctx, t, &iter, client, byID)
+	fetchAndCompare(ctx, t, &iter, client, byID)
 
 	if len(byID) == 0 {
 		t.Fatal("all items received in one batch, looks like Defer is broken")
@@ -96,7 +95,7 @@ func TestBatch(t *testing.T) {
 
 	for {
 		time.Sleep(testPollDelay)
-		getItems(ctx, t, &iter, client, byID)
+		fetchAndCompare(ctx, t, &iter, client, byID)
 
 		if len(byID) == 0 {
 			return
@@ -110,12 +109,12 @@ func TestBatch(t *testing.T) {
 				keys = append(keys, key)
 			}
 
-			zLog.Fatal().Msgf("haven't received all deferred items %v in %v, %d iterations", keys, elapsed, iter)
+			zlog.Fatal().Msgf("haven't received all deferred items %v in %v, %d iterations", keys, elapsed, iter)
 		}
 	}
 }
 
-func getItems(ctx context.Context, t *testing.T, iter *int, client *queuedclient.QueuedClient, byID eventDataMap) {
+func fetchAndCompare(ctx context.Context, t *testing.T, iter *int, client *queuedclient.QueuedClient, byID eventDataMap) {
 	events, err := client.GetActive(ctx, testRawQueueID, 2*testBatchSize) // двойной размер - чтобы получить все задержанные значения от предыдущих (сфейливших/прерванных) запусков теста )
 	if err != nil {
 		t.Fatal(err)
@@ -126,11 +125,11 @@ func getItems(ctx context.Context, t *testing.T, iter *int, client *queuedclient
 			t.Fatal(err)
 		}
 
-		zLog := zerolog.Ctx(ctx)
+		zlog := zerolog.Ctx(ctx)
 		expected, ok := byID[event.EventID]
 
 		if !ok {
-			zLog.Warn().Int("iter", *iter).Stringer("eventID", event.EventID).Msg("unexpected event received")
+			zlog.Warn().Int("iter", *iter).Stringer("eventID", event.EventID).Msg("unexpected event received")
 			continue
 		}
 
@@ -138,7 +137,7 @@ func getItems(ctx context.Context, t *testing.T, iter *int, client *queuedclient
 			t.Fatalf("iter=%d, eventID=%v: got %v, expected %v", *iter, event.EventID, event.Data, expected)
 		}
 
-		zLog.Info().Int("iter", *iter).Stringer("eventID", event.EventID).Msg("event received")
+		zlog.Info().Int("iter", *iter).Stringer("eventID", event.EventID).Msg("event received")
 		delete(byID, event.EventID)
 	}
 
@@ -147,7 +146,7 @@ func getItems(ctx context.Context, t *testing.T, iter *int, client *queuedclient
 
 func TestSharding(t *testing.T) {
 	ctx, client := getTestClient(t)
-	zLog := zerolog.Ctx(ctx)
+	zlog := zerolog.Ctx(ctx)
 
 	shardNum := client.ShardNum()
 	shardNums := make([]uint, shardNum)
@@ -155,7 +154,7 @@ func TestSharding(t *testing.T) {
 	plainEventIDMap := make(map[uint64]uint, shardNum)
 	plainEventIDs := make([]uint64, 0, shardNum)
 
-	zLog.Info().Msgf("got %d shards", shardNum)
+	zlog.Info().Msgf("got %d shards", shardNum)
 
 	for i := uint(0); i < shardNum; i++ {
 		evID, err := client.Publish(ctx, testShardingQueueID, queuedproto.EventID{
@@ -163,14 +162,14 @@ func TestSharding(t *testing.T) {
 			ID:    uint64(i + 1),
 		}, queuedproto.FlagIgnoreWrongItem, []byte{})
 		if err != nil {
-			zLog.Fatal().Err(err).Send()
+			zlog.Fatal().Err(err).Send()
 		}
 
 		shardNums[i] = evID.Shard
 		eventIDs[i] = evID
 		plainEventIDMap[evID.ID] = evID.Shard
 
-		zLog.Info().Stringer("event_id", evID).Msg("event published")
+		zlog.Info().Stringer("event_id", evID).Msg("event published")
 	}
 
 	// проверяем, что все номера шардов отличаются - сортируем и попарно сравниваем.
@@ -182,7 +181,7 @@ func TestSharding(t *testing.T) {
 
 	for i, shard := range shardNums[1:] {
 		if shard == shardNums[i] {
-			zLog.Fatal().Uints("shard_nums", shardNums).Msg("duplicate shard numbers")
+			zlog.Fatal().Uints("shard_nums", shardNums).Msg("duplicate shard numbers")
 		}
 	}
 
@@ -192,11 +191,11 @@ func TestSharding(t *testing.T) {
 
 	items, err := client.GetByIDsBroadcast(ctx, testShardingQueueID, plainEventIDs)
 	if err != nil {
-		zLog.Fatal().Err(err).Uints64("event_ids", plainEventIDs).Msg("GetByIDsBroadcast")
+		zlog.Fatal().Err(err).Uints64("event_ids", plainEventIDs).Msg("GetByIDsBroadcast")
 	}
 
 	if len(items.Items) != int(shardNum) {
-		zLog.Fatal().Msgf("got %d items, expected %d (shards count)", len(items.Items), shardNum)
+		zlog.Fatal().Msgf("got %d items, expected %d (shards count)", len(items.Items), shardNum)
 	}
 
 	for _, item := range items.Items {
@@ -211,6 +210,6 @@ func TestSharding(t *testing.T) {
 	}
 
 	if err := client.Delete(ctx, testShardingQueueID, eventIDs); err != nil {
-		zLog.Fatal().Err(err).Interface("event_ids", eventIDs).Msg("Delete failed")
+		zlog.Fatal().Err(err).Interface("event_ids", eventIDs).Msg("Delete failed")
 	}
 }

@@ -276,12 +276,12 @@ func (c *Config) RetryType(queueID uint16) (int, error) {
 		return RetryLinear, nil
 	case "exp", "exponential":
 		return RetryExponential, nil
-	}
-
-	return 0, &ConfError{
-		Path:  path,
-		Value: typ,
-		Err:   errors.New("unknown retry_type"),
+	default:
+		return 0, &ConfError{
+			Path:  path,
+			Value: typ,
+			Err:   errors.New("unknown retry_type"),
+		}
 	}
 }
 

@@ -1,5 +1,4 @@
 //go:build integration
-// +build integration
 
 package tptest
 
@@ -9,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	zLog "github.com/rs/zerolog/log"
+	zlog "github.com/rs/zerolog/log"
 	"go.uber.org/mock/gomock"
 
 	"gitlab.cebc.tools/go/tp.git"
@@ -41,7 +40,7 @@ func resetConfig() {
 }
 
 func setConfInt32(name string, conf *int32, val int32, delay time.Duration) {
-	zLog.Warn().Msgf("setting %s=%d", name, val)
+	zlog.Warn().Msgf("setting %s=%d", name, val)
 	atomic.StoreInt32(conf, val)
 	reloadConfig()
 	time.Sleep(delay)

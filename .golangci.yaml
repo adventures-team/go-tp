@@ -29,6 +29,89 @@ linters:
     goconst:
       min-len: 2
       min-occurrences: 2
+    revive:
+      rules:
+        - name: argument-limit
+        - name: atomic
+        - name: banned-characters
+        - name: bare-return
+        - name: blank-imports
+        - name: bool-literal-in-expr
+        - name: call-to-gc
+        - name: comment-spacings
+        - name: confusing-naming
+        - name: confusing-results
+        - name: constant-logical-expr
+        - name: context-as-argument
+        - name: context-keys-type
+        - name: datarace
+        - name: deep-exit
+        - name: defer
+        - name: dot-imports
+        - name: duplicated-imports
+        - name: early-return
+        - name: empty-block
+        - name: empty-lines
+        - name: enforce-map-style
+        - name: enforce-repeated-arg-type-style
+        - name: enforce-slice-style
+        - name: enforce-switch-style
+        - name: error-naming
+        - name: error-return
+        - name: error-strings
+        - name: errorf
+        - name: exported
+        - name: file-header
+        - name: file-length-limit
+        - name: filename-format
+        - name: flag-parameter
+        - name: get-return
+        - name: identical-branches
+        - name: if-return
+        - name: import-alias-naming
+        - name: import-shadowing
+        - name: imports-blocklist
+        - name: increment-decrement
+        - name: indent-error-flow
+        - name: max-control-nesting
+        - name: modifies-parameter
+        - name: modifies-value-receiver
+        - name: nested-structs
+        - name: optimize-operands-order
+        - name: package-comments
+        - name: range
+        - name: range-val-address
+        - name: range-val-in-closure
+        - name: receiver-naming
+          arguments:
+            "max-length": 3
+        - name: redefines-builtin-id
+        - name: redundant-build-tag
+        - name: redundant-import-alias
+        - name: redundant-test-main-exit
+        - name: string-format
+        - name: string-of-int
+        - name: struct-tag
+        - name: superfluous-else
+        - name: time-date
+        - name: time-equal
+        - name: time-naming
+        - name: unconditional-recursion
+        - name: unexported-naming
+        - name: unexported-return
+        - name: unhandled-error
+        - name: unnecessary-format
+        - name: unnecessary-stmt
+        - name: unreachable-code
+        - name: unused-parameter
+        - name: unused-receiver
+        - name: use-any
+        - name: use-errors-new
+        - name: use-fmt-print
+        - name: useless-break
+        - name: var-declaration
+        - name: var-naming
+        - name: waitgroup-by-value
   exclusions:
     generated: lax
     rules:

@@ -26,7 +26,7 @@ type OnlineConf interface {
 	GetStringIfExists(string) (string, bool)
 	GetInt(string, int) int
 	GetIntErr(string) (int, error)
-	Subscribe(path string) (chan struct{}, error)
+	Subscribe(string) (chan struct{}, error)
 }
 
 // OnlineConfWithSubtree - зависимость от онлайнконфа с методом Subtree.

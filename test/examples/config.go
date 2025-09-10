@@ -9,7 +9,7 @@ import (
 func getConfig() *onlineconf.Module {
 	conf, err := onlineconf.OpenModule("./config.cdb")
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal(err) //nolint:revive
 	}
 
 	return conf
