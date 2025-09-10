@@ -56,7 +56,7 @@ func Decode(format Format, encoded []byte, valPtr iproto.Unmarshaler) error {
 }
 
 // Detect определяет формат структуры данных по соответствию интерфейсу - proto.Message для protobuf, всё остальное считается перловым форматом
-func Detect(v interface{}) Format {
+func Detect(v any) Format {
 	switch v.(type) {
 	case proto.Message:
 		return Protobuf

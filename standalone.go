@@ -249,18 +249,18 @@ func (qm *StandaloneMaster) Run() {
 		return
 	}
 
-	go qm.run(ctx) // менеджер конфига запускается асинхронно, т.к. просто посылает команды пулу
+	go qm.runGoro(ctx) // менеджер конфига запускается асинхронно, т.к. просто посылает команды пулу
 
 	qm.pool.Run() // пул должен запускаться синхронно, чтобы выход из Manage происходил после окончания всей обработки
 }
 
-func (qm *StandaloneMaster) run(ctx context.Context) {
+func (qm *StandaloneMaster) runGoro(ctx context.Context) {
 	defer func() {
 		if reason := recover(); reason != nil {
 			mylog.LogPanic(qm.logger.Error(), reason).Msg("panic in QueueManager.manage")
 			time.Sleep(workerpool.InternalPanicDelay)
 
-			go qm.run(ctx)
+			go qm.runGoro(ctx)
 		}
 	}()
 

@@ -36,10 +36,10 @@ type ErrMulti []error
 var _ error = ErrMulti{}
 
 // Error возвращает список ошибок через запятую.
-func (errs ErrMulti) Error() string {
-	strs := make([]string, len(errs))
+func (em ErrMulti) Error() string {
+	strs := make([]string, len(em))
 
-	for i, err := range errs {
+	for i, err := range em {
 		strs[i] = err.Error()
 	}
 
@@ -47,15 +47,15 @@ func (errs ErrMulti) Error() string {
 }
 
 // Append добавляет ошибку в список.
-func (errs *ErrMulti) Append(err error) {
-	*errs = append(*errs, err)
+func (em *ErrMulti) Append(err error) {
+	*em = append(*em, err)
 }
 
 // ToError преобразует мульти-ошибку в стандартный тип error. Если ошибок 0 - возвращается nil.
-func (errs ErrMulti) ToError() error {
-	if len(errs) == 0 {
+func (em ErrMulti) ToError() error {
+	if len(em) == 0 {
 		return nil
 	}
 
-	return errs
+	return em
 }

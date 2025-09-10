@@ -9,14 +9,14 @@ import (
 
 	easygo "gitlab.cebc.tools/go/easygo.git/iproto"
 	"gitlab.cebc.tools/go/tp.git/internal"
-	mock_iproto "gitlab.cebc.tools/go/tp.git/test/mock/iproto"
+	mockiproto "gitlab.cebc.tools/go/tp.git/test/mock/iproto"
 )
 
 func TestServeIProto_cmdStat(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		ctx := context.Background()
 		ctrl := gomock.NewController(t)
-		conn := mock_iproto.NewMockConnection(ctrl)
+		conn := mockiproto.NewMockConnection(ctrl)
 
 		data := StatsData{}
 		_ = faker.FakeData(&data)
@@ -62,7 +62,7 @@ func TestServeIProto_cmdSetQueue(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		ctx := context.Background()
 		ctrl := gomock.NewController(t)
-		conn := mock_iproto.NewMockConnection(ctrl)
+		conn := mockiproto.NewMockConnection(ctrl)
 
 		assignSlotCalls := 0
 		data := StatsData{}

@@ -1,5 +1,4 @@
 //go:build integration
-// +build integration
 
 package tptest
 
@@ -21,7 +20,7 @@ func (u UUID) MarshalIProto(buf []byte) ([]byte, error) {
 	return append(buf, u.UUID[:]...), nil
 }
 
-func (u *UUID) UnmarshalIProto(_ []byte) ([]byte, error) {
+func (*UUID) UnmarshalIProto([]byte) ([]byte, error) {
 	return nil, errors.New("UUID.UnmarshalIProto isn't implemented")
 }
 

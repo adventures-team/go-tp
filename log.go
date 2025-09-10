@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/rs/zerolog"
-	zLog "github.com/rs/zerolog/log"
+	zlog "github.com/rs/zerolog/log"
 )
 
 type baseLogCtxKey struct{}
@@ -28,7 +28,7 @@ func logFromCtx(ctx context.Context) *zerolog.Logger {
 		return li.(*zerolog.Logger)
 	}
 
-	zLog.Error().Msg("intenal error - logFromCtx called with wrong context, using global logger")
+	zlog.Error().Msg("intenal error - logFromCtx called with wrong context, using global logger")
 
-	return &zLog.Logger
+	return &zlog.Logger
 }

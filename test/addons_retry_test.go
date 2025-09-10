@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/rs/zerolog"
-	zLog "github.com/rs/zerolog/log"
+	zlog "github.com/rs/zerolog/log"
 
 	"github.com/my-mail-ru/go-queuedproto/addons"
 
@@ -43,7 +43,7 @@ func TestAddonsRetry(t *testing.T) {
 		tp.WithLogger(mylog.InitTestZerolog(t)),
 	)
 
-	zLog.Info().Int("pid", os.Getpid()).Send()
+	zlog.Info().Int("pid", os.Getpid()).Send()
 
 	handler := retryEventHandler{
 		stopper: qm,
@@ -51,24 +51,24 @@ func TestAddonsRetry(t *testing.T) {
 
 	err := tp.Register(qm.Queue, tp.WithRetry(handler.handle))
 	if err != nil {
-		zLog.Fatal().Err(err).Msg("Queue.Register")
+		zlog.Fatal().Err(err).Msg("Queue.Register")
 	}
 
 	ctx := context.Background()
 
 	eventID, err := qm.Publish(ctx, &retryEvent{}, queuedclient.PublishActivationTime(time.Now().Add(time.Second)))
 	if err != nil {
-		zLog.Panic().Err(err).Msg("Publish")
+		zlog.Panic().Err(err).Msg("Publish")
 	}
 
-	zLog.Info().Stringer("event_id", eventID).Msg("published")
+	zlog.Info().Stringer("event_id", eventID).Msg("published")
 
 	/*
 		go func() { // keep queued busy
 			for {
 				eventID, err := qm.Publish(ctx, &retryEvent{}) //, queuedclient.PublishInitialDelay(time.Hour))
 				if err != nil {
-					zLog.Err(err).Msg("qm.Publish")
+					zlog.Err(err).Msg("qm.Publish")
 				}
 
 				qm.Client().Delete(ctx, testRetryEventQueueID, []queuedproto.EventID{eventID})

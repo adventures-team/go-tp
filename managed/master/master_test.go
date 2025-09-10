@@ -14,17 +14,17 @@ import (
 	"gitlab.cebc.tools/go/tp.git/managed/qmclient"
 	"gitlab.cebc.tools/go/tp.git/managed/stats"
 	"gitlab.cebc.tools/go/tp.git/slotpool"
-	mock_poller "gitlab.cebc.tools/go/tp.git/test/mock/poller"
-	mock_queue "gitlab.cebc.tools/go/tp.git/test/mock/queue"
-	mock_slotpool "gitlab.cebc.tools/go/tp.git/test/mock/slotpool"
-	mock_stat "gitlab.cebc.tools/go/tp.git/test/mock/stats"
+	mockpoller "gitlab.cebc.tools/go/tp.git/test/mock/poller"
+	mockqueue "gitlab.cebc.tools/go/tp.git/test/mock/queue"
+	mockslotpool "gitlab.cebc.tools/go/tp.git/test/mock/slotpool"
+	mockstat "gitlab.cebc.tools/go/tp.git/test/mock/stats"
 )
 
 func TestAssignSlot(t *testing.T) {
 	t.Run("assign work to slot", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
-		q := mock_queue.NewMockQueue(ctrl)
-		p := mock_slotpool.NewMockPool(ctrl)
+		q := mockqueue.NewMockQueue(ctrl)
+		p := mockslotpool.NewMockPool(ctrl)
 		slotID := uint32(0)
 		queueID := uint32(10)
 
@@ -56,8 +56,8 @@ func TestAssignSlot(t *testing.T) {
 
 	t.Run("release slot", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
-		q := mock_queue.NewMockQueue(ctrl)
-		p := mock_slotpool.NewMockPool(ctrl)
+		q := mockqueue.NewMockQueue(ctrl)
+		p := mockslotpool.NewMockPool(ctrl)
 		slotID := uint32(0)
 		queueID := uint32(0)
 
@@ -82,8 +82,8 @@ func TestAssignSlot(t *testing.T) {
 
 	t.Run("error on release slot", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
-		q := mock_queue.NewMockQueue(ctrl)
-		p := mock_slotpool.NewMockPool(ctrl)
+		q := mockqueue.NewMockQueue(ctrl)
+		p := mockslotpool.NewMockPool(ctrl)
 		slotID := uint32(0)
 		queueID := uint32(0)
 
@@ -117,14 +117,14 @@ func TestAssignSlot(t *testing.T) {
 		}
 
 		if stat.QueueID != 0 {
-			t.Errorf("QueueID should be cleared")
+			t.Error("QueueID should be cleared")
 		}
 	})
 
 	t.Run("queue is not registered", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
-		q := mock_queue.NewMockQueue(ctrl)
-		p := mock_slotpool.NewMockPool(ctrl)
+		q := mockqueue.NewMockQueue(ctrl)
+		p := mockslotpool.NewMockPool(ctrl)
 		slotID := uint32(0)
 		queueID := uint32(10)
 
@@ -151,8 +151,8 @@ func TestAssignSlot(t *testing.T) {
 
 	t.Run("slot not found", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
-		q := mock_queue.NewMockQueue(ctrl)
-		p := mock_slotpool.NewMockPool(ctrl)
+		q := mockqueue.NewMockQueue(ctrl)
+		p := mockslotpool.NewMockPool(ctrl)
 		slotID := uint32(0)
 		queueID := uint32(10)
 
@@ -182,11 +182,11 @@ func TestAssignSlot(t *testing.T) {
 func TestWork(t *testing.T) {
 	t.Run("execute work", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
-		q := mock_queue.NewMockQueue(ctrl)
-		pool := mock_slotpool.NewMockPool(ctrl)
-		poller := mock_poller.NewMockPoller(ctrl)
-		worker := mock_poller.NewMockWorker(ctrl)
-		workerStat := mock_poller.NewMockWorkerStat(ctrl)
+		q := mockqueue.NewMockQueue(ctrl)
+		pool := mockslotpool.NewMockPool(ctrl)
+		poller := mockpoller.NewMockPoller(ctrl)
+		worker := mockpoller.NewMockWorker(ctrl)
+		workerStat := mockpoller.NewMockWorkerStat(ctrl)
 		queueID := uint32(10)
 		slotID := uint32(0)
 
@@ -205,9 +205,9 @@ func TestWork(t *testing.T) {
 
 	t.Run("no events in queue", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
-		q := mock_queue.NewMockQueue(ctrl)
-		pool := mock_slotpool.NewMockPool(ctrl)
-		poller := mock_poller.NewMockPoller(ctrl)
+		q := mockqueue.NewMockQueue(ctrl)
+		pool := mockslotpool.NewMockPool(ctrl)
+		poller := mockpoller.NewMockPoller(ctrl)
 		queueID := uint32(10)
 		slotID := uint32(0)
 
@@ -222,7 +222,7 @@ func TestWork(t *testing.T) {
 
 func TestDelay(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	pool := mock_slotpool.NewMockPool(ctrl)
+	pool := mockslotpool.NewMockPool(ctrl)
 	queueID := uint32(100)
 
 	pool.EXPECT().SlotStates().Return(nil)
@@ -295,7 +295,7 @@ func BenchmarkResetDelay(b *testing.B) {
 func TestStats(t *testing.T) {
 	t.Run("no slots", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
-		pool := mock_slotpool.NewMockPool(ctrl)
+		pool := mockslotpool.NewMockPool(ctrl)
 
 		pool.EXPECT().SlotStates().MaxTimes(2).Return(nil)
 		mm := NewManagedMaster(nil, pool, nil, &zerolog.Logger{})
@@ -320,7 +320,7 @@ func TestStats(t *testing.T) {
 
 	t.Run("one inactive slot", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
-		pool := mock_slotpool.NewMockPool(ctrl)
+		pool := mockslotpool.NewMockPool(ctrl)
 		slot := slotpool.SlotState{
 			StartedAt:     uint32(time.Now().Unix()),
 			UpdatedAt:     0,
@@ -358,8 +358,8 @@ func TestStats(t *testing.T) {
 
 	t.Run("one active slot", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
-		pool := mock_slotpool.NewMockPool(ctrl)
-		slotStat := mock_stat.NewMockSlotStat(ctrl)
+		pool := mockslotpool.NewMockPool(ctrl)
+		slotStat := mockstat.NewMockSlotStat(ctrl)
 
 		now := uint32(time.Now().Unix())
 		queueID := uint32(10)
@@ -449,8 +449,8 @@ func TestStats(t *testing.T) {
 
 	t.Run("switching state", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
-		pool := mock_slotpool.NewMockPool(ctrl)
-		slotStat := mock_stat.NewMockSlotStat(ctrl)
+		pool := mockslotpool.NewMockPool(ctrl)
+		slotStat := mockstat.NewMockSlotStat(ctrl)
 
 		now := uint32(time.Now().Unix())
 		queueID := uint32(10)
@@ -539,7 +539,7 @@ func TestStats(t *testing.T) {
 
 	t.Run("stat send interval", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
-		pool := mock_slotpool.NewMockPool(ctrl)
+		pool := mockslotpool.NewMockPool(ctrl)
 		now := uint32(time.Now().Unix())
 		slot := slotpool.SlotState{
 			StartedAt: now,
@@ -559,8 +559,8 @@ func TestStats(t *testing.T) {
 
 	t.Run("queues goes to archive except current one", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
-		pool := mock_slotpool.NewMockPool(ctrl)
-		slotStat := mock_stat.NewMockSlotStat(ctrl)
+		pool := mockslotpool.NewMockPool(ctrl)
+		slotStat := mockstat.NewMockSlotStat(ctrl)
 
 		now := uint32(time.Now().Unix())
 		currentQueueID := uint32(10)

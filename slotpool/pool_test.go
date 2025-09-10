@@ -470,7 +470,7 @@ func TestReleaseSlot(t *testing.T) {
 		slot := st.slots[0]
 
 		if len(slot.release) != 0 {
-			t.Errorf("ReleaseSlot must not try to release empty slot")
+			t.Error("ReleaseSlot must not try to release empty slot")
 		}
 	})
 }
@@ -495,7 +495,7 @@ func TestFinish(t *testing.T) {
 	runtime.Gosched()
 
 	if atomic.LoadInt32(&n) == 0 {
-		t.Errorf("some work must be executed")
+		t.Error("some work must be executed")
 	}
 
 	if _, ok := <-p.finish; ok {

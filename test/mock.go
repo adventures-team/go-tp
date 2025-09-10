@@ -1,5 +1,4 @@
 //go:build !gomarkdoc
-// +build !gomarkdoc
 
 //go:generate go tool mockgen -copyright_file build_tag -typed -destination onlineconf_mock_test.go -package $GOPACKAGE gitlab.cebc.tools/go/tp.git/queueconfig OnlineConf
 //go:generate go tool mockgen -copyright_file build_tag -typed -destination onlineconf_subtree_mock_test.go -package $GOPACKAGE .  OnlineConfWithSubtree

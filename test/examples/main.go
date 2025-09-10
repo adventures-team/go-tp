@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 
-	zLog "github.com/rs/zerolog/log"
+	zlog "github.com/rs/zerolog/log"
 )
 
 var (
@@ -19,7 +19,7 @@ func main() {
 	if *flagID == 0 && *flagName == "" {
 		startHandler(svc)
 
-		zLog.Info().Msg("handler finished, exiting")
+		zlog.Info().Msg("handler finished, exiting")
 	} else {
 		sendData(uint32(*flagID), *flagName)
 	}

@@ -31,7 +31,7 @@ func NewAdmin(ctx context.Context, opt *Options) (Admin, error) {
 		scanner: bufio.NewScanner(conn),
 	}
 
-	if !(adm.scanner.Scan() && adm.scanner.Scan()) { //nolint:staticcheck
+	if !(adm.scanner.Scan() && adm.scanner.Scan()) { //nolint:staticcheck,revive
 		return Admin{}, errors.New("error reading queued admin greeting")
 	}
 

@@ -4,6 +4,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log"
 	"math"
 	"os"
@@ -66,13 +67,17 @@ func main() {
 
 	defer cancel()
 
-	queueCleanup(ctx, opt, "initial")
+	if err := queueCleanup(ctx, opt, "initial"); err != nil {
+		log.Panic(err)
+	}
 
 	defer func() {
 		ctx2, cancel2 := setupContext(opt) // the old one may be already cancelled
 		defer cancel2()
 
-		queueCleanup(ctx2, opt, "final")
+		if err := queueCleanup(ctx2, opt, "final"); err != nil {
+			log.Panic(err)
+		}
 	}()
 
 	pool := NewConnPool(opt)
@@ -100,19 +105,21 @@ func setupContext(opt *Options) (ctx context.Context, cancel func()) {
 	return ctx, cancel
 }
 
-func queueCleanup(ctx context.Context, opt *Options, reason string) {
+func queueCleanup(ctx context.Context, opt *Options, reason string) error {
 	admin, err := NewAdmin(ctx, opt)
 	if err != nil {
-		log.Panicf("error connecting admin port during %s cleanup: %v", reason, err)
+		return fmt.Errorf("error connecting admin port during %s cleanup: %v", reason, err)
 	}
 
 	defer admin.Close()
 
 	if err = admin.DestroyStorage(ctx, opt.QueueID); err != nil {
-		log.Panicf("%s DestroyStorage: %v", reason, err)
+		return fmt.Errorf("%s DestroyStorage: %v", reason, err)
 	}
 
 	log.Println(reason + " cleanup OK")
+
+	return nil
 }
 
 func refreshStats(ctx context.Context, opt *Options, pool *ConnPool) {

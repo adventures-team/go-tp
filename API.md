@@ -15,7 +15,8 @@ TODO дока по архитектуре
 - [Constants](<#constants>)
 - [Variables](<#variables>)
 - [func CalcShard\(eventID uint64, shardNum uint\) uint](<#CalcShard>)
-- [func Register\[EvType Event, EvSlice \~\[\]EvType\]\(queue \*Queue, handler func\(context.Context, EvSlice\) error\) error](<#Register>)
+- [func EncodeEvent\(event Event\) \(eventData \[\]byte, err error\)](<#EncodeEvent>)
+- [func Register\[EvType Event, EvSlice \~\[\]EvType\]\(q \*Queue, handler func\(context.Context, EvSlice\) error\) error](<#Register>)
 - [type BaseEvent](<#BaseEvent>)
   - [func NewBaseEvent\(\) BaseEvent](<#NewBaseEvent>)
   - [func \(BaseEvent\) AddonID\(incompatible\)](<#BaseEvent.AddonID>)
@@ -56,16 +57,15 @@ TODO дока по архитектуре
 - [type Queue](<#Queue>)
   - [func Init\(ctx context.Context, conf \*queueconfig.Config\) \(\*Queue, error\)](<#Init>)
   - [func InitProducer\[T queueconfig.OnlineConf\]\(conf queueconfig.OnlineConfWithSubtree\[T\], opts ...InitOption\) \*Queue](<#InitProducer>)
-  - [func \(queue \*Queue\) Client\(\) \*queuedclient.QueuedClient](<#Queue.Client>)
-  - [func \(queue \*Queue\) Config\(\) \*queueconfig.Config](<#Queue.Config>)
-  - [func \(queue \*Queue\) Encode\(event Event\) \(eventData \[\]byte, err error\)](<#Queue.Encode>)
-  - [func \(queue \*Queue\) GetActiveEvents\(ctx context.Context, queueID QueueIDType, count int\) \(\*EventList, error\)](<#Queue.GetActiveEvents>)
-  - [func \(queue \*Queue\) GetEventsByIDs\(ctx context.Context, queueID QueueIDType, eventIDs \[\]queuedproto.EventID\) \(\*EventList, error\)](<#Queue.GetEventsByIDs>)
-  - [func \(queue \*Queue\) IsRegistered\(queueID uint16\) bool](<#Queue.IsRegistered>)
+  - [func \(q \*Queue\) Client\(\) \*queuedclient.QueuedClient](<#Queue.Client>)
+  - [func \(q \*Queue\) Config\(\) \*queueconfig.Config](<#Queue.Config>)
+  - [func \(q \*Queue\) GetActiveEvents\(ctx context.Context, queueID QueueIDType, count int\) \(\*EventList, error\)](<#Queue.GetActiveEvents>)
+  - [func \(q \*Queue\) GetEventsByIDs\(ctx context.Context, queueID QueueIDType, eventIDs \[\]queuedproto.EventID\) \(\*EventList, error\)](<#Queue.GetEventsByIDs>)
+  - [func \(q \*Queue\) IsRegistered\(queueID uint16\) bool](<#Queue.IsRegistered>)
   - [func \(q \*Queue\) NewPoller\(logger \*zerolog.Logger\) workerpool.Poller](<#Queue.NewPoller>)
-  - [func \(queue \*Queue\) Publish\(ctx context.Context, event Event, opts ...queuedclient.PublishOption\) \(queuedproto.EventID, error\)](<#Queue.Publish>)
-  - [func \(queue \*Queue\) Queued\(\) \*queuedclient.QueuedClient](<#Queue.Queued>)
-  - [func \(queue \*Queue\) Replace\(ctx context.Context, event Event, opts ...queuedclient.PublishOption\) error](<#Queue.Replace>)
+  - [func \(q \*Queue\) Publish\(ctx context.Context, event Event, opts ...queuedclient.PublishOption\) \(queuedproto.EventID, error\)](<#Queue.Publish>)
+  - [func \(q \*Queue\) Queued\(\) \*queuedclient.QueuedClient](<#Queue.Queued>)
+  - [func \(q \*Queue\) Replace\(ctx context.Context, event Event, opts ...queuedclient.PublishOption\) error](<#Queue.Replace>)
 - [type QueueIDType](<#QueueIDType>)
 - [type Retry2Option](<#Retry2Option>)
   - [func OnRetry2\[T EventWithRetry2\]\(f func\(T\)\) Retry2Option](<#OnRetry2>)
@@ -175,11 +175,28 @@ func CalcShard(eventID uint64, shardNum uint) uint
 
 CalcShard распределяет события по шардам в зависимости от хеша от ID события. Совместимо с перлом \(алгоритм хеширования \- crc от строкового десятичного представления eventID, распределение по шардам \- остаток от деления\).
 
+<a name="EncodeEvent"></a>
+## func EncodeEvent
+
+```go
+func EncodeEvent(event Event) (eventData []byte, err error)
+```
+
+EncodeEvent кодирует событие.
+
+Если нужно только отправлять события, регистрация не требуется \(в отличие от предыдущих версий tp\).
+
+При соответствии интерфейсам Builder и/или EventIDBuilder вызываются соответствующие методы.
+
+Кодировщику безразлично, передаётся указатель или значение, но для вызова методов по указанным интерфейсам нужно соблюдать правильный тип \(тот, для которого объявлен метод \- очевидно, для Builder нужен указатель\).
+
+ID события, кроме интерфейса EventIDBuilder, можно также передать явно. Номер шарда будет вычислен из ID события, если оно задано одним из этих способов. Если EventID.ID == 0, шард будет выбран по round robin \(queuedclient.BalanceShard\).
+
 <a name="Register"></a>
 ## func Register
 
 ```go
-func Register[EvType Event, EvSlice ~[]EvType](queue *Queue, handler func(context.Context, EvSlice) error) error
+func Register[EvType Event, EvSlice ~[]EvType](q *Queue, handler func(context.Context, EvSlice) error) error
 ```
 
 Register регистрирует обработчик очереди для получения событий. Для отправки регистрация не требуется. handler принимает слайс событий, поддерживающих интерфейс Event \(конкретных типов \- не слайс интерфейсов\). ID очереди и версия события определяется методами QueueID и Version. Для одной очереди могут быть зарегистрированы обработчики событий нескольких версий.
@@ -701,7 +718,7 @@ func (svc *Service) PostUserDataHandler(...) {
 ### func \(\*Queue\) Client
 
 ```go
-func (queue *Queue) Client() *queuedclient.QueuedClient
+func (q *Queue) Client() *queuedclient.QueuedClient
 ```
 
 Client возвращает клиент очередей.
@@ -716,33 +733,16 @@ Client возвращает клиент очередей.
 ### func \(\*Queue\) Config
 
 ```go
-func (queue *Queue) Config() *queueconfig.Config
+func (q *Queue) Config() *queueconfig.Config
 ```
 
 Config возвращает высокоуровневый конфиг очередей с возможностью определения значений для каждой очереди.
-
-<a name="Queue.Encode"></a>
-### func \(\*Queue\) Encode
-
-```go
-func (queue *Queue) Encode(event Event) (eventData []byte, err error)
-```
-
-Encode кодирует событие.
-
-Если нужно только отправлять события, регистрация не требуется \(в отличие от предыдущих версий tp\).
-
-При соответствии интерфейсам Builder и/или EventIDBuilder вызываются соответствующие методы.
-
-Кодировщику безразлично, передаётся указатель или значение, но для вызова методов по указанным интерфейсам нужно соблюдать правильный тип \(тот, для которого объявлен метод \- очевидно, для Builder нужен указатель\).
-
-ID события, кроме интерфейса EventIDBuilder, можно также передать явно. Номер шарда будет вычислен из ID события, если оно задано одним из этих способов. Если EventID.ID == 0, шард будет выбран по round robin \(queuedclient.BalanceShard\).
 
 <a name="Queue.GetActiveEvents"></a>
 ### func \(\*Queue\) GetActiveEvents
 
 ```go
-func (queue *Queue) GetActiveEvents(ctx context.Context, queueID QueueIDType, count int) (*EventList, error)
+func (q *Queue) GetActiveEvents(ctx context.Context, queueID QueueIDType, count int) (*EventList, error)
 ```
 
 GetActiveEvents получает активные события \(наступило время срабатывания\) в декодированном виде из очереди queueID. Если count не задано \(==0\), используется значение из конфига \(fetch\_batch\_size\).
@@ -753,7 +753,7 @@ GetActiveEvents получает активные события \(наступ�
 ### func \(\*Queue\) GetEventsByIDs
 
 ```go
-func (queue *Queue) GetEventsByIDs(ctx context.Context, queueID QueueIDType, eventIDs []queuedproto.EventID) (*EventList, error)
+func (q *Queue) GetEventsByIDs(ctx context.Context, queueID QueueIDType, eventIDs []queuedproto.EventID) (*EventList, error)
 ```
 
 GetEventsByIDs получает события в декодированном виде с указанными ID из очереди queueID
@@ -764,7 +764,7 @@ GetEventsByIDs получает события в декодированном �
 ### func \(\*Queue\) IsRegistered
 
 ```go
-func (queue *Queue) IsRegistered(queueID uint16) bool
+func (q *Queue) IsRegistered(queueID uint16) bool
 ```
 
 IsRegistered проверяет, зарегистрирован ли обработчик очереди.
@@ -782,7 +782,7 @@ NewPoller возвращает объект для опроса новых со�
 ### func \(\*Queue\) Publish
 
 ```go
-func (queue *Queue) Publish(ctx context.Context, event Event, opts ...queuedclient.PublishOption) (queuedproto.EventID, error)
+func (q *Queue) Publish(ctx context.Context, event Event, opts ...queuedclient.PublishOption) (queuedproto.EventID, error)
 ```
 
 Publish кодирует событие при помощи метода Encode, и отправляет его в очередь методом queuedclient.Publish. Клиент очередей должен быть проинициализирован.
@@ -795,7 +795,7 @@ Publish кодирует событие при помощи метода Encode,
 ### func \(\*Queue\) Queued
 
 ```go
-func (queue *Queue) Queued() *queuedclient.QueuedClient
+func (q *Queue) Queued() *queuedclient.QueuedClient
 ```
 
 Queued возвращает клиент очередей.
@@ -806,7 +806,7 @@ Deprecated: переименовано в [Queue.Client](<#Queue.Client>)
 ### func \(\*Queue\) Replace
 
 ```go
-func (queue *Queue) Replace(ctx context.Context, event Event, opts ...queuedclient.PublishOption) error
+func (q *Queue) Replace(ctx context.Context, event Event, opts ...queuedclient.PublishOption) error
 ```
 
 Replace заменяет существующее событие в очереди. ID события должно быть обязательно задано. Если время срабатывания не установлено через опции, оно не изменяется.
@@ -1103,7 +1103,7 @@ var (
 - [func Decode\(format Format, encoded \[\]byte, valPtr iproto.Unmarshaler\) error](<#Decode>)
 - [func Encode\(format Format, version uint8, val iproto.Marshaler\) \(\[\]byte, error\)](<#Encode>)
 - [type Format](<#Format>)
-  - [func Detect\(v interface\{\}\) Format](<#Detect>)
+  - [func Detect\(v any\) Format](<#Detect>)
 
 
 ## Variables
@@ -1162,7 +1162,7 @@ const (
 ### func Detect
 
 ```go
-func Detect(v interface{}) Format
+func Detect(v any) Format
 ```
 
 Detect определяет формат структуры данных по соответствию интерфейсу \- proto.Message для protobuf, всё остальное считается перловым форматом
@@ -1341,10 +1341,10 @@ ConfError \- тип для ошибок, который можно как вер
 
 ```go
 type ConfError struct {
-    Path    string      // Путь к неправильному значению
-    Value   string      // Ошибочное значение. Если параметр не найден - пустое
-    Err     error       // Ошибка парзинга, либо ErrNotFound для ненайденных значений
-    Default interface{} // Значение по умолчанию
+    Path    string // Путь к неправильному значению
+    Value   string // Ошибочное значение. Если параметр не найден - пустое
+    Err     error  // Ошибка парзинга, либо ErrNotFound для ненайденных значений
+    Default any    // Значение по умолчанию
     // contains filtered or unexported fields
 }
 ```
@@ -1615,7 +1615,7 @@ type OnlineConf interface {
     GetStringIfExists(string) (string, bool)
     GetInt(string, int) int
     GetIntErr(string) (int, error)
-    Subscribe(path string) (chan struct{}, error)
+    Subscribe(string) (chan struct{}, error)
 }
 ```
 
@@ -1659,9 +1659,9 @@ Multicast/broadcast методы отправляют запросы в указ
 - [Variables](<#variables>)
 - [func GetPID\(conf queueconfig.OnlineConf\) \(uint32, error\)](<#GetPID>)
 - [type ErrMulti](<#ErrMulti>)
-  - [func \(errs \*ErrMulti\) Append\(err error\)](<#ErrMulti.Append>)
-  - [func \(errs ErrMulti\) Error\(\) string](<#ErrMulti.Error>)
-  - [func \(errs ErrMulti\) ToError\(\) error](<#ErrMulti.ToError>)
+  - [func \(em \*ErrMulti\) Append\(err error\)](<#ErrMulti.Append>)
+  - [func \(em ErrMulti\) Error\(\) string](<#ErrMulti.Error>)
+  - [func \(em ErrMulti\) ToError\(\) error](<#ErrMulti.ToError>)
 - [type PublishOption](<#PublishOption>)
   - [func PublishActivationTime\(t time.Time\) PublishOption](<#PublishActivationTime>)
   - [func PublishInitialDelay\(d time.Duration\) PublishOption](<#PublishInitialDelay>)
@@ -1791,7 +1791,7 @@ type ErrMulti []error
 ### func \(\*ErrMulti\) Append
 
 ```go
-func (errs *ErrMulti) Append(err error)
+func (em *ErrMulti) Append(err error)
 ```
 
 Append добавляет ошибку в список.
@@ -1800,7 +1800,7 @@ Append добавляет ошибку в список.
 ### func \(ErrMulti\) Error
 
 ```go
-func (errs ErrMulti) Error() string
+func (em ErrMulti) Error() string
 ```
 
 Error возвращает список ошибок через запятую.
@@ -1809,7 +1809,7 @@ Error возвращает список ошибок через запятую.
 ### func \(ErrMulti\) ToError
 
 ```go
-func (errs ErrMulti) ToError() error
+func (em ErrMulti) ToError() error
 ```
 
 ToError преобразует мульти\-ошибку в стандартный тип error. Если ошибок 0 \- возвращается nil.
@@ -2405,7 +2405,7 @@ queued\-stresser \- parallel and asynchronous queued stress test.
   - [func NewConnPool\(opt \*Options\) \*ConnPool](<#NewConnPool>)
   - [func \(cp \*ConnPool\) GetDelay\(\) time.Duration](<#ConnPool.GetDelay>)
   - [func \(cp \*ConnPool\) Run\(ctx context.Context\)](<#ConnPool.Run>)
-  - [func \(cp \*ConnPool\) SampleDuration\(\) \(time.Duration, time.Duration\)](<#ConnPool.SampleDuration>)
+  - [func \(cp \*ConnPool\) SampleDuration\(\) \(total time.Duration, maximum time.Duration\)](<#ConnPool.SampleDuration>)
   - [func \(cp \*ConnPool\) SampleSize\(\) uint64](<#ConnPool.SampleSize>)
   - [func \(cp \*ConnPool\) SetDelay\(delay time.Duration\)](<#ConnPool.SetDelay>)
   - [func \(cp \*ConnPool\) TotalCount\(\) uint32](<#ConnPool.TotalCount>)
@@ -2509,7 +2509,7 @@ Run the connection pool until the context is cancelled. Connections are restarte
 ### func \(\*ConnPool\) SampleDuration
 
 ```go
-func (cp *ConnPool) SampleDuration() (time.Duration, time.Duration)
+func (cp *ConnPool) SampleDuration() (total time.Duration, maximum time.Duration)
 ```
 
 SampleDuration returns the total/maximum durations of all requests sent since the previous SampleDuration call.
@@ -3139,7 +3139,7 @@ import "gitlab.cebc.tools/go/tp.git/test/examples"
 
 - [Constants](<#constants>)
 - [type Service](<#Service>)
-  - [func \(svc \*Service\) Handle\(ctx context.Context, events \[\]SimpleEvent\) error](<#Service.Handle>)
+  - [func \(\*Service\) Handle\(ctx context.Context, events \[\]SimpleEvent\) error](<#Service.Handle>)
 - [type SimpleEvent](<#SimpleEvent>)
   - [func \(recvSimpleEvent SimpleEvent\) MarshalIProto\(buf \[\]byte\) \(\[\]byte, error\)](<#SimpleEvent.MarshalIProto>)
   - [func \(SimpleEvent\) QueueID\(\) uint16](<#SimpleEvent.QueueID>)
@@ -3170,7 +3170,7 @@ type Service struct {
 ### func \(\*Service\) Handle
 
 ```go
-func (svc *Service) Handle(ctx context.Context, events []SimpleEvent) error
+func (*Service) Handle(ctx context.Context, events []SimpleEvent) error
 ```
 
 

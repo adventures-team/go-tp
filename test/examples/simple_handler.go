@@ -7,12 +7,12 @@ import (
 	"syscall"
 
 	"github.com/rs/zerolog"
-	zLog "github.com/rs/zerolog/log"
+	zlog "github.com/rs/zerolog/log"
 
 	"gitlab.cebc.tools/go/tp.git"
 )
 
-func (svc *Service) Handle(ctx context.Context, events []SimpleEvent) error {
+func (*Service) Handle(ctx context.Context, events []SimpleEvent) error {
 	for _, ev := range events {
 		zerolog.Ctx(ctx).Info().Uint32("user_id", ev.UserID).Str("user_name", ev.UserName).Msg("SimpleEvent received")
 		ev.Done()
@@ -25,7 +25,7 @@ func startHandler(svc *Service) {
 	qm := tp.InitProcessor(getConfig(), tp.WithInstanceName("test-instance"))
 
 	if err := tp.Register(qm.Queue, svc.Handle); err != nil {
-		zLog.Fatal().Err(err).Msg("error registering queue")
+		zlog.Fatal().Err(err).Msg("error registering queue")
 	}
 
 	sigc := make(chan os.Signal, 1)
@@ -33,7 +33,7 @@ func startHandler(svc *Service) {
 
 	go func() {
 		sig := <-sigc
-		zLog.Info().Stringer("signal", sig).Msg("exiting on signal")
+		zlog.Info().Stringer("signal", sig).Msg("exiting on signal")
 		qm.Stop()
 	}()
 

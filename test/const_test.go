@@ -1,5 +1,4 @@
 //go:build integration || stress
-// +build integration stress
 
 package tptest
 

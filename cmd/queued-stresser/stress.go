@@ -67,7 +67,7 @@ func (cp *ConnPool) SampleSize() uint64 {
 }
 
 // SampleDuration returns the total/maximum durations of all requests sent since the previous SampleDuration call.
-func (cp *ConnPool) SampleDuration() (time.Duration, time.Duration) {
+func (cp *ConnPool) SampleDuration() (total time.Duration, maximum time.Duration) {
 	cp.durationMu.Lock()
 	duration, durationMax := cp.duration, cp.durationMax
 	cp.duration, cp.durationMax = 0, 0
