@@ -32,13 +32,11 @@ func testManaged(t *testing.T, doTest func(*tp.StandaloneMaster, *counter, <-cha
 		resetConfig()
 	}()
 
-	conf := newMockConf(t, testSleeperQueueID)
-
-	qm := tp.Config{
-		Config:       conf,
-		InstanceName: "test",
-		Logger:       mylog.InitTestZerolog(t),
-	}.InitProcessor()
+	qm := tp.InitProcessor(
+		newMockConf(t, testSleeperQueueID),
+		tp.WithInstanceName(testInstanceName),
+		tp.WithLogger(mylog.InitTestZerolog(t)),
+	)
 
 	zLog.Info().Int("pid", os.Getpid()).Send()
 
@@ -283,7 +281,7 @@ func TestUpdateDelete(t *testing.T) {
 	confLogLevel = logLevelTrace
 	confFetchBatchSize = 1 // чтобы не выгребало пачками - а заняло все воркеры
 
-	qm := testManaged(t, func(qm *tp.StandaloneMaster, cnt *counter, doneChan <-chan struct{}) {
+	qm := testManaged(t, func(qm *tp.StandaloneMaster, cnt *counter, _ <-chan struct{}) {
 		newEvents.Lock()
 
 		for i := 0; i < 50; i++ {

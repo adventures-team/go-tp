@@ -15,7 +15,7 @@ TODO дока по архитектуре
 - [Constants](<#constants>)
 - [Variables](<#variables>)
 - [func CalcShard\(eventID uint64, shardNum uint\) uint](<#CalcShard>)
-- [func Register\[EvType Event, EvSlice \~\[\]EvType\]\(q \*Queue, handler func\(context.Context, EvSlice\) error\) error](<#Register>)
+- [func Register\[EvType Event, EvSlice \~\[\]EvType\]\(queue \*Queue, handler func\(context.Context, EvSlice\) error\) error](<#Register>)
 - [type BaseEvent](<#BaseEvent>)
   - [func NewBaseEvent\(\) BaseEvent](<#NewBaseEvent>)
   - [func \(BaseEvent\) AddonID\(incompatible\)](<#BaseEvent.AddonID>)
@@ -32,9 +32,6 @@ TODO дока по архитектуре
   - [func \(BaseEvent\) UnmarshalAddon\(incompatible\)](<#BaseEvent.UnmarshalAddon>)
   - [func \(BaseEvent\) UnmarshalIProto\(incompatible\)](<#BaseEvent.UnmarshalIProto>)
 - [type Builder](<#Builder>)
-- [type Config](<#Config>)
-  - [func \(conf Config\) InitProcessor\(\) \*StandaloneMaster](<#Config.InitProcessor>)
-  - [func \(conf Config\) InitProducer\(\) \*Queue](<#Config.InitProducer>)
 - [type DisableMarshaler](<#DisableMarshaler>)
   - [func \(DisableMarshaler\) MarshalIProto\(buf \[\]byte\) \(\[\]byte, error\)](<#DisableMarshaler.MarshalIProto>)
   - [func \(DisableMarshaler\) MarshalerDisabled\(\)](<#DisableMarshaler.MarshalerDisabled>)
@@ -50,16 +47,21 @@ TODO дока по архитектуре
   - [func WithRetry\[EvType EventWithRetry, EvSlice \~\[\]EvType\]\(handler Handler\[EvType, EvSlice\], opts ...RetryOption\) Handler\[EvType, EvSlice\]](<#WithRetry>)
   - [func WithRetry2\[EvType EventWithRetry2, EvSlice \~\[\]EvType\]\(handler Handler\[EvType, EvSlice\], opts ...Retry2Option\) Handler\[EvType, EvSlice\]](<#WithRetry2>)
 - [type IgnoreDuplicateItems](<#IgnoreDuplicateItems>)
+- [type InitOption](<#InitOption>)
+  - [func WithInstanceName\(instanceName string\) InitOption](<#WithInstanceName>)
+  - [func WithLogger\(logger \*zerolog.Logger\) InitOption](<#WithLogger>)
+- [type InitOptions](<#InitOptions>)
 - [type MarshalerDisabled](<#MarshalerDisabled>)
 - [type Middleware](<#Middleware>)
 - [type Queue](<#Queue>)
   - [func Init\(ctx context.Context, conf \*queueconfig.Config\) \(\*Queue, error\)](<#Init>)
+  - [func InitProducer\[T queueconfig.OnlineConf\]\(conf queueconfig.OnlineConfWithSubtree\[T\], opts ...InitOption\) \*Queue](<#InitProducer>)
   - [func \(queue \*Queue\) Client\(\) \*queuedclient.QueuedClient](<#Queue.Client>)
   - [func \(queue \*Queue\) Config\(\) \*queueconfig.Config](<#Queue.Config>)
-  - [func \(q \*Queue\) Encode\(event Event\) \(eventData \[\]byte, err error\)](<#Queue.Encode>)
+  - [func \(queue \*Queue\) Encode\(event Event\) \(eventData \[\]byte, err error\)](<#Queue.Encode>)
   - [func \(queue \*Queue\) GetActiveEvents\(ctx context.Context, queueID QueueIDType, count int\) \(\*EventList, error\)](<#Queue.GetActiveEvents>)
   - [func \(queue \*Queue\) GetEventsByIDs\(ctx context.Context, queueID QueueIDType, eventIDs \[\]queuedproto.EventID\) \(\*EventList, error\)](<#Queue.GetEventsByIDs>)
-  - [func \(q \*Queue\) IsRegistered\(queueID uint16\) bool](<#Queue.IsRegistered>)
+  - [func \(queue \*Queue\) IsRegistered\(queueID uint16\) bool](<#Queue.IsRegistered>)
   - [func \(q \*Queue\) NewPoller\(logger \*zerolog.Logger\) workerpool.Poller](<#Queue.NewPoller>)
   - [func \(queue \*Queue\) Publish\(ctx context.Context, event Event, opts ...queuedclient.PublishOption\) \(queuedproto.EventID, error\)](<#Queue.Publish>)
   - [func \(queue \*Queue\) Queued\(\) \*queuedclient.QueuedClient](<#Queue.Queued>)
@@ -73,6 +75,7 @@ TODO дока по архитектуре
   - [func OnRetry\[T EventWithRetry\]\(f func\(T\)\) RetryOption](<#OnRetry>)
   - [func OnRetryExhausted\[T EventWithRetry\]\(f func\(T\)\) RetryOption](<#OnRetryExhausted>)
 - [type StandaloneMaster](<#StandaloneMaster>)
+  - [func InitProcessor\[T queueconfig.OnlineConf\]\(conf queueconfig.OnlineConfWithSubtree\[T\], opts ...InitOption\) \*StandaloneMaster](<#InitProcessor>)
   - [func NewStandaloneManager\(queue \*Queue, pool \*workerpool.WorkerPool, logger \*zerolog.Logger\) \*StandaloneMaster](<#NewStandaloneManager>)
   - [func \(qm \*StandaloneMaster\) Run\(\)](<#StandaloneMaster.Run>)
   - [func \(qm \*StandaloneMaster\) Stop\(\)](<#StandaloneMaster.Stop>)
@@ -176,7 +179,7 @@ CalcShard распределяет события по шардам в зави�
 ## func Register
 
 ```go
-func Register[EvType Event, EvSlice ~[]EvType](q *Queue, handler func(context.Context, EvSlice) error) error
+func Register[EvType Event, EvSlice ~[]EvType](queue *Queue, handler func(context.Context, EvSlice) error) error
 ```
 
 Register регистрирует обработчик очереди для получения событий. Для отправки регистрация не требуется. handler принимает слайс событий, поддерживающих интерфейс Event \(конкретных типов \- не слайс интерфейсов\). ID очереди и версия события определяется методами QueueID и Version. Для одной очереди могут быть зарегистрированы обработчики событий нескольких версий.
@@ -334,94 +337,6 @@ type Builder interface {
     Build() error
 }
 ```
-
-<a name="Config"></a>
-## type Config
-
-Config \- конфиг для инициализации обработчика или продюсера очередей.
-
-```go
-type Config struct {
-    Config       queueconfig.OnlineConf // Обязательный параметр. Не стал делать чтение из флага - путь завязан на проект, т.е. на набор обрабатываемых событий, поэтому должен формироваться тем же (разработчиком или генератором), что и вызовы Register
-    InstanceName string                 // По умолчанию, для обработчиков читается из командной строки из флага -instance, для продюсеров - DefaultProducerInstance ("producer")
-    Logger       *zerolog.Logger        // По умолчанию, вызывается mylog.InitZerolog()
-}
-```
-
-<a name="Config.InitProcessor"></a>
-### func \(Config\) InitProcessor
-
-```go
-func (conf Config) InitProcessor() *StandaloneMaster
-```
-
-InitProcessor \- инициализация типового обработчика очередей. Простейший случай:
-
-```
-func main() {
-	conf, err := onlineconf.OpenSubtree("TREE", "/project/queued")
-	qm := tp.Config{Config: queueconfig.NewAdapter(conf)}.InitProcessor()
-	app := NewService(myServiceConfig{...})
-
-	err := qm.Register(QueueID, &QueueEvent{}, app)
-	if err != nil { zLog.Fatal().Err(err).Send() }
-
-	err = qm.Register(AnotherQueueID, &AnotherQueueEvent{}, app)
-	if err != nil { zLog.Fatal().Err(err).Send() }
-
-	qm.Manage()
-}
-```
-
-Параметр Config.Config обязателен. Если Config.InstanceName не задан \- читается параметр командной строки \-instance. В таком случае, flag.Parse\(\) вызывать из main\(\) до вызова Config.Init не следует \(обходить определением глобальной переменной с флагом не стал, чтобы этот флаг не появился во всех бинарниках, импортирующих эту библиотеку\). Logger по умолчанию инициализируется при помощи mylog.InitZerolog\(\), из тестов можно использовать mylog.InitTestZerolog\(t\).
-
-В случае ошибки инициализации происходит выход \(zerolog.Logger.Fatal\). Предполагается вызов из функции main.
-
-<a name="Config.InitProducer"></a>
-### func \(Config\) InitProducer
-
-```go
-func (conf Config) InitProducer() *Queue
-```
-
-InitProducer \- инициализация типового продюсера \(веб\-сервис, и т.д.\):
-
-```
-func main() {
-	conf, err := onlineconf.OpenSubtree("TREE", "/project/queued")
-	queue := tp.Config{Config: queueconfig.NewAdapter(conf)}.InitProducer()
-
-	err := queue.Register(QueueID, &QueueEvent{}, nil)
-	if err != nil { zLog.Fatal().Err(err).Send() }
-
-	err = queue.Register(AnotherQueueID, &AnotherQueueEvent{}, nil)
-	if err != nil { zLog.Fatal().Err(err).Send() }
-
-	svc := NewService(myServiceConfig{
-		...
-		Queue: queue,
-		...
-	})
-
-	...
-
-	svc.Serve()
-}
-
-func (svc *Service) PostUserDataHandler(...) {
-	...
-	svc.Queue.Publish(&QueueEvent{
-		UserID: params.UserID(),
-		...
-	})
-
-	...
-}
-```
-
-Параметр Config.Config обязателен. Если Config.InstanceName не задан \- используется DefaultProducerInstance \("producer"\). Logger по умолчанию инициализируется при помощи mylog.InitZerolog\(\), из тестов можно использовать mylog.InitTestZerolog\(t\).
-
-В случае ошибки инициализации происходит выход \(zerolog.Logger.Fatal\). Предполагается вызов из функции main.
 
 <a name="DisableMarshaler"></a>
 ## type DisableMarshaler
@@ -655,6 +570,44 @@ type IgnoreDuplicateItems interface {
 }
 ```
 
+<a name="InitOption"></a>
+## type InitOption
+
+
+
+```go
+type InitOption func(*InitOptions)
+```
+
+<a name="WithInstanceName"></a>
+### func WithInstanceName
+
+```go
+func WithInstanceName(instanceName string) InitOption
+```
+
+WithInstanceName устанавливает имя инстанса. По умолчанию, для обработчиков читается из командной строки из флага \-instance, для продюсеров \- DefaultProducerInstance \("producer"\)
+
+<a name="WithLogger"></a>
+### func WithLogger
+
+```go
+func WithLogger(logger *zerolog.Logger) InitOption
+```
+
+WithLogger устанавливает логгер. По умолчанию, вызывается mylog.InitZerolog\(\)
+
+<a name="InitOptions"></a>
+## type InitOptions
+
+
+
+```go
+type InitOptions struct {
+    // contains filtered or unexported fields
+}
+```
+
 <a name="MarshalerDisabled"></a>
 ## type MarshalerDisabled
 
@@ -695,6 +648,55 @@ func Init(ctx context.Context, conf *queueconfig.Config) (*Queue, error)
 
 Init создаёт объект для высокоуровневой работы с API очередей. Инициализирует клиент очередей \(queuedclient\) с указанным конфигом.
 
+<a name="InitProducer"></a>
+### func InitProducer
+
+```go
+func InitProducer[T queueconfig.OnlineConf](conf queueconfig.OnlineConfWithSubtree[T], opts ...InitOption) *Queue
+```
+
+InitProducer \- инициализация типового продюсера \(веб\-сервис, и т.д.\):
+
+```
+func main() {
+	conf, err := onlineconf.OpenSubtree("TREE", "/project/queued")
+	queue := tp.InitProducer(conf)
+
+	err := queue.Register(QueueID, &QueueEvent{}, nil)
+	if err != nil { zLog.Fatal().Err(err).Send() }
+
+	err = queue.Register(AnotherQueueID, &AnotherQueueEvent{}, nil)
+	if err != nil { zLog.Fatal().Err(err).Send() }
+
+	svc := NewService(myServiceConfig{
+		...
+		Queue: queue,
+		...
+	})
+
+	...
+
+	svc.Serve()
+}
+
+func (svc *Service) PostUserDataHandler(...) {
+	...
+	svc.Queue.Publish(&QueueEvent{
+		UserID: params.UserID(),
+		...
+	})
+
+	...
+}
+```
+
+Опции:
+
+- [WithInstanceName](<#WithInstanceName>) \- по умолчанию, \`producer\`
+- [WithLogger](<#WithLogger>) \- если не указано явно, инициализируется при помощи mylog.InitZerolog.
+
+В случае ошибки инициализации происходит выход \(zerolog.Logger.Fatal\). Предполагается вызов из функции main.
+
 <a name="Queue.Client"></a>
 ### func \(\*Queue\) Client
 
@@ -723,7 +725,7 @@ Config возвращает высокоуровневый конфиг очер
 ### func \(\*Queue\) Encode
 
 ```go
-func (q *Queue) Encode(event Event) (eventData []byte, err error)
+func (queue *Queue) Encode(event Event) (eventData []byte, err error)
 ```
 
 Encode кодирует событие.
@@ -762,7 +764,7 @@ GetEventsByIDs получает события в декодированном �
 ### func \(\*Queue\) IsRegistered
 
 ```go
-func (q *Queue) IsRegistered(queueID uint16) bool
+func (queue *Queue) IsRegistered(queueID uint16) bool
 ```
 
 IsRegistered проверяет, зарегистрирован ли обработчик очереди.
@@ -894,6 +896,38 @@ type StandaloneMaster struct {
     // contains filtered or unexported fields
 }
 ```
+
+<a name="InitProcessor"></a>
+### func InitProcessor
+
+```go
+func InitProcessor[T queueconfig.OnlineConf](conf queueconfig.OnlineConfWithSubtree[T], opts ...InitOption) *StandaloneMaster
+```
+
+InitProcessor \- инициализация типового обработчика очередей. Простейший случай:
+
+```
+func main() {
+	conf, err := onlineconf.OpenSubtree("TREE", "/project/queued")
+	qm := tp.InitProcessor(conf)
+	app := NewService(myServiceConfig{...})
+
+	err := qm.Register(QueueID, &QueueEvent{}, app)
+	if err != nil { zLog.Fatal().Err(err).Send() }
+
+	err = qm.Register(AnotherQueueID, &AnotherQueueEvent{}, app)
+	if err != nil { zLog.Fatal().Err(err).Send() }
+
+	qm.Manage()
+}
+```
+
+Опции:
+
+- [WithInstanceName](<#WithInstanceName>) \- по умолчанию \- читается параметр командной строки \-instance \(flag.Parse\(\) из main\(\) в этом случае вызывать до вызова InitProcessor не следует\).
+- [WithLogger](<#WithLogger>) \- если не указано явно, инициализируется при помощи mylog.InitZerolog.
+
+В случае ошибки инициализации происходит выход \(zerolog.Logger.Fatal\). Предполагается вызов из функции main.
 
 <a name="NewStandaloneManager"></a>
 ### func NewStandaloneManager
@@ -1225,8 +1259,7 @@ update_batch_size              UpdateBatchSize strconv.ParseInt
   - [func \(ce \*ConfError\) MarshalZerologObject\(ev \*zerolog.Event\)](<#ConfError.MarshalZerologObject>)
   - [func \(ce \*ConfError\) Unwrap\(\) error](<#ConfError.Unwrap>)
 - [type Config](<#Config>)
-  - [func New\(conf OnlineConfImpl, instanceName string\) \*Config](<#New>)
-  - [func NewInternal\(conf OnlineConf, instanceName string\) \*Config](<#NewInternal>)
+  - [func New\[T OnlineConf\]\(conf OnlineConfWithSubtree\[T\], instanceName string\) \*Config](<#New>)
   - [func \(c \*Config\) ClearErrCache\(\)](<#Config.ClearErrCache>)
   - [func \(c \*Config\) DeferTime\(ctx context.Context, queueID uint16\) time.Duration](<#Config.DeferTime>)
   - [func \(c \*Config\) FetchBatchSize\(ctx context.Context, queueID uint16\) int](<#Config.FetchBatchSize>)
@@ -1250,10 +1283,7 @@ update_batch_size              UpdateBatchSize strconv.ParseInt
   - [func \(c \*Config\) WorkersCount\(ctx context.Context, queueID uint16\) \(int, error\)](<#Config.WorkersCount>)
   - [func \(c \*Config\) WorkersMaxCount\(ctx context.Context\) \(int, error\)](<#Config.WorkersMaxCount>)
 - [type OnlineConf](<#OnlineConf>)
-  - [func NewAdapter\(conf OnlineConfImpl\) OnlineConf](<#NewAdapter>)
-- [type OnlineConfAdapter](<#OnlineConfAdapter>)
-  - [func \(oconf OnlineConfAdapter\) Subtree\(path string\) OnlineConf](<#OnlineConfAdapter.Subtree>)
-- [type OnlineConfImpl](<#OnlineConfImpl>)
+- [type OnlineConfWithSubtree](<#OnlineConfWithSubtree>)
 
 
 ## Constants
@@ -1371,19 +1401,10 @@ type Config struct {
 ### func New
 
 ```go
-func New(conf OnlineConfImpl, instanceName string) *Config
+func New[T OnlineConf](conf OnlineConfWithSubtree[T], instanceName string) *Config
 ```
 
-New возвращает новый объект конфига. oconf \- корень проекта \(не обязательно TREE\).
-
-<a name="NewInternal"></a>
-### func NewInternal
-
-```go
-func NewInternal(conf OnlineConf, instanceName string) *Config
-```
-
-NewInternal возвращает новый объект конфига. oconf \- корень проекта \(не обязательно TREE\). Для внутреннего использования, а также для тестов.
+New возвращает новый объект конфига.
 
 <a name="Config.ClearErrCache"></a>
 ### func \(\*Config\) ClearErrCache
@@ -1518,7 +1539,7 @@ RetryDelay возвращает задержку retry\_delay для \[tp.WithRe
 func (c *Config) RetryExp(queueID uint16, retrySuffix string) (float64, error)
 ```
 
-RetryPower возвращает экспоненту retry\_exp для \[tp.WithRetry\] и \[tp.WithRetry2\] в режиме RetryExponential. По умолчанию, возвращается значение 2.
+RetryExp возвращает экспоненту retry\_exp для \[tp.WithRetry\] и \[tp.WithRetry2\] в режиме RetryExponential. По умолчанию, возвращается значение 2.
 
 <a name="Config.RetryLimit"></a>
 ### func \(\*Config\) RetryLimit
@@ -1554,7 +1575,7 @@ SlotsCount получает slots\_count
 func (c *Config) Subscribe() (chan struct{}, error)
 ```
 
-
+Subscribe подписывается на изменения внутри поддерева /tp/go
 
 <a name="Config.UpdateBatchSize"></a>
 ### func \(\*Config\) UpdateBatchSize
@@ -1586,11 +1607,10 @@ WorkersMaxCount получает workers\_max TODO логика не соотв�
 <a name="OnlineConf"></a>
 ## type OnlineConf
 
-OnlineConf \- зависимость от абстрактного онлайнконфа \(без зависимости от внешней библиотеки onlineconf\-go/v2\). Используется внутри tp.
+OnlineConf \- зависимость от онлайнконфа.
 
 ```go
 type OnlineConf interface {
-    Subtree(string) OnlineConf
     GetString(string, string) string
     GetStringIfExists(string) (string, bool)
     GetInt(string, int) int
@@ -1599,48 +1619,15 @@ type OnlineConf interface {
 }
 ```
 
-<a name="NewAdapter"></a>
-### func NewAdapter
+<a name="OnlineConfWithSubtree"></a>
+## type OnlineConfWithSubtree
+
+OnlineConfWithSubtree \- зависимость от онлайнконфа с методом Subtree. Соответствует как интерфейсу библиотеки onlineconf\-go/v2, так и mock\-интерфейсу, который используется для тестов.
 
 ```go
-func NewAdapter(conf OnlineConfImpl) OnlineConf
-```
-
-NewAdapter преобразует интерфейс, реализуемый библиотекой onlineconf\-go/v2 во внутреннее представление tp \([OnlineConf](<#OnlineConf>)\).
-
-<a name="OnlineConfAdapter"></a>
-## type OnlineConfAdapter
-
-OnlineConfAdapter обеспечивает совместимость библиотеки onlineconf\-go/v2 с используемым внутри tp представлением [OnlineConf](<#OnlineConf>).
-
-```go
-type OnlineConfAdapter struct {
-    OnlineConfImpl
-}
-```
-
-<a name="OnlineConfAdapter.Subtree"></a>
-### func \(OnlineConfAdapter\) Subtree
-
-```go
-func (oconf OnlineConfAdapter) Subtree(path string) OnlineConf
-```
-
-
-
-<a name="OnlineConfImpl"></a>
-## type OnlineConfImpl
-
-OnlineConfImpl \- зависимость от библиотеки onlineconf\-go/v2. Интерфейс не совместим с используемым внутри [OnlineConf](<#OnlineConf>), если необходим этот интерфейс, нужно использовать [NewAdapter](<#NewAdapter>)
-
-```go
-type OnlineConfImpl interface {
-    Subtree(string) *onlineconf.Subtree
-    GetString(string, string) string
-    GetStringIfExists(string) (string, bool)
-    GetInt(string, int) int
-    GetIntErr(string) (int, error)
-    Subscribe(path string) (chan struct{}, error)
+type OnlineConfWithSubtree[T OnlineConf] interface {
+    OnlineConf
+    Subtree(string) T
 }
 ```
 
@@ -3057,7 +3044,7 @@ AddQueueWaitTime adds the provided time to the queue waitTime.
 func (s *Slot) AddQueueWorkTime(queueID uint32, t float64)
 ```
 
-AddQueueWaitTime adds the provided time to the queue workTime.
+AddQueueWorkTime adds the provided time to the queue workTime.
 
 <a name="Slot.IncrementQueueLoop"></a>
 ### func \(\*Slot\) IncrementQueueLoop

@@ -68,10 +68,10 @@ bench:
 	$(GO) test $(GOFLAGS) -v -bench . -run Benchmark ./...
 
 .PHONY: generate
-generate: generate-mocks generate-iproto generate-cdb
+generate: generate-mocks generate-go generate-cdb
 
-.PHONY: generate-iproto
-generate-iproto:
+.PHONY: generate-go
+generate-go:
 	$(GO) generate ./...
 
 .PHONY: generate-mocks

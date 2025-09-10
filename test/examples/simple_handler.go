@@ -22,10 +22,7 @@ func (svc *Service) Handle(ctx context.Context, events []SimpleEvent) error {
 }
 
 func startHandler(svc *Service) {
-	qm := tp.Config{
-		Config:       getConfig(),
-		InstanceName: "test-instance",
-	}.InitProcessor()
+	qm := tp.InitProcessor(getConfig(), tp.WithInstanceName("test-instance"))
 
 	if err := tp.Register(qm.Queue, svc.Handle); err != nil {
 		zLog.Fatal().Err(err).Msg("error registering queue")

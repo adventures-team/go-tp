@@ -1,8 +1,12 @@
 version: "2"
+run:
+  issues-exit-code: 1
+  tests: true
 linters:
   default: none
   enable:
     - bodyclose
+    - dupl
     - errcheck
     - gochecknoinits
     - gocognit
@@ -12,6 +16,7 @@ linters:
     - gosec
     - govet
     - ineffassign
+    - misspell
     - prealloc
     - revive
     - staticcheck
@@ -24,55 +29,29 @@ linters:
     goconst:
       min-len: 2
       min-occurrences: 2
-    gocritic:
-      enabled-checks:
-        - nilValReturn
-    revive:
-      rules:
-        - name: package-comments
-          disabled: true
   exclusions:
     generated: lax
     rules:
-      - linters:
-          - revive
-        path: design/
-        text: 'dot-imports:'
       - linters:
           - dupl
           - gocognit
           - gocyclo
           - gosec
           - prealloc
-          - wsl
+          - wsl_v5
         path: .*\.*_test\.go$
-      - linters:
-          - staticcheck
+      - linters: ["staticcheck"]
         text: QF1008
-      - path: (.+)\.go$
+      - linters: ["gosec"]
         text: G104
-      - path: (.+)\.go$
+      - linters: ["gosec"]
         text: G115
-      - path: (.+)\.go$
-        text: Error return value of .((os\.)?std(out|err)\..*|.*Close|.*Flush|os\.Remove(All)?|.*printf?|.*println|os\.(Un)?Setenv|.*Rollback). is not checked
-      - path: (.+)\.go$
-        text: _struct` is unused
-      - path: (.+)\.go$
-        text: not declared by package utf8
-      - path: (.+)\.go$
-        text: unicode/utf8/utf8.go
-      - path: (.+)\.go$
+      - linters: ["revive"]
         text: 'exported: .* should have comment .*'
-    paths:
-      - third_party$
-      - builtin$
-      - examples$
+      - linters: ["revive"]
+        text: 'should have a package comment'
 formatters:
   enable:
     - goimports
   exclusions:
     generated: lax
-    paths:
-      - third_party$
-      - builtin$
-      - examples$

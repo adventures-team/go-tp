@@ -37,13 +37,11 @@ var _ tp.Event = &retryEvent{}
 func TestAddonsRetry(t *testing.T) {
 	setTestLogTime()
 
-	conf := newMockConf(t, testRetryEventQueueID)
-
-	qm := tp.Config{
-		Config:       conf,
-		InstanceName: "test",
-		Logger:       mylog.InitTestZerolog(t),
-	}.InitProcessor()
+	qm := tp.InitProcessor(
+		newMockConf(t, testRetryEventQueueID),
+		tp.WithInstanceName(testInstanceName),
+		tp.WithLogger(mylog.InitTestZerolog(t)),
+	)
 
 	zLog.Info().Int("pid", os.Getpid()).Send()
 

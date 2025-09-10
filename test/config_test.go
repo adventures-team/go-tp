@@ -62,10 +62,10 @@ var confMissingStrings = []string{
 	queuedclient.ConfPingInterval,
 }
 
-func newMockConf(t *testing.T, queueID tp.QueueIDType) queueconfig.OnlineConf {
+func newMockConf(t *testing.T, queueID tp.QueueIDType) OnlineConfWithSubtree {
 	resetConfig()
 
-	conf := NewMockOnlineConf(gomock.NewController(t))
+	conf := NewMockOnlineConfWithSubtree(gomock.NewController(t))
 	qstr := strconv.Itoa(int(queueID))
 	qprefix := "/" + qstr + "/"
 

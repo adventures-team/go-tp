@@ -301,7 +301,7 @@ func (c *Config) RetryCoeff(queueID uint16, retrySuffix string) (time.Duration, 
 	return c.getDurationPerQueue(queueID, "/retry"+retrySuffix+"_coeff")
 }
 
-// RetryPower возвращает экспоненту retry_exp для [tp.WithRetry] и [tp.WithRetry2] в режиме RetryExponential.
+// RetryExp возвращает экспоненту retry_exp для [tp.WithRetry] и [tp.WithRetry2] в режиме RetryExponential.
 // По умолчанию, возвращается значение 2.
 func (c *Config) RetryExp(queueID uint16, retrySuffix string) (float64, error) {
 	pow, err := c.getFloatPerQueue(queueID, "/retry"+retrySuffix+"_exp")

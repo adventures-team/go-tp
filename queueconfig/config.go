@@ -20,43 +20,21 @@ const globalPath = "/tp/go"
 // CSVRegex - значения в конфиге через запятую, с опциональными пробелами.
 var CSVRegex = regexp.MustCompile(`\s*,\s*`)
 
-// OnlineConfImpl - зависимость от библиотеки onlineconf-go/v2.
-// Интерфейс не совместим с используемым внутри [OnlineConf], если необходим этот интерфейс,
-// нужно использовать [NewAdapter]
-type OnlineConfImpl interface {
-	Subtree(string) *onlineconf.Subtree
-	GetString(string, string) string
-	GetStringIfExists(string) (string, bool)
-	GetInt(string, int) int
-	GetIntErr(string) (int, error)
-	Subscribe(path string) (chan struct{}, error)
-}
-
-// OnlineConfAdapter обеспечивает совместимость библиотеки onlineconf-go/v2 с используемым
-// внутри tp представлением [OnlineConf].
-type OnlineConfAdapter struct {
-	OnlineConfImpl
-}
-
-// NewAdapter преобразует интерфейс, реализуемый библиотекой onlineconf-go/v2 во внутреннее
-// представление tp ([OnlineConf]).
-func NewAdapter(conf OnlineConfImpl) OnlineConf {
-	return OnlineConfAdapter{OnlineConfImpl: conf}
-}
-
-func (oconf OnlineConfAdapter) Subtree(path string) OnlineConf {
-	return OnlineConfAdapter{OnlineConfImpl: oconf.OnlineConfImpl.Subtree(path)}
-}
-
-// OnlineConf - зависимость от абстрактного онлайнконфа (без зависимости от внешней библиотеки onlineconf-go/v2).
-// Используется внутри tp.
+// OnlineConf - зависимость от онлайнконфа.
 type OnlineConf interface {
-	Subtree(string) OnlineConf
 	GetString(string, string) string
 	GetStringIfExists(string) (string, bool)
 	GetInt(string, int) int
 	GetIntErr(string) (int, error)
 	Subscribe(path string) (chan struct{}, error)
+}
+
+// OnlineConfWithSubtree - зависимость от онлайнконфа с методом Subtree.
+// Соответствует как интерфейсу библиотеки onlineconf-go/v2, так и mock-интерфейсу,
+// который используется для тестов.
+type OnlineConfWithSubtree[T OnlineConf] interface {
+	OnlineConf
+	Subtree(string) T
 }
 
 // Config - настройки обработчика очередей. Можно пользоваться, как обычным объектом с интерфейсом Onlineconf для получения настроек относительно корня проекта.
@@ -68,14 +46,8 @@ type Config struct {
 	pathErrors sync.Map   // сюда пишутся пути, про которые уже жаловались в лог. обращение к мэпу идёт только при ошибках.
 }
 
-// New возвращает новый объект конфига. oconf - корень проекта (не обязательно TREE).
-func New(conf OnlineConfImpl, instanceName string) *Config {
-	return NewInternal(OnlineConfAdapter{OnlineConfImpl: conf}, instanceName)
-}
-
-// NewInternal возвращает новый объект конфига. oconf - корень проекта (не обязательно TREE).
-// Для внутреннего использования, а также для тестов.
-func NewInternal(conf OnlineConf, instanceName string) *Config {
+// New возвращает новый объект конфига.
+func New[T OnlineConf](conf OnlineConfWithSubtree[T], instanceName string) *Config {
 	return &Config{
 		OnlineConf: conf,
 		global:     conf.Subtree(globalPath),
@@ -83,6 +55,7 @@ func NewInternal(conf OnlineConf, instanceName string) *Config {
 	}
 }
 
+// Subscribe подписывается на изменения внутри поддерева /tp/go
 func (c *Config) Subscribe() (chan struct{}, error) {
 	return c.global.Subscribe("/")
 }

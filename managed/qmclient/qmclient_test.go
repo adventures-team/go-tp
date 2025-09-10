@@ -71,7 +71,7 @@ func TestServeIProto_cmdSetQueue(t *testing.T) {
 		collectStatsData := func() StatsData {
 			return data
 		}
-		assignSlot := func(slotID, queueID uint32) error {
+		assignSlot := func(uint32, uint32) error {
 			assignSlotCalls++
 			return nil
 		}
