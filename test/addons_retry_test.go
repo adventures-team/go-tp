@@ -21,7 +21,7 @@ import (
 //adv:iproto:
 type retryEvent struct {
 	tp.BaseEvent
-	addons.Retry
+	addons.Retryable
 }
 
 func (retryEvent) Version() uint8 {
@@ -92,7 +92,7 @@ func (h retryEventHandler) handle(ctx context.Context, events []retryEvent) erro
 		zerolog.Ctx(ctx).Info().Stringer("event_id", event.EventID).Uint32("retry_count", count).Send()
 
 		if count < 5 {
-			event.Fail()
+			event.Retry()
 		} else {
 			event.Done()
 

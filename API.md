@@ -41,12 +41,10 @@ TODO дока по архитектуре
 - [type EventIDBuilder](<#EventIDBuilder>)
 - [type EventList](<#EventList>)
 - [type EventWithCreationTime](<#EventWithCreationTime>)
-- [type EventWithRetry](<#EventWithRetry>)
-- [type EventWithRetry2](<#EventWithRetry2>)
 - [type Handler](<#Handler>)
   - [func WithMaxAge\[EvType EventWithCreationTime, EvSlice \~\[\]EvType\]\(handler Handler\[EvType, EvSlice\]\) Handler\[EvType, EvSlice\]](<#WithMaxAge>)
-  - [func WithRetry\[EvType EventWithRetry, EvSlice \~\[\]EvType\]\(handler Handler\[EvType, EvSlice\], opts ...RetryOption\) Handler\[EvType, EvSlice\]](<#WithRetry>)
-  - [func WithRetry2\[EvType EventWithRetry2, EvSlice \~\[\]EvType\]\(handler Handler\[EvType, EvSlice\], opts ...Retry2Option\) Handler\[EvType, EvSlice\]](<#WithRetry2>)
+  - [func WithRetry\[EvType RetryableEvent, EvSlice \~\[\]EvType\]\(handler Handler\[EvType, EvSlice\], opts ...RetryOption\) Handler\[EvType, EvSlice\]](<#WithRetry>)
+  - [func WithRetry2\[EvType RetryableEvent2, EvSlice \~\[\]EvType\]\(handler Handler\[EvType, EvSlice\], opts ...Retry2Option\) Handler\[EvType, EvSlice\]](<#WithRetry2>)
 - [type IgnoreDuplicateItems](<#IgnoreDuplicateItems>)
 - [type InitOption](<#InitOption>)
   - [func WithInstanceName\(instanceName string\) InitOption](<#WithInstanceName>)
@@ -68,12 +66,14 @@ TODO дока по архитектуре
   - [func \(q \*Queue\) Replace\(ctx context.Context, event Event, opts ...queuedclient.PublishOption\) error](<#Queue.Replace>)
 - [type QueueIDType](<#QueueIDType>)
 - [type Retry2Option](<#Retry2Option>)
-  - [func OnRetry2\[T EventWithRetry2\]\(f func\(T\)\) Retry2Option](<#OnRetry2>)
-  - [func OnRetry2Exhausted\[T EventWithRetry2\]\(f func\(T, string\)\) Retry2Option](<#OnRetry2Exhausted>)
+  - [func OnRetry2\[T RetryableEvent2\]\(f func\(T\)\) Retry2Option](<#OnRetry2>)
+  - [func OnRetry2Exhausted\[T RetryableEvent2\]\(f func\(T, string\)\) Retry2Option](<#OnRetry2Exhausted>)
   - [func Retry2CounterNames\(retry1, retry2 string\) Retry2Option](<#Retry2CounterNames>)
 - [type RetryOption](<#RetryOption>)
-  - [func OnRetry\[T EventWithRetry\]\(f func\(T\)\) RetryOption](<#OnRetry>)
-  - [func OnRetryExhausted\[T EventWithRetry\]\(f func\(T\)\) RetryOption](<#OnRetryExhausted>)
+  - [func OnRetry\[T RetryableEvent\]\(f func\(T\)\) RetryOption](<#OnRetry>)
+  - [func OnRetryExhausted\[T RetryableEvent\]\(f func\(T\)\) RetryOption](<#OnRetryExhausted>)
+- [type RetryableEvent](<#RetryableEvent>)
+- [type RetryableEvent2](<#RetryableEvent2>)
 - [type StandaloneMaster](<#StandaloneMaster>)
   - [func InitProcessor\[T queueconfig.OnlineConf\]\(conf queueconfig.OnlineConfWithSubtree\[T\], opts ...InitOption\) \*StandaloneMaster](<#InitProcessor>)
   - [func NewStandaloneManager\(queue \*Queue, pool \*workerpool.WorkerPool, logger \*zerolog.Logger\) \*StandaloneMaster](<#NewStandaloneManager>)
@@ -448,37 +448,6 @@ type EventWithCreationTime interface {
 }
 ```
 
-<a name="EventWithRetry"></a>
-## type EventWithRetry
-
-EventWithRetry \- событие, встраивающее \[addons.Retry\]. Поддерживает middleware [WithRetry](<#WithRetry>).
-
-```go
-type EventWithRetry interface {
-    Event
-    IncRetryCount()
-    GetRetryCount() uint32
-    HasFailed() bool
-}
-```
-
-<a name="EventWithRetry2"></a>
-## type EventWithRetry2
-
-EventWithRetry2 \- событие, встраивающее \[addons.Retry2\]. Поддерживает middleware [WithRetry2](<#WithRetry2>).
-
-```go
-type EventWithRetry2 interface {
-    Event
-    IncRetry1Count()
-    IncRetry2Count()
-    GetRetry1Count() uint32
-    GetRetry2Count() uint32
-    HasFailed1() bool
-    HasFailed2() bool
-}
-```
-
 <a name="Handler"></a>
 ## type Handler
 
@@ -513,7 +482,7 @@ tp.Register(q, tp.WithMaxAge(func (ctx context.Context, events []MyEvent) error 
 ### func WithRetry
 
 ```go
-func WithRetry[EvType EventWithRetry, EvSlice ~[]EvType](handler Handler[EvType, EvSlice], opts ...RetryOption) Handler[EvType, EvSlice]
+func WithRetry[EvType RetryableEvent, EvSlice ~[]EvType](handler Handler[EvType, EvSlice], opts ...RetryOption) Handler[EvType, EvSlice]
 ```
 
 WithRetry \- ограничивает количество попыток обработки события.
@@ -556,8 +525,8 @@ tp.Register(q, tp.WithRetry(func (ctx context.Context, events []MyEvent) error {
 
         resp, err := SendToRemoteSystem(ctx, data)
         if err != nil {
-            event.Fail() // пытаемся обработать указанное в конфиге кол-во раз
-                         // задержка и её тип указаны в конфиге (retry_*)
+            event.Retry() // пытаемся обработать указанное в конфиге кол-во раз
+                          // задержка и её тип указаны в конфиге (retry_*)
         }
 
         // ...
@@ -571,7 +540,7 @@ tp.Register(q, tp.WithRetry(func (ctx context.Context, events []MyEvent) error {
 ### func WithRetry2
 
 ```go
-func WithRetry2[EvType EventWithRetry2, EvSlice ~[]EvType](handler Handler[EvType, EvSlice], opts ...Retry2Option) Handler[EvType, EvSlice]
+func WithRetry2[EvType RetryableEvent2, EvSlice ~[]EvType](handler Handler[EvType, EvSlice], opts ...Retry2Option) Handler[EvType, EvSlice]
 ```
 
 
@@ -833,7 +802,7 @@ type Retry2Option func(*retry2Opt)
 ### func OnRetry2
 
 ```go
-func OnRetry2[T EventWithRetry2](f func(T)) Retry2Option
+func OnRetry2[T RetryableEvent2](f func(T)) Retry2Option
 ```
 
 OnRetry2 аналог OnRetry для WithRetry2
@@ -842,7 +811,7 @@ OnRetry2 аналог OnRetry для WithRetry2
 ### func OnRetry2Exhausted
 
 ```go
-func OnRetry2Exhausted[T EventWithRetry2](f func(T, string)) Retry2Option
+func OnRetry2Exhausted[T RetryableEvent2](f func(T, string)) Retry2Option
 ```
 
 OnRetry2Exhausted аналог OnRetryExhausted для WithRetry2. В обработчик так же передаётся имя счётчика — cnt
@@ -869,7 +838,7 @@ type RetryOption func(*retryOpt)
 ### func OnRetry
 
 ```go
-func OnRetry[T EventWithRetry](f func(T)) RetryOption
+func OnRetry[T RetryableEvent](f func(T)) RetryOption
 ```
 
 OnRetry определяет пользовательский обработчик, который будет вызван при ретрае. Используется для реализации кастомной обработки события при ретрае, будь то логгирование, отправка метрики и т.п.
@@ -878,10 +847,44 @@ OnRetry определяет пользовательский обработчи
 ### func OnRetryExhausted
 
 ```go
-func OnRetryExhausted[T EventWithRetry](f func(T)) RetryOption
+func OnRetryExhausted[T RetryableEvent](f func(T)) RetryOption
 ```
 
 OnRetryExhausted определяет пользовательский обработчик, который будет вызван при исчерпании лимита ретраев. Используется для реализации кастомной обработки события при ретрае, будь то логгирование, отправка метрики и т.п.
+
+<a name="RetryableEvent"></a>
+## type RetryableEvent
+
+RetryableEvent \- событие, встраивающее \[addons.Retryable\]. Поддерживает middleware [WithRetry](<#WithRetry>).
+
+```go
+type RetryableEvent interface {
+    Event
+    IncRetryCount()
+    GetRetryCount() uint32
+    Retry()
+    NeedRetry() bool
+}
+```
+
+<a name="RetryableEvent2"></a>
+## type RetryableEvent2
+
+RetryableEvent2 \- событие, встраивающее \[addons.Retryable2\]. Поддерживает middleware [WithRetry2](<#WithRetry2>).
+
+```go
+type RetryableEvent2 interface {
+    Event
+    IncRetry1Count()
+    IncRetry2Count()
+    GetRetry1Count() uint32
+    GetRetry2Count() uint32
+    Retry1()
+    Retry2()
+    NeedRetry1() bool
+    NeedRetry2() bool
+}
+```
 
 <a name="StandaloneMaster"></a>
 ## type StandaloneMaster

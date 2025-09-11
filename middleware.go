@@ -59,27 +59,28 @@ func WithMaxAge[EvType EventWithCreationTime, EvSlice ~[]EvType](handler Handler
 	}
 }
 
-// EventWithRetry - событие, встраивающее [addons.Retry].
+// RetryableEvent - событие, встраивающее [addons.Retryable].
 // Поддерживает middleware [WithRetry].
-type EventWithRetry interface {
+type RetryableEvent interface {
 	Event
 	IncRetryCount()
 	GetRetryCount() uint32
-	HasFailed() bool
+	Retry()
+	NeedRetry() bool
 }
 
 type RetryOption func(*retryOpt)
 
 type retryOpt struct {
-	onRetry          func(EventWithRetry)
-	onRetryExhausted func(EventWithRetry)
+	onRetry          func(RetryableEvent)
+	onRetryExhausted func(RetryableEvent)
 }
 
 // OnRetry определяет пользовательский обработчик, который будет вызван при ретрае.
 // Используется для реализации кастомной обработки события при ретрае, будь то логгирование, отправка метрики и т.п.
-func OnRetry[T EventWithRetry](f func(T)) RetryOption {
+func OnRetry[T RetryableEvent](f func(T)) RetryOption {
 	return func(opt *retryOpt) {
-		opt.onRetry = func(ev EventWithRetry) {
+		opt.onRetry = func(ev RetryableEvent) {
 			f(ev.(T))
 		}
 	}
@@ -87,9 +88,9 @@ func OnRetry[T EventWithRetry](f func(T)) RetryOption {
 
 // OnRetryExhausted определяет пользовательский обработчик, который будет вызван при исчерпании лимита ретраев.
 // Используется для реализации кастомной обработки события при ретрае, будь то логгирование, отправка метрики и т.п.
-func OnRetryExhausted[T EventWithRetry](f func(T)) RetryOption {
+func OnRetryExhausted[T RetryableEvent](f func(T)) RetryOption {
 	return func(opt *retryOpt) {
-		opt.onRetryExhausted = func(ev EventWithRetry) {
+		opt.onRetryExhausted = func(ev RetryableEvent) {
 			f(ev.(T))
 		}
 	}
@@ -132,8 +133,8 @@ func OnRetryExhausted[T EventWithRetry](f func(T)) RetryOption {
 //
 //	        resp, err := SendToRemoteSystem(ctx, data)
 //	        if err != nil {
-//	            event.Fail() // пытаемся обработать указанное в конфиге кол-во раз
-//	                         // задержка и её тип указаны в конфиге (retry_*)
+//	            event.Retry() // пытаемся обработать указанное в конфиге кол-во раз
+//	                          // задержка и её тип указаны в конфиге (retry_*)
 //	        }
 //
 //	        // ...
@@ -141,10 +142,10 @@ func OnRetryExhausted[T EventWithRetry](f func(T)) RetryOption {
 //	                     // все обработанные события удаляются (одним запросом)
 //	    }
 //	}))
-func WithRetry[EvType EventWithRetry, EvSlice ~[]EvType](handler Handler[EvType, EvSlice], opts ...RetryOption) Handler[EvType, EvSlice] {
+func WithRetry[EvType RetryableEvent, EvSlice ~[]EvType](handler Handler[EvType, EvSlice], opts ...RetryOption) Handler[EvType, EvSlice] {
 	opt := &retryOpt{
-		onRetry:          func(EventWithRetry) {},
-		onRetryExhausted: func(EventWithRetry) {},
+		onRetry:          func(RetryableEvent) {},
+		onRetryExhausted: func(RetryableEvent) {},
 	}
 
 	for _, f := range opts {
@@ -161,7 +162,7 @@ func WithRetry[EvType EventWithRetry, EvSlice ~[]EvType](handler Handler[EvType,
 		errs := []error{handler(ctx, events)}
 
 		for _, event := range events {
-			if !event.HasFailed() {
+			if !event.NeedRetry() {
 				continue
 			}
 
@@ -300,24 +301,26 @@ func newRetryLimiter(conf *queueconfig.Config, queueID uint16, retrySuffix strin
 	}, nil
 }
 
-// EventWithRetry2 - событие, встраивающее [addons.Retry2].
+// RetryableEvent2 - событие, встраивающее [addons.Retryable2].
 // Поддерживает middleware [WithRetry2].
-type EventWithRetry2 interface {
+type RetryableEvent2 interface {
 	Event
 	IncRetry1Count()
 	IncRetry2Count()
 	GetRetry1Count() uint32
 	GetRetry2Count() uint32
-	HasFailed1() bool
-	HasFailed2() bool
+	Retry1()
+	Retry2()
+	NeedRetry1() bool
+	NeedRetry2() bool
 }
 
 type Retry2Option func(*retry2Opt)
 
 // OnRetry2 аналог OnRetry для WithRetry2
-func OnRetry2[T EventWithRetry2](f func(T)) Retry2Option {
+func OnRetry2[T RetryableEvent2](f func(T)) Retry2Option {
 	return func(opt *retry2Opt) {
-		opt.onRetry = func(ev EventWithRetry2) {
+		opt.onRetry = func(ev RetryableEvent2) {
 			f(ev.(T))
 		}
 	}
@@ -325,9 +328,9 @@ func OnRetry2[T EventWithRetry2](f func(T)) Retry2Option {
 
 // OnRetry2Exhausted аналог OnRetryExhausted для WithRetry2.
 // В обработчик так же передаётся имя счётчика — cnt
-func OnRetry2Exhausted[T EventWithRetry2](f func(T, string)) Retry2Option {
+func OnRetry2Exhausted[T RetryableEvent2](f func(T, string)) Retry2Option {
 	return func(opt *retry2Opt) {
-		opt.onRetryExhausted = func(ev EventWithRetry2, cnt string) {
+		opt.onRetryExhausted = func(ev RetryableEvent2, cnt string) {
 			f(ev.(T), cnt)
 		}
 	}
@@ -345,16 +348,16 @@ func Retry2CounterNames(retry1, retry2 string) Retry2Option {
 type retry2Opt struct {
 	retry1           string
 	retry2           string
-	onRetry          func(EventWithRetry2)
-	onRetryExhausted func(EventWithRetry2, string)
+	onRetry          func(RetryableEvent2)
+	onRetryExhausted func(RetryableEvent2, string)
 }
 
-func WithRetry2[EvType EventWithRetry2, EvSlice ~[]EvType](handler Handler[EvType, EvSlice], opts ...Retry2Option) Handler[EvType, EvSlice] { //nolint:gocognit
+func WithRetry2[EvType RetryableEvent2, EvSlice ~[]EvType](handler Handler[EvType, EvSlice], opts ...Retry2Option) Handler[EvType, EvSlice] { //nolint:gocognit
 	opt := retry2Opt{
 		retry1:           "1",
 		retry2:           "2",
-		onRetry:          func(EventWithRetry2) {},
-		onRetryExhausted: func(EventWithRetry2, string) {},
+		onRetry:          func(RetryableEvent2) {},
+		onRetryExhausted: func(RetryableEvent2, string) {},
 	}
 
 	for _, f := range opts {
@@ -375,7 +378,7 @@ func WithRetry2[EvType EventWithRetry2, EvSlice ~[]EvType](handler Handler[EvTyp
 		errs := []error{handler(ctx, events)}
 
 		for _, event := range events {
-			if !event.HasFailed1() && !event.HasFailed2() {
+			if !event.NeedRetry1() && !event.NeedRetry2() {
 				continue
 			}
 
@@ -386,7 +389,7 @@ func WithRetry2[EvType EventWithRetry2, EvSlice ~[]EvType](handler Handler[EvTyp
 
 			var delay time.Duration
 
-			if event.HasFailed1() {
+			if event.NeedRetry1() {
 				limiter1, err := getLimiter1()
 				if err != nil {
 					errs = append(errs, err)
@@ -406,7 +409,7 @@ func WithRetry2[EvType EventWithRetry2, EvSlice ~[]EvType](handler Handler[EvTyp
 				delay = delay1
 			}
 
-			if event.HasFailed2() {
+			if event.NeedRetry2() {
 				limiter2, err := getLimiter2()
 				if err != nil {
 					errs = append(errs, err)
