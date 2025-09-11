@@ -30,7 +30,7 @@ type (
 	// не должны быть доступны для объекта события
 	testUnhandledEvent struct {
 		tp.BaseEvent
-		addons.Retry
+		addons.Retryable
 		UserID uint32
 	}
 

@@ -201,18 +201,18 @@ func (c *MockOnlineConfWithSubtreeGetStringIfExistsCall) DoAndReturn(f func(stri
 }
 
 // Subscribe mocks base method.
-func (m *MockOnlineConfWithSubtree) Subscribe(path string) (chan struct{}, error) {
+func (m *MockOnlineConfWithSubtree) Subscribe(arg0 string) (chan struct{}, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Subscribe", path)
+	ret := m.ctrl.Call(m, "Subscribe", arg0)
 	ret0, _ := ret[0].(chan struct{})
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Subscribe indicates an expected call of Subscribe.
-func (mr *MockOnlineConfWithSubtreeMockRecorder) Subscribe(path any) *MockOnlineConfWithSubtreeSubscribeCall {
+func (mr *MockOnlineConfWithSubtreeMockRecorder) Subscribe(arg0 any) *MockOnlineConfWithSubtreeSubscribeCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Subscribe", reflect.TypeOf((*MockOnlineConfWithSubtree)(nil).Subscribe), path)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Subscribe", reflect.TypeOf((*MockOnlineConfWithSubtree)(nil).Subscribe), arg0)
 	return &MockOnlineConfWithSubtreeSubscribeCall{Call: call}
 }
 
