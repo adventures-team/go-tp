@@ -76,8 +76,6 @@ func (*eventWithAddons) IgnoreDuplicateItems() bool {
 	return true
 }
 
-// TODO см коммент у типа - выпилить
-
 func (ev *eventWithAddonsV2) Build() error {
 	_ = ev.CreationTime.Build()
 	return ev.Producer.Build()

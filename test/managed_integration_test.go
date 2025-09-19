@@ -92,6 +92,8 @@ func TestDeferred(t *testing.T) {
 
 	testManaged(t, func(qm *tp.StandaloneMaster, cnt *counter, _ <-chan struct{}) {
 		for i := 0; i < 10; i++ {
+			cnt.Add(1)
+
 			eventID, err := qm.Publish(ctx, &eventSleeper{
 				DurationMin: durationMin,
 				DurationMax: durationMax,
@@ -102,8 +104,6 @@ func TestDeferred(t *testing.T) {
 			}
 
 			zlog.Info().Stringer("event_id", eventID).Msg("published")
-
-			cnt.Add(1)
 			time.Sleep(publishDelayLong)
 		}
 
@@ -116,14 +116,14 @@ func TestInitialDelay(t *testing.T) {
 	ctx := context.Background()
 
 	testManaged(t, func(qm *tp.StandaloneMaster, cnt *counter, _ <-chan struct{}) {
+		cnt.Add(1)
+
 		eventID, err := qm.Publish(ctx, &eventSleeper{}, queuedclient.PublishInitialDelay(testInitialDelay))
 		if err != nil {
 			zlog.Panic().Err(err).Msg("Publish")
 		}
 
 		zlog.Info().Stringer("event_id", eventID).Msg("published")
-
-		cnt.Add(1)
 		cnt.Wait()
 		qm.Stop()
 	})
@@ -143,6 +143,7 @@ func TestOOM(t *testing.T) {
 
 	qm := testManaged(t, func(qm *tp.StandaloneMaster, cnt *counter, doneChan <-chan struct{}) {
 		for i := 0; i < 50; i++ {
+			cnt.Add(1)
 			newEvents.Lock()
 
 			eventID, err := qm.Publish(ctx, &eventSleeper{
@@ -158,7 +159,6 @@ func TestOOM(t *testing.T) {
 
 			eventIDs = append(eventIDs, eventID)
 
-			cnt.Add(1)
 			newEvents.Unlock()
 			time.Sleep(publishDelay)
 		}
@@ -209,6 +209,8 @@ func TestResize(t *testing.T) {
 		newEvents.Lock()
 
 		for i := 0; i < 50; i++ {
+			cnt.Add(1)
+
 			eventID, err := qm.Publish(ctx, &eventSleeper{
 				DurationMin: durationMin,
 				DurationMax: durationMax,
@@ -221,8 +223,6 @@ func TestResize(t *testing.T) {
 			zlog.Info().Stringer("event_id", eventID).Msg("event published")
 
 			eventIDs = append(eventIDs, eventID)
-
-			cnt.Add(1)
 		}
 
 		newEvents.Unlock()
@@ -284,6 +284,8 @@ func TestUpdateDelete(t *testing.T) {
 		newEvents.Lock()
 
 		for i := 0; i < 50; i++ {
+			cnt.Add(1)
+
 			eventID, err := qm.Publish(ctx, &eventSleeper{
 				DurationMin: time.Duration(0),
 				DurationMax: 20 * time.Millisecond,
@@ -296,8 +298,6 @@ func TestUpdateDelete(t *testing.T) {
 			zlog.Info().Stringer("event_id", eventID).Msg("event published")
 
 			eventIDs = append(eventIDs, eventID)
-
-			cnt.Add(1)
 		}
 
 		newEvents.Unlock()

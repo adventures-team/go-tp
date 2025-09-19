@@ -3,8 +3,7 @@ package tp
 import (
 	"context"
 	"fmt"
-	"hash/crc32"
-	"strconv"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -17,6 +16,7 @@ import (
 	"gitlab.cebc.tools/go/tp.git/encodings"
 	"gitlab.cebc.tools/go/tp.git/queueconfig"
 	"gitlab.cebc.tools/go/tp.git/queuedclient"
+	"gitlab.cebc.tools/go/tp.git/workerpool"
 )
 
 //go:generate go tool iprotogen -r -tests -tags integration
@@ -31,29 +31,78 @@ type (
 	// VersionType - id версии событий.
 	VersionType = uint8 // из-за флагов в номере версии в перле, максимальный номер версии - 31 (queuedproto.FlagEnableAddons-1).
 
-	// Queue - высокоуровневое API очередей. Содержит информацию об обрабатываемых очередях (см. Register)
-	Queue struct {
-		handlerMap handlerMap
-		client     *queuedclient.QueuedClient
+	// Queue - высокоуровневое API очередей.
+	//
+	// В комментариях описано поведение реализации, возвращаемой [NewQueue].
+	Queue interface {
+		// Client возвращает интерфейс низкоуровневого API очередей
+		Client() QueuedClient
+
+		// Config возвращает высокоуровневый конфиг очередей с возможностью определения значений
+		// для каждой очереди, с возможностью задания глобальных и per-instance дефолтов.
+		Config() *queueconfig.Config
+
+		// NewPoller возвращает интерфейс для опроса событий из очереди.
+		// Вынесен для возможности внешней реализации разных стратегий опроса очереди
+		// (например, managed master).
+		NewPoller(logger *zerolog.Logger) workerpool.Poller
+
+		// IsRegistered проверяет, зарегистрирована ли указанная очередь вызовом Register.
+		IsRegistered(queueID uint16) bool
+
+		// Publish кодирует событие при помощи метода Encode, и отправляет его в очередь методом [queuedclient.Publish].
+		// Клиент очередей должен быть проинициализирован.
+		//
+		// Возвращается ID события (сгенерённый методом BuildEventID(), либо возвращённый queued).
+		//
+		// Если у события есть метод IgnoreDuplicateItems, и он возвращает true, дубли при
+		// совпадении ID события игнорируются (также подавляется ошибка в логе queued флагом queuedproto.FlagIgnoreWrongItem).
+		Publish(ctx context.Context, event Event, opts ...queuedclient.PublishOption) (queuedproto.EventID, error)
+
+		// Replace заменяет существующее событие в очереди. ID события должно быть обязательно задано.
+		// Если время срабатывания не установлено через опции, оно не изменяется.
+		Replace(ctx context.Context, event Event, opts ...queuedclient.PublishOption) error
 	}
 
-	// Event - интерфейс обработчика очереди. Структура обработчика должна встраивать тип BaseEvent.
-	//
-	// Нужно определить два метода - Version() и QueueID, остальные унаследуются от встроенного BaseEvent.
-	Event interface {
-		iproto.Marshaler                            // если не реализовать/сгенерить Unmarshaler, обрабатываться такие события не будут, доступна будет только отправка (Publish)
-		Version() VersionType                       // Возвращает версию события. Должен быть определён для типа события.
-		QueueID() QueueIDType                       // Возвращает ID очереди. должен быть определён для типа события.
-		GetEventID() queuedproto.EventID            // Возвращает ID события
-		Done()                                      // Помечает событие обработанным
-		IsDone() bool                               // Был ли вызван метод Done
-		Defer(context.Context, time.Duration) error // Откладывает следующую активацию события на указзанную задержку
-		HasCustomDefer() bool                       // Был ли вызван метод Defer
-		Queue() *Queue
-		Publish(context.Context, Event) (queuedproto.EventID, error)
+	// QueuedClient - интерфейс низкоуровневого API очередей (клиента queued).
+	// Реализован в [queuedclient.QueuedClient] (там же - более подробное описание методов).
+	QueuedClient interface {
+		// Publish отправляет событие в очередь.
+		// Автоинкремент ID и способы задания задержки описаны в документации к пакету queuedclient.
+		Publish(ctx context.Context, queueID uint16, eventID queuedproto.EventID, flags uint32, eventData []byte, opts ...queuedclient.PublishOption) (queuedproto.EventID, error)
 
-		setHasCustomDefer()
-		fromQueueID() QueueIDType // Возвращает ID очереди, из которого было получено событие.
+		// Replace заменяет существующее событие в очереди.
+		Replace(ctx context.Context, queueID uint16, eventID queuedproto.EventID, eventData []byte, opts ...queuedclient.PublishOption) (bool, error)
+
+		// Defer устанавливает задержку обработки для указанных событий. Если задержка не указана (delay == 0), используется значение defer_time из конфига.
+		Defer(ctx context.Context, queueID uint16, delay time.Duration, eventIDs []queuedproto.EventID) error
+
+		// Delete удаляет указанные события параллельно изо всех необходимых шардов пачками по update_batch_size событий.
+		Delete(ctx context.Context, queueID uint16, eventIDs []queuedproto.EventID) error
+
+		// GetActive получает активные события из очереди queueID изо всех шардов одновременно.
+		GetActive(ctx context.Context, queueID uint16, count int) (queuedproto.ItemList, error)
+
+		// GetByIDs запрашивает события из очереди queueID с указанными ID из указанных шардов параллельно.
+		GetByIDs(ctx context.Context, queueID uint16, eventIDs []queuedproto.EventID) (queuedproto.ItemList, error)
+
+		// GetByIDsBroadcast запрашивает события из очереди queueID с указанными ID изо всех шардов одновременно.
+		GetByIDsBroadcast(ctx context.Context, queueID uint16, eventIDs []uint64) (queuedproto.ItemList, error)
+
+		// SetActivationTime устанавливает время активации для указанных событий.
+		SetActivationTime(ctx context.Context, queueID uint16, atime time.Time, eventIDs []queuedproto.EventID) error
+
+		// ShardNum возвращает количество сконфигурированных шардов queued.
+		ShardNum() uint
+
+		// MakeBroadcastRequest посылает запрос req параллельно во все шарды.
+		MakeBroadcastRequest(ctx context.Context, req queuedproto.Request, resFunc queuedclient.ResultFunc) error
+
+		// MakeMulticastRequest посылает запросы для указанных eventIDs в нужные шарды.
+		MakeMulticastRequest(ctx context.Context, batchSize int, eventIDs []queuedproto.EventID, reqFunc queuedclient.RequestFunc, resFunc queuedclient.ResultFunc) error
+
+		// MakeUnicastRequest посылает запрос req к указанному шарду.
+		MakeUnicastRequest(ctx context.Context, shard uint, req queuedproto.Request) (usedShard uint, respBytes []byte, err error)
 	}
 
 	// Builder - при поддержке этого интерфейса типом события, метод Build вызывается при добавлении события в очередь.
@@ -105,25 +154,27 @@ type (
 		handler   func(context.Context, any) error
 		format    encodings.Format
 	}
+
+	queueImpl struct {
+		mu         sync.RWMutex
+		handlerMap handlerMap
+		client     QueuedClient
+		config     *queueconfig.Config
+	}
 )
 
-// Init создаёт объект для высокоуровневой работы с API очередей. Инициализирует клиент очередей (queuedclient) с указанным конфигом.
-func Init(ctx context.Context, conf *queueconfig.Config) (*Queue, error) {
+// NewQueue создаёт объект для высокоуровневой работы с API очередей.
+// Инициализирует клиент очередей ([queuedclient]) с указанным конфигом.
+func NewQueue(ctx context.Context, conf *queueconfig.Config) (Queue, error) {
 	client, err := queuedclient.Dial(ctx, conf)
 	if err != nil {
 		return nil, err
 	}
 
-	return &Queue{
+	return &queueImpl{
 		client: client,
+		config: conf,
 	}, nil
-}
-
-// Queued возвращает клиент очередей.
-//
-// Deprecated: переименовано в [Queue.Client]
-func (q *Queue) Queued() *queuedclient.QueuedClient {
-	return q.client
 }
 
 // Client возвращает клиент очередей.
@@ -133,23 +184,23 @@ func (q *Queue) Queued() *queuedclient.QueuedClient {
 // Для удаления событий из обработчиков стоит пользоваться методом BaseEvent.Done, для установки времени задержки - BaseEvent.Defer.
 //
 // Если будут нужны какие-то методы "среднего уровня", имеет смысл их добавить к типу Queue.
-func (q *Queue) Client() *queuedclient.QueuedClient {
-	return q.client
+func (qi *queueImpl) Client() QueuedClient {
+	return qi.client
 }
 
 // Config возвращает высокоуровневый конфиг очередей с возможностью определения значений для каждой очереди.
-func (q *Queue) Config() *queueconfig.Config {
-	return q.client.Config
+func (qi *queueImpl) Config() *queueconfig.Config {
+	return qi.config
 }
 
-// Publish кодирует событие при помощи метода Encode, и отправляет его в очередь методом queuedclient.Publish.
+// Publish кодирует событие при помощи метода Encode, и отправляет его в очередь методом [queuedclient.Publish].
 // Клиент очередей должен быть проинициализирован.
 //
 // Возвращается ID события (сгенерённый методом BuildEventID(), либо возвращённый queued).
 //
 // Если у события есть метод IgnoreDuplicateItems, и он возвращает true, дубли при
 // совпадении ID события игнорируются (также подавляется ошибка в логе queued флагом queuedproto.FlagIgnoreWrongItem).
-func (q *Queue) Publish(ctx context.Context, event Event, opts ...queuedclient.PublishOption) (queuedproto.EventID, error) {
+func (qi *queueImpl) Publish(ctx context.Context, event Event, opts ...queuedclient.PublishOption) (queuedproto.EventID, error) {
 	eventData, err := EncodeEvent(event)
 	if err != nil {
 		return queuedproto.EventID{}, err
@@ -171,7 +222,12 @@ func (q *Queue) Publish(ctx context.Context, event Event, opts ...queuedclient.P
 	if evID.ID == 0 {
 		evID.Shard = queuedclient.BalanceShard
 	} else {
-		evID.Shard = CalcShard(evID.ID, q.client.ShardNum())
+		shardNum := qi.client.ShardNum()
+		evID.Shard = event.Shard(shardNum)
+
+		if evID.Shard >= shardNum {
+			return queuedproto.EventID{}, fmt.Errorf("%T.Shard() returned %d, but it should be less than shard count %d", event, evID.Shard, shardNum)
+		}
 	}
 
 	if evID != origEvID {
@@ -181,56 +237,73 @@ func (q *Queue) Publish(ctx context.Context, event Event, opts ...queuedclient.P
 		}
 	}
 
-	return q.client.Publish(ctx, event.QueueID(), evID, flags, eventData, opts...)
+	return qi.client.Publish(ctx, event.QueueID(), evID, flags, eventData, opts...)
 }
 
 // Replace заменяет существующее событие в очереди. ID события должно быть обязательно задано.
 // Если время срабатывания не установлено через опции, оно не изменяется.
-func (q *Queue) Replace(ctx context.Context, event Event, opts ...queuedclient.PublishOption) error {
+func (qi *queueImpl) Replace(ctx context.Context, event Event, opts ...queuedclient.PublishOption) error {
 	eventData, err := EncodeEvent(event)
 	if err != nil {
 		return err
 	}
 
-	qID := event.fromQueueID()
+	var (
+		bev *BaseEvent
+		qID QueueIDType
+	)
+
+	if bevGetter, ok := event.(baseEventGetter); ok {
+		bev = bevGetter.getBaseEvent()
+
+		if bev.list != nil { // XXX странный костыль, скорее всего, можно безболезненно выкинуть
+			qID = bev.list.queueID
+		}
+	}
+
 	if qID == 0 {
 		qID = event.QueueID()
 	}
 
-	hasCustomDefer, err := q.client.Replace(ctx, qID, event.GetEventID(), eventData, opts...)
+	hasCustomDefer, err := qi.client.Replace(ctx, qID, event.GetEventID(), eventData, opts...)
 	if err != nil {
 		return err
 	}
 
-	if hasCustomDefer {
-		event.setHasCustomDefer()
+	if hasCustomDefer && bev != nil {
+		bev.setHasCustomDefer()
 	}
 
 	return nil
 }
 
-// GetActiveEvents получает активные события (наступило время срабатывания) в декодированном виде из очереди queueID. Если count не задано (==0), используется значение из конфига (fetch_batch_size).
+// getActiveEvents получает активные события (наступило время срабатывания) в декодированном виде из очереди queueID. Если count не задано (==0), используется значение из конфига (fetch_batch_size).
 //
 // Вместе с ошибкой может вернуться и валидный (не-nil) результат, этот кейс надо учитывать. Это означает, что ошибку вернули только некоторые
 // из шардов.
-func (q *Queue) GetActiveEvents(ctx context.Context, queueID QueueIDType, count int) (*EventList, error) {
-	return q.eventListFromItems(ctx, queueID, func() (queuedproto.ItemList, error) {
-		return q.client.GetActive(ctx, queueID, count)
+func (qi *queueImpl) getActiveEvents(ctx context.Context, queueID QueueIDType, count int) (*eventList, error) {
+	return qi.eventListFromItems(ctx, queueID, func() (queuedproto.ItemList, error) {
+		return qi.client.GetActive(ctx, queueID, count)
 	})
 }
 
-// GetEventsByIDs получает события в декодированном виде с указанными ID из очереди queueID
+/*
+// getEventsByIDs получает события в декодированном виде с указанными ID из очереди queueID
 //
 // Вместе с ошибкой может вернуться и валидный (не-nil) результат, этот кейс надо учитывать. Это означает, что ошибку вернули только некоторые
 // из шардов.
-func (q *Queue) GetEventsByIDs(ctx context.Context, queueID QueueIDType, eventIDs []queuedproto.EventID) (*EventList, error) {
-	return q.eventListFromItems(ctx, queueID, func() (queuedproto.ItemList, error) {
-		return q.client.GetByIDs(ctx, queueID, eventIDs)
+func (qi *queueImpl) getEventsByIDs(ctx context.Context, queueID QueueIDType, eventIDs []queuedproto.EventID) (*eventList, error) {
+	return qi.eventListFromItems(ctx, queueID, func() (queuedproto.ItemList, error) {
+		return qi.client.GetByIDs(ctx, queueID, eventIDs)
 	})
 }
+*/
 
-func (q *Queue) eventListFromItems(ctx context.Context, queueID QueueIDType, get func() (queuedproto.ItemList, error)) (*EventList, error) {
-	byVersion, ok := q.handlerMap[queueID]
+func (qi *queueImpl) eventListFromItems(ctx context.Context, queueID QueueIDType, get func() (queuedproto.ItemList, error)) (*eventList, error) {
+	qi.mu.RLock()
+	defer qi.mu.RUnlock()
+
+	byVersion, ok := qi.handlerMap[queueID]
 	if !ok {
 		return nil, fmt.Errorf("%w %d", ErrUnknownQueue, queueID)
 	}
@@ -240,9 +313,9 @@ func (q *Queue) eventListFromItems(ctx context.Context, queueID QueueIDType, get
 		return nil, getErr
 	}
 
-	evl := &EventList{
+	evl := &eventList{
 		queueID: queueID,
-		queue:   q,
+		queue:   qi,
 	}
 
 	if len(items.Items) == 0 {
@@ -278,7 +351,7 @@ func (q *Queue) eventListFromItems(ctx context.Context, queueID QueueIDType, get
 
 		evPtr := hInfo.boundPtr(sl)
 
-		// Register ensures that the event (or a pointer to it) implements Unmarshaler
+		// [Register] ensures that the event (or a pointer to it) implements [iproto.Unmarshaler]
 		decodeTo, ok := evPtr.(iproto.Unmarshaler)
 		if !ok {
 			zerolog.Ctx(ctx).Error().Msgf("type %T doesn't implement iproto.Unmarshaler (pointer receiver is required)", evPtr)
@@ -323,7 +396,7 @@ func (q *Queue) eventListFromItems(ctx context.Context, queueID QueueIDType, get
 	}
 
 	if len(unsupported) != 0 {
-		if err := q.client.Defer(ctx, queueID, 0, unsupported); err != nil {
+		if err := qi.client.Defer(ctx, queueID, 0, unsupported); err != nil {
 			zerolog.Ctx(ctx).Err(err).Uint16("queue_id", queueID).Interface("event_ids", unsupported).Msg("failed to defer items")
 		}
 	}
@@ -343,19 +416,22 @@ func (q *Queue) eventListFromItems(ctx context.Context, queueID QueueIDType, get
 //
 // Повторная регистрация для той же очереди перезаписывает предыдущую, и не вызывает ошибку.
 // Так сделано, чтобы не ломало регистрацию очередей из init() библиотек (что, тем не менее, делать не рекомендуется).
-func (q *Queue) register(queueID QueueIDType, hInfo handlerInfo, version uint8) error {
+func (qi *queueImpl) register(queueID QueueIDType, hInfo handlerInfo, version uint8) error {
 	if version > MaxVersion {
 		return fmt.Errorf("%w: %d", ErrVersionTooBig, queueID)
 	}
 
-	if q.handlerMap == nil {
-		q.handlerMap = make(handlerMap)
+	qi.mu.Lock()
+	defer qi.mu.Unlock()
+
+	if qi.handlerMap == nil {
+		qi.handlerMap = make(handlerMap)
 	}
 
-	byVersion, ok := q.handlerMap[queueID]
+	byVersion, ok := qi.handlerMap[queueID]
 	if !ok {
 		byVersion = make(handlerVersionMap)
-		q.handlerMap[queueID] = byVersion
+		qi.handlerMap[queueID] = byVersion
 	}
 
 	byVersion[version] = hInfo
@@ -363,15 +439,20 @@ func (q *Queue) register(queueID QueueIDType, hInfo handlerInfo, version uint8) 
 	return nil
 }
 
-// Register регистрирует обработчик очереди для получения событий. Для отправки регистрация не требуется.
+// Register регистрирует обработчик очереди для получения событий. Для отправки (Publish) регистрация не требуется.
 // handler принимает слайс событий, поддерживающих интерфейс Event (конкретных типов - не слайс интерфейсов).
 // ID очереди и версия события определяется методами QueueID и Version. Для одной очереди могут быть зарегистрированы
 // обработчики событий нескольких версий.
-func Register[EvType Event, EvSlice ~[]EvType](q *Queue, handler func(context.Context, EvSlice) error) error {
+func Register[EvType Event, EvSlice ~[]EvType](q Queue, handler func(context.Context, EvSlice) error) error {
+	qi, ok := q.(*queueImpl)
+	if !ok {
+		return fmt.Errorf("tp.Register supports only the Queue implementation returned by tp.NewQueue, but %T was supplied", q)
+	}
+
 	var ev EvType // zero value of EvType
 
 	if _, ok := any(&ev).(iproto.Unmarshaler); !ok {
-		return fmt.Errorf("event type %T (or a pointer to it) must implement iproto.Unmarshaler to be registered", ev)
+		return fmt.Errorf("tp.Register: event type %T (or a pointer to it) must implement iproto.Unmarshaler to be registered", ev)
 	}
 
 	queueID := ev.QueueID()
@@ -397,7 +478,17 @@ func Register[EvType Event, EvSlice ~[]EvType](q *Queue, handler func(context.Co
 		format: encodings.Detect(ev),
 	}
 
-	return q.register(queueID, hInfo, version)
+	return qi.register(queueID, hInfo, version)
+}
+
+// IsRegistered проверяет, зарегистрирован ли обработчик очереди.
+func (qi *queueImpl) IsRegistered(queueID uint16) bool {
+	qi.mu.RLock()
+	defer qi.mu.RUnlock()
+
+	_, ok := qi.handlerMap[queueID]
+
+	return ok
 }
 
 // EncodeEvent кодирует событие.
@@ -410,7 +501,7 @@ func Register[EvType Event, EvSlice ~[]EvType](q *Queue, handler func(context.Co
 // нужно соблюдать правильный тип (тот, для которого объявлен метод - очевидно, для Builder нужен указатель).
 //
 // ID события, кроме интерфейса EventIDBuilder, можно также передать явно. Номер шарда будет вычислен из ID события,
-// если оно задано одним из этих способов. Если EventID.ID == 0, шард будет выбран по round robin (queuedclient.BalanceShard).
+// если оно задано одним из этих способов. Если EventID.ID == 0, шард будет выбран по round robin ([queuedclient.BalanceShard]).
 func EncodeEvent(event Event) (eventData []byte, err error) {
 	if event == nil {
 		return nil, fmt.Errorf("%w nil event data", ErrUnknownType)
@@ -423,18 +514,6 @@ func EncodeEvent(event Event) (eventData []byte, err error) {
 	}
 
 	return encodings.Encode(encodings.Detect(event), event.Version(), event)
-}
-
-// IsRegistered проверяет, зарегистрирован ли обработчик очереди.
-func (q *Queue) IsRegistered(queueID uint16) bool {
-	_, ok := q.handlerMap[queueID]
-	return ok
-}
-
-// CalcShard распределяет события по шардам в зависимости от хеша от ID события. Совместимо с перлом (алгоритм хеширования - crc от строкового десятичного представления eventID, распределение по шардам - остаток от деления).
-func CalcShard(eventID uint64, shardNum uint) uint {
-	hash := uint64(crc32.ChecksumIEEE([]byte(strconv.FormatUint(eventID, 10))))
-	return uint(hash % uint64(shardNum))
 }
 
 var (

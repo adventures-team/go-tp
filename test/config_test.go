@@ -14,6 +14,7 @@ import (
 	"gitlab.cebc.tools/go/tp.git"
 	"gitlab.cebc.tools/go/tp.git/queueconfig"
 	"gitlab.cebc.tools/go/tp.git/queuedclient"
+	mockonlineconf "gitlab.cebc.tools/go/tp.git/test/mock/onlineconf"
 )
 
 var (
@@ -64,7 +65,7 @@ var confMissingStrings = []string{
 func newMockConf(t *testing.T, queueID tp.QueueIDType) OnlineConfWithSubtree {
 	resetConfig()
 
-	conf := NewMockOnlineConfWithSubtree(gomock.NewController(t))
+	conf := mockonlineconf.NewMockOnlineConfWithSubtree(gomock.NewController(t))
 	qstr := strconv.Itoa(int(queueID))
 	qprefix := "/" + qstr + "/"
 
@@ -78,7 +79,7 @@ func newMockConf(t *testing.T, queueID tp.QueueIDType) OnlineConfWithSubtree {
 	}
 
 	// global
-	gconf := NewMockOnlineConf(gomock.NewController(t))
+	gconf := mockonlineconf.NewMockOnlineConf(gomock.NewController(t))
 
 	conf.EXPECT().Subtree("/tp/go").AnyTimes().Return(gconf)
 
@@ -86,7 +87,7 @@ func newMockConf(t *testing.T, queueID tp.QueueIDType) OnlineConfWithSubtree {
 	gconf.EXPECT().GetStringIfExists("/oom_soft_downscale_rate").AnyTimes().Return("-666", true)
 
 	// per-instance
-	iconf := NewMockOnlineConf(gomock.NewController(t))
+	iconf := mockonlineconf.NewMockOnlineConf(gomock.NewController(t))
 
 	conf.EXPECT().Subtree("/tp/go/" + testInstanceName).AnyTimes().Return(iconf)
 

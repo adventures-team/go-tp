@@ -21,7 +21,7 @@ func (wp *WorkerPool) SetWorkerCount(jobID JobTypeID, count int) {
 
 // SetMaxDryPolls - устанавливает максимальное кол-во пустых опросов очереди, после которых будет осуществлена задержка опроса этой очереди на dryPollDelay (default: 20 раз)
 func (wp *WorkerPool) SetMaxDryPolls(maxDryPolls int) {
-	atomic.StoreInt32(&wp.maxDryPolls, int32(maxDryPolls)) // на x86-* запись в int с правильным выравниванием и так атомарная, но перфекционизм требует)
+	atomic.StoreInt32(&wp.maxDryPolls, int32(maxDryPolls))
 }
 
 // SetDryPollDelay - устанавливает задержку после maxDryPolls пустых запросов (не вернувших новые записи) (default: 50 мсек)

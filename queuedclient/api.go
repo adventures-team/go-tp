@@ -36,8 +36,7 @@ func (qc *QueuedClient) GetActive(ctx context.Context, queueID uint16, count int
 }
 
 // GetByIDsBroadcast запрашивает события из очереди queueID с указанными ID изо всех шардов одновременно.
-//
-// # ID событий указываются без номера шарда, обычными uint64
+// ID событий указываются без номера шарда, обычными uint64
 //
 // Ретраи в случае ошибок не производятся.
 func (qc *QueuedClient) GetByIDsBroadcast(ctx context.Context, queueID uint16, eventIDs []uint64) (queuedproto.ItemList, error) {
@@ -120,7 +119,7 @@ func (qc *QueuedClient) GetByIDs(ctx context.Context, queueID uint16, eventIDs [
 }
 
 // Delete удаляет указанные события параллельно изо всех необходимых шардов пачками по update_batch_size событий.
-// TODO может быть, игнорить ErrItemLocked и просто писать его в лог?
+// TODO может быть, игнорить [queuedproto.ErrItemLocked] и просто писать его в лог?
 func (qc *QueuedClient) Delete(ctx context.Context, queueID uint16, eventIDs []queuedproto.EventID) error {
 	err := qc.MakeMulticastRequest(
 		ctx,
@@ -206,12 +205,12 @@ func (qc *QueuedClient) SetActivationTime(ctx context.Context, queueID uint16, a
 	return nil
 }
 
-// PublishOption - опции [Publish]
-type PublishOption func(*publishOptions)
+// PublishOption - опции [QueuedClient.Publish]: [PublishActivationTime] и [PublishInitialDelay].
+type PublishOption func(*PublishOptions)
 
 // PublishActivationTime устанавливает время обработки нового события. Если не установлено - см. [PublishInitialDelay]
 func PublishActivationTime(t time.Time) PublishOption {
-	return func(opt *publishOptions) {
+	return func(opt *PublishOptions) {
 		opt.activationTime = t
 		opt.needDelay = true
 	}
@@ -219,20 +218,20 @@ func PublishActivationTime(t time.Time) PublishOption {
 
 // PublishInitialDelay устанавливает задержку обработки нового события. Если не установлено - используется заданное в конфиге значение.
 func PublishInitialDelay(d time.Duration) PublishOption {
-	return func(opt *publishOptions) {
+	return func(opt *PublishOptions) {
 		opt.initialDelay = d
 		opt.needDelay = true
 	}
 }
 
-type publishOptions struct {
+type PublishOptions struct {
 	activationTime time.Time
 	initialDelay   time.Duration
 	needDelay      bool
 }
 
 // Publish отправляет событие в очередь. Если eventID.ID == 0, queued создаёт новый ID, который возвращается.
-// Если задан eventID.Shard == BalanceShard, шард выбирается по round robin.
+// Если задан eventID.Shard == [BalanceShard], шард выбирается по round robin.
 // Если шард задан, а ID - нет, происходит автоинкремент ID в указанном шарде.
 //
 // Можно задать время активации события при помощи опции [PublishActivationTime] или задержку [PublishInitialDelay].
@@ -243,14 +242,14 @@ type publishOptions struct {
 // В случае получения не-логической ошибки (!queuedproto.IsSoftError(err)), производится ещё /queueds/multi/retry_count попыток
 // с задержкой /queueds/multi/retry_delay. Если после всех этих попыток ошибка повторяется - она возвращается.
 //
-// Если задан eventID.Shard == BalanceShard, то каждый ретрай посылается в следующий шард.
+// Если задан eventID.Shard == [BalanceShard], то каждый ретрай посылается в следующий шард.
 //
 // ID запроса (queuedproto.ReqAddItem.ReqID) для всех ретраев отправляется один и тот же, на случай,
 // если у нас шардов меньше, чем retry_count (например, 1), и 1й запрос ушёл, но ответ потерялся.
 //
 // Ошибки обработки результата (iproto.Unmarshal) не приводят к ретраям, т.к., скорее всего, являются ошибками прикладного уровня.
 func (qc *QueuedClient) Publish(ctx context.Context, queueID uint16, eventID queuedproto.EventID, flags uint32, eventData []byte, opts ...PublishOption) (queuedproto.EventID, error) {
-	var opt publishOptions
+	var opt PublishOptions
 
 	for _, f := range opts {
 		f(&opt)
@@ -315,7 +314,7 @@ func (qc *QueuedClient) Replace(ctx context.Context, queueID uint16, eventID que
 		}},
 	}
 
-	var opt publishOptions
+	var opt PublishOptions
 
 	for _, f := range opts {
 		f(&opt)

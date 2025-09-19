@@ -26,7 +26,7 @@ func TestQueueWorker(t *testing.T) {
 
 	queueConf := queueconfig.New(conf, testInstanceName)
 
-	queue, err := tp.Init(ctx, queueConf)
+	queue, err := tp.NewQueue(ctx, queueConf)
 	if err != nil {
 		t.Fatal("error initializing queue processor:", err)
 	}
@@ -73,6 +73,8 @@ func TestQueueWorker(t *testing.T) {
 	logger.Info().Msgf("event_id=%v published (duplicate)", eventID)
 
 	for i := 0; i < 7; i++ {
+		cnt.Add(2)
+
 		ev.TrackID++
 		ev.ExternalID++
 
@@ -92,8 +94,6 @@ func TestQueueWorker(t *testing.T) {
 
 		evV2.TrackID++
 		evV2.ExternalID++
-
-		cnt.Add(2)
 	}
 
 	go func() {
