@@ -1,6 +1,6 @@
 //go:build !integration
 
-package tp_test
+package tptest
 
 import (
 	"testing"

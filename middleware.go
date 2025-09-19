@@ -18,6 +18,7 @@ type Handler[EvType Event, EvSlice ~[]EvType] func(context.Context, EvSlice) err
 type Middleware[EvType Event, EvSlice ~[]EvType] func(Handler[EvType, EvSlice]) Handler[EvType, EvSlice]
 
 // EventWithCreationTime - событие, встраивающее [addons.CreationTime].
+//
 // Поддерживает middleware [addons.CreationTime]
 type EventWithCreationTime interface {
 	Event
@@ -69,6 +70,7 @@ type RetryableEvent interface {
 	NeedRetry() bool
 }
 
+// RetryOption - [OnRetry], [OnRetryExhausted]
 type RetryOption func(*retryOpt)
 
 type retryOpt struct {
@@ -98,6 +100,10 @@ func OnRetryExhausted[T RetryableEvent](f func(T)) RetryOption {
 
 // WithRetry - ограничивает количество попыток обработки события.
 //
+// При помощи опций можно задать коллбеки:
+//   - [OnRetry] - вызывается после увеличения счётчика событий в случае неудачной обработки (вызова метода Retry). После последней попытки не вызывается.
+//   - [OnRetryExhausted] - вызывается после последней неудачной попытки обработки.
+//
 // Настройки в onlineconf (задаются для очереди или глобально):
 //
 //	retry_limit - максимальное количество попыток, после которого событие удаляется. Формат - int
@@ -108,8 +114,8 @@ func OnRetryExhausted[T RetryableEvent](f func(T)) RetryOption {
 //
 //	Задержка вычисляется по формуле:
 //	  constant:   retry_delay
-//	  linear:     retry_delay + retry_coeff * Count
-//	  exponential: retry_delay + retry_coeff * retry_exp ^ Count
+//	  linear:     retry_delay + retry_coeff * retryCount
+//	  exponential: retry_delay + retry_coeff * retry_exp ^ retryCount
 //
 // где Count - номер текущей попытки (начиная с 0)
 //
@@ -143,10 +149,7 @@ func OnRetryExhausted[T RetryableEvent](f func(T)) RetryOption {
 //	    }
 //	}))
 func WithRetry[EvType RetryableEvent, EvSlice ~[]EvType](handler Handler[EvType, EvSlice], opts ...RetryOption) Handler[EvType, EvSlice] {
-	opt := &retryOpt{
-		onRetry:          func(RetryableEvent) {},
-		onRetryExhausted: func(RetryableEvent) {},
-	}
+	opt := &retryOpt{}
 
 	for _, f := range opts {
 		f(opt)
@@ -179,7 +182,10 @@ func WithRetry[EvType RetryableEvent, EvSlice ~[]EvType](handler Handler[EvType,
 
 			delay, ok := limiter.nextDelay(event.GetRetryCount())
 			if !ok {
-				opt.onRetryExhausted(event)
+				if opt.onRetryExhausted != nil {
+					opt.onRetryExhausted(event)
+				}
+
 				event.Done()
 
 				continue
@@ -187,14 +193,16 @@ func WithRetry[EvType RetryableEvent, EvSlice ~[]EvType](handler Handler[EvType,
 
 			event.IncRetryCount()
 
+			if opt.onRetry != nil {
+				opt.onRetry(event)
+			}
+
 			pubOpts := []queuedclient.PublishOption(nil)
 
 			// don't apply calculated delay if Defer was called explicitly
 			if !event.HasCustomDefer() {
 				pubOpts = []queuedclient.PublishOption{queuedclient.PublishInitialDelay(delay)}
 			}
-
-			opt.onRetry(event)
 
 			err = event.Queue().Replace(ctx, event, pubOpts...)
 			if err != nil {
@@ -354,10 +362,8 @@ type retry2Opt struct {
 
 func WithRetry2[EvType RetryableEvent2, EvSlice ~[]EvType](handler Handler[EvType, EvSlice], opts ...Retry2Option) Handler[EvType, EvSlice] { //nolint:gocognit
 	opt := retry2Opt{
-		retry1:           "1",
-		retry2:           "2",
-		onRetry:          func(RetryableEvent2) {},
-		onRetryExhausted: func(RetryableEvent2, string) {},
+		retry1: "1",
+		retry2: "2",
 	}
 
 	for _, f := range opts {
@@ -398,7 +404,10 @@ func WithRetry2[EvType RetryableEvent2, EvSlice ~[]EvType](handler Handler[EvTyp
 
 				delay1, ok := limiter1.nextDelay(event.GetRetry1Count())
 				if !ok {
-					opt.onRetryExhausted(event, opt.retry1)
+					if opt.onRetryExhausted != nil {
+						opt.onRetryExhausted(event, opt.retry1)
+					}
+
 					event.Done()
 
 					continue
@@ -418,7 +427,10 @@ func WithRetry2[EvType RetryableEvent2, EvSlice ~[]EvType](handler Handler[EvTyp
 
 				delay2, ok := limiter2.nextDelay(event.GetRetry2Count())
 				if !ok {
-					opt.onRetryExhausted(event, opt.retry2)
+					if opt.onRetryExhausted != nil {
+						opt.onRetryExhausted(event, opt.retry2)
+					}
+
 					event.Done()
 
 					continue
@@ -431,14 +443,16 @@ func WithRetry2[EvType RetryableEvent2, EvSlice ~[]EvType](handler Handler[EvTyp
 				}
 			}
 
+			if opt.onRetry != nil {
+				opt.onRetry(event)
+			}
+
 			pubOpts := []queuedclient.PublishOption(nil)
 
 			// don't apply calculated delay if Defer was called explicitly
 			if !event.HasCustomDefer() {
 				pubOpts = []queuedclient.PublishOption{queuedclient.PublishInitialDelay(delay)}
 			}
-
-			opt.onRetry(event)
 
 			err := event.Queue().Replace(ctx, event, pubOpts...)
 			if err != nil {

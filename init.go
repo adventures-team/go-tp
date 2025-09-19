@@ -14,14 +14,17 @@ import (
 // DefaultProducerInstance - имя инстанса в онлайнконфе по умолчанию для продюсеров (веб-сервисы, и т.д.)
 const DefaultProducerInstance = "producer"
 
+// InitOptions - тип напрямую использовать не надо. Не сделан приватным для упрощения написания тестов.
 type InitOptions struct {
 	instanceName string
 	logger       *zerolog.Logger
 }
 
+// InitOption - [WithInstanceName], [WithLogger]
 type InitOption func(*InitOptions)
 
 // WithInstanceName устанавливает имя инстанса.
+//
 // По умолчанию, для обработчиков читается из командной строки из флага -instance, для продюсеров - DefaultProducerInstance ("producer")
 func WithInstanceName(instanceName string) InitOption {
 	return func(opt *InitOptions) {
@@ -30,7 +33,8 @@ func WithInstanceName(instanceName string) InitOption {
 }
 
 // WithLogger устанавливает логгер.
-// По умолчанию, вызывается mylog.InitZerolog()
+//
+// По умолчанию, вызывается [mylog.InitZerolog].
 func WithLogger(logger *zerolog.Logger) InitOption {
 	return func(opt *InitOptions) {
 		opt.logger = logger
@@ -55,9 +59,9 @@ func WithLogger(logger *zerolog.Logger) InitOption {
 //
 // Опции:
 //   - [WithInstanceName] - по умолчанию - читается параметр командной строки -instance (flag.Parse() из main() в этом случае вызывать до вызова InitProcessor не следует).
-//   - [WithLogger] - если не указано явно, инициализируется при помощи mylog.InitZerolog.
+//   - [WithLogger] - если не указано явно, инициализируется при помощи [mylog.InitZerolog].
 //
-// В случае ошибки инициализации происходит выход (zerolog.Logger.Fatal). Предполагается вызов из функции main.
+// В случае ошибки инициализации происходит выход ([zerolog.Logger.Fatal]). Предполагается вызов из функции main.
 func InitProcessor[T queueconfig.OnlineConf](conf queueconfig.OnlineConfWithSubtree[T], opts ...InitOption) *StandaloneMaster {
 	var opt InitOptions
 
@@ -83,7 +87,7 @@ func InitProcessor[T queueconfig.OnlineConf](conf queueconfig.OnlineConfWithSubt
 	instanceLogger := opt.logger.With().Str("instance", opt.instanceName).Logger()
 	ctx := instanceLogger.WithContext(context.Background())
 
-	queue, err := Init(ctx, queueconfig.New(conf, opt.instanceName))
+	queue, err := NewQueue(ctx, queueconfig.New(conf, opt.instanceName))
 	if err != nil {
 		instanceLogger.Fatal().Err(err).Msg("error initializing queue processor")
 	}
@@ -132,10 +136,10 @@ func InitProcessor[T queueconfig.OnlineConf](conf queueconfig.OnlineConfWithSubt
 //
 // Опции:
 //   - [WithInstanceName] - по умолчанию, `producer`
-//   - [WithLogger] - если не указано явно, инициализируется при помощи mylog.InitZerolog.
+//   - [WithLogger] - если не указано явно, инициализируется при помощи [mylog.InitZerolog].
 //
-// В случае ошибки инициализации происходит выход (zerolog.Logger.Fatal). Предполагается вызов из функции main.
-func InitProducer[T queueconfig.OnlineConf](conf queueconfig.OnlineConfWithSubtree[T], opts ...InitOption) *Queue {
+// В случае ошибки инициализации происходит выход ([zerolog.Logger.Fatal]). Предполагается вызов из функции main.
+func InitProducer[T queueconfig.OnlineConf](conf queueconfig.OnlineConfWithSubtree[T], opts ...InitOption) Queue {
 	opt := InitOptions{
 		instanceName: DefaultProducerInstance,
 	}
@@ -150,7 +154,7 @@ func InitProducer[T queueconfig.OnlineConf](conf queueconfig.OnlineConfWithSubtr
 
 	ctx := opt.logger.WithContext(context.Background())
 
-	queue, err := Init(ctx, queueconfig.New(conf, opt.instanceName))
+	queue, err := NewQueue(ctx, queueconfig.New(conf, opt.instanceName))
 	if err != nil {
 		opt.logger.Fatal().Err(err).Msg("error initializing queue processor")
 	}

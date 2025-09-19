@@ -15,7 +15,7 @@ import (
 
 type (
 	queuePoller struct {
-		*Queue
+		*queueImpl
 		logger    *zerolog.Logger
 		isStopped int32
 	}
@@ -26,9 +26,9 @@ type (
 	}
 
 	queueWorker struct {
-		*Queue
+		*queueImpl
 		queueID   QueueIDType
-		events    *EventList
+		events    *eventList
 		ctx       context.Context
 		isStopped *int32
 		stat      *Stat
@@ -50,10 +50,10 @@ func (s *Stat) Errors() uint32 {
 }
 
 // NewPoller возвращает объект для опроса новых событий из WorkerPool
-func (q *Queue) NewPoller(logger *zerolog.Logger) workerpool.Poller {
+func (qi *queueImpl) NewPoller(logger *zerolog.Logger) workerpool.Poller {
 	return &queuePoller{
-		Queue:  q,
-		logger: logger,
+		queueImpl: qi,
+		logger:    logger,
 	}
 }
 
@@ -77,7 +77,7 @@ func (qp *queuePoller) Poll(queueID QueueIDType) workerpool.Worker {
 
 	// logger.Debug().Msg("queue poll")
 
-	events, err := qp.GetActiveEvents(ctx, queueID, 0)
+	events, err := qp.getActiveEvents(ctx, queueID, 0)
 	if err != nil {
 		var errMulti queuedclient.ErrMulti
 
@@ -102,7 +102,7 @@ func (qp *queuePoller) Poll(queueID QueueIDType) workerpool.Worker {
 	}
 
 	return &queueWorker{
-		Queue:     qp.Queue,
+		queueImpl: qp.queueImpl,
 		queueID:   queueID,
 		events:    events,
 		ctx:       ctx,

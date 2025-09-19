@@ -29,36 +29,34 @@ type (
 	}
 
 	// StandaloneMaster - управление пулом обработчиков очередей при помощи onlineconf.
-	// Поддерживает все методы типа Queue.
+	// Поддерживает все методы типа [Queue].
 	//
 	// Не путать с перловым менеджером очередей.
 	StandaloneMaster struct {
-		*Queue
+		Queue
 		pool          *workerpool.WorkerPool
 		logger        *zerolog.Logger
 		queuesRunning map[QueueIDType]bool
-		oldLogLevel   zerolog.Level
 		oldScale      float64
 	}
 )
 
 // NewStandaloneManager создаёт новый объект для управления пулом.
 //
-// Это - низкоуровневый интерфейс. Для типового кейса следует юзать обёртку InitProcessor.
-func NewStandaloneManager(queue *Queue, pool *workerpool.WorkerPool, logger *zerolog.Logger) *StandaloneMaster {
+// Это - низкоуровневый интерфейс. Для типового кейса следует юзать обёртку [InitProcessor].
+func NewStandaloneManager(queue Queue, pool *workerpool.WorkerPool, logger *zerolog.Logger) *StandaloneMaster {
 	return &StandaloneMaster{
 		Queue:         queue,
 		pool:          pool,
 		logger:        logger,
 		queuesRunning: make(map[QueueIDType]bool),
-		oldLogLevel:   zerolog.Disabled,
 		oldScale:      -1, // невозможное значение, чтобы при первом запуске конфиг применился полностью
 	}
 }
 
 func (qm *StandaloneMaster) forceReload() {
 	qm.oldScale = -1
-	qm.client.Config.ClearErrCache()
+	qm.Config().ClearErrCache()
 }
 
 // applyConfig применяет настройки из конфига к пулу очередей.
@@ -67,10 +65,9 @@ func (qm *StandaloneMaster) forceReload() {
 // Если workers_max меньше кол-ва заданных очередей в queue_ids, то запускается по 1 обработчику на очередь, и выдаётся ошибка в лог (приоритета важности очереди у нас нет, параметр нужен для экстренного тушения аварий, поэтому овердизайнить тут не стоит).
 // Параллельно вызывать applyConfig не надо (особенно с одним и тем же queuesRunning).
 func (qm *StandaloneMaster) applyConfig(ctx context.Context) error {
-	logLevel := qm.client.Config.LogLevel(ctx)
-	if qm.oldLogLevel != logLevel {
-		qm.oldLogLevel = logLevel
-		setLogLevel(qm.logger, logLevel)
+	newLogLevel := qm.Config().LogLevel(ctx)
+	if zerolog.GlobalLevel() != newLogLevel {
+		zerolog.SetGlobalLevel(newLogLevel)
 	}
 
 	scale, err := qm.applyMemLimits(ctx)
@@ -82,23 +79,23 @@ func (qm *StandaloneMaster) applyConfig(ctx context.Context) error {
 		return nil
 	}
 
-	confQueueIDs, err := qm.client.Config.QueueIDs()
+	confQueueIDs, err := qm.Config().QueueIDs()
 	if err != nil {
 		return err
 	}
 
 	workersTotal := 0
-	workersMax, err := qm.client.Config.WorkersMaxCount(ctx)
+	workersMax, err := qm.Config().WorkersMaxCount(ctx)
 	hasWorkersMax := err == nil
 	queueWorkers := make([]queueIDWorkers, 0, len(confQueueIDs))
 
 	for _, queueID := range confQueueIDs {
-		if _, ok := qm.handlerMap[queueID]; !ok {
+		if !qm.IsRegistered(queueID) {
 			qm.logger.Err(ErrUnknownQueue).Uint16("queue_id", queueID).Send()
 			continue
 		}
 
-		workers, err := qm.client.Config.WorkersCount(ctx, queueID)
+		workers, err := qm.Config().WorkersCount(ctx, queueID)
 		if err != nil {
 			return err // параметр обязательный, не стартуем, если не указано глобально (т.к. если не указано для конкретно этой очереди - должно использоваться глобальное значение)
 		}
@@ -157,8 +154,8 @@ func (qm *StandaloneMaster) applyConfig(ctx context.Context) error {
 func (qm *StandaloneMaster) applyMemLimits(ctx context.Context) (float64, error) {
 	scale := float64(1)
 
-	softLimit := qm.client.Config.OOMSoftLimit(ctx)
-	hardLimit := qm.client.Config.OOMHardLimit(ctx)
+	softLimit := qm.Config().OOMSoftLimit(ctx)
+	hardLimit := qm.Config().OOMHardLimit(ctx)
 
 	if softLimit != 0 && hardLimit != 0 {
 		if softLimit > hardLimit {
@@ -175,7 +172,7 @@ func (qm *StandaloneMaster) applyMemLimits(ctx context.Context) (float64, error)
 		}
 
 		if softLimit != 0 && memstats.Sys > softLimit {
-			scale = qm.client.Config.OOMSoftDownscaleRate(ctx)
+			scale = qm.Config().OOMSoftDownscaleRate(ctx)
 			if qm.oldScale != scale {
 				qm.logger.Warn().Uint64("mem_usage", memstats.Sys).Uint64("oom_soft_limit", softLimit).Float64("scale", scale).Msg("memory usage is over the soft limit, downscaling worker count")
 			}
@@ -279,7 +276,7 @@ func (qm *StandaloneMaster) runGoro(ctx context.Context) {
 	}
 
 	for {
-		timer := time.NewTimer(qm.client.Config.OOMCheckPeriod(ctx))
+		timer := time.NewTimer(qm.Config().OOMCheckPeriod(ctx))
 
 		select {
 		case <-updateChan:

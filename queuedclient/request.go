@@ -17,13 +17,13 @@ import (
 )
 
 type (
-	// RequestFunc вызывается функцией MakeMulticastRequest для формирования запроса для указанных ID (относящихся к одному шарду)
+	// RequestFunc вызывается функцией [QueuedClient.MakeMulticastRequest] для формирования запроса для указанных ID (относящихся к одному шарду)
 	RequestFunc func(eventIDs []uint64) queuedproto.Request
 
-	// ResultFunc вызывается функциями MakeBroadcastRequest и MakeMulticastRequest для сохранения результата, полученного из указанного шарда.
+	// ResultFunc вызывается функциями [QueuedClient.MakeBroadcastRequest] и [QueuedClient.MakeMulticastRequest] для сохранения результата, полученного из указанного шарда.
 	// Результат надо сохранять либо через замыкание - либо передавать в качестве этой функции bound method объекта, куда сохраняются данные.
 	//
-	// Эта функция вызывается из разных горутин и должна быть thread-safe (не использовать прямой append/обычный map без лока! использовать каналы, sync.Map и т.д.)
+	// Эта функция вызывается из разных горутин и должна быть thread-safe (не использовать прямой append/обычный map без лока! использовать каналы, [sync.Map] и т.д.)
 	ResultFunc func(shard uint, result []byte) error
 )
 
@@ -40,7 +40,7 @@ func (qc *QueuedClient) balanceShard(shard uint) uint {
 // В случае получения не-логической ошибки (!queuedproto.IsSoftError(err)), производится ещё /queueds/multi/retry_count попыток
 // с задержкой /queueds/multi/retry_delay. Если после всех этих попыток ошибка повторяется - она возвращается.
 //
-// Если задан shard == BalanceShard, шард выбирается по round robin. В этом случае, каждый ретрай посылается в следующий шард.
+// Если задан shard == [BalanceShard], шард выбирается по round robin. В этом случае, каждый ретрай посылается в следующий шард.
 func (qc *QueuedClient) MakeUnicastRequest(ctx context.Context, shard uint, req queuedproto.Request) (usedShard uint, respBytes []byte, err error) {
 	if shard != BalanceShard && shard >= qc.ShardNum() {
 		return 0, nil, fmt.Errorf("%w %d", ErrInvalidShard, shard)

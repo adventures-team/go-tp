@@ -16,13 +16,13 @@ require (
 	github.com/google/go-cmp v0.7.0
 	github.com/my-mail-ru/go-iproto v0.0.11
 	github.com/my-mail-ru/go-queuedproto v0.0.10
-	github.com/onlineconf/onlineconf-go/v2 v2.0.0
+	github.com/onlineconf/onlineconf-go/v2 v2.0.1
 	github.com/rs/zerolog v1.34.0
 	github.com/stretchr/testify v1.11.1
 	gitlab.cebc.tools/go/easygo.git v0.0.7
 	gitlab.cebc.tools/go/utils.git v0.1.1
 	go.uber.org/mock v0.6.0
-	google.golang.org/protobuf v1.36.8
+	google.golang.org/protobuf v1.36.9
 	gopkg.in/yaml.v3 v3.0.1
 	kythe.io v0.0.73
 )
@@ -31,7 +31,7 @@ require (
 	github.com/fatih/structtag v1.2.0 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/onlineconf/yaml2cdb v0.0.0-20250620150341-d71dc95cd7f8 // indirect
-	go.yaml.in/yaml/v2 v2.4.2 // indirect
+	go.yaml.in/yaml/v2 v2.4.3 // indirect
 	golang.org/x/crypto v0.42.0 // indirect
 	golang.org/x/mod v0.28.0 // indirect
 	golang.org/x/sync v0.17.0 // indirect
@@ -48,7 +48,7 @@ require (
 	github.com/colinmarc/cdb v0.0.0-20190223170904-60f317823f70 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
-	github.com/go-faker/faker/v4 v4.6.1
+	github.com/go-faker/faker/v4 v4.6.2
 	github.com/gobwas/pool v0.2.1 // indirect
 	github.com/golang/groupcache v0.0.0-20241129210726-2c02b8208cf8 // indirect
 	github.com/josharian/intern v1.0.0 // indirect

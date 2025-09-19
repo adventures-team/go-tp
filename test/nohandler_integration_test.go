@@ -23,7 +23,7 @@ func TestNoHandler(t *testing.T) {
 	conf := newMockConf(t, testNoHandlerQueueID)
 	queueConf := queueconfig.New(conf, testInstanceName)
 
-	queue, err := tp.Init(ctx, queueConf)
+	queue, err := tp.NewQueue(ctx, queueConf)
 	if err != nil {
 		t.Fatal("error initializing queue processor:", err)
 	}

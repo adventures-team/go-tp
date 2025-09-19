@@ -3,16 +3,19 @@ package tp
 import "errors"
 
 var (
-	// ErrUnknownType - тип данных не зарегистрирован методом Register
+	// ErrUnknownType - тип данных не зарегистрирован при помощи Register
 	ErrUnknownType = errors.New("unregistered type")
 
-	// ErrUnknownQueue - очередь не зарегистрирована методом Register
+	// ErrUnknownQueue - очередь не зарегистрирована при помощи [Register]
 	ErrUnknownQueue = errors.New("unregistered queue")
+
+	// ErrUnknownVersion - версия события не зарегистрирована при помощи [Register]
+	ErrUnknownVersion = errors.New("unregistered version")
 
 	// ErrVersionTooBig - версия не должна превышать MaxVersion
 	ErrVersionTooBig = errors.New("version number exceeds MaxVersion")
 
-	// ErrInternalHandler - тип структуры юзерского события должен поддерживать Handler, т.к. Register принимает Handler. Говорит о серьёзной ошибке внутри tp
+	// ErrInternalHandler - тип структуры юзерского события должен поддерживать pHandler], т.к. [Register] принимает [Handler]. Говорит о серьёзной ошибке внутри tp
 	ErrInternalHandler = errors.New("internal error: handlerInfo.dataType is not Handler")
 
 	// ErrHardMemoryLimit - достигнут лимит по памяти oom_hard_limit

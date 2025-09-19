@@ -8,15 +8,12 @@ import "gitlab.cebc.tools/go/tp.git"
 
 Package tp \- высокоуровневая библиотека для работы с очередями на базе queued.
 
-TODO дока по архитектуре
-
 ## Index
 
 - [Constants](<#constants>)
 - [Variables](<#variables>)
-- [func CalcShard\(eventID uint64, shardNum uint\) uint](<#CalcShard>)
 - [func EncodeEvent\(event Event\) \(eventData \[\]byte, err error\)](<#EncodeEvent>)
-- [func Register\[EvType Event, EvSlice \~\[\]EvType\]\(q \*Queue, handler func\(context.Context, EvSlice\) error\) error](<#Register>)
+- [func Register\[EvType Event, EvSlice \~\[\]EvType\]\(q Queue, handler func\(context.Context, EvSlice\) error\) error](<#Register>)
 - [type BaseEvent](<#BaseEvent>)
   - [func NewBaseEvent\(\) BaseEvent](<#NewBaseEvent>)
   - [func \(BaseEvent\) AddonID\(incompatible\)](<#BaseEvent.AddonID>)
@@ -28,8 +25,8 @@ TODO дока по архитектуре
   - [func \(BaseEvent\) MarshalAddon\(incompatible\)](<#BaseEvent.MarshalAddon>)
   - [func \(BaseEvent\) MarshalIProto\(incompatible\)](<#BaseEvent.MarshalIProto>)
   - [func \(BaseEvent\) MarshalerDisabled\(incompatible\)](<#BaseEvent.MarshalerDisabled>)
-  - [func \(bev BaseEvent\) Publish\(ctx context.Context, data Event\) \(eventID queuedproto.EventID, err error\)](<#BaseEvent.Publish>)
-  - [func \(bev BaseEvent\) Queue\(\) \*Queue](<#BaseEvent.Queue>)
+  - [func \(bev BaseEvent\) Queue\(\) Queue](<#BaseEvent.Queue>)
+  - [func \(bev BaseEvent\) Shard\(shardNum uint\) uint](<#BaseEvent.Shard>)
   - [func \(BaseEvent\) UnmarshalAddon\(incompatible\)](<#BaseEvent.UnmarshalAddon>)
   - [func \(BaseEvent\) UnmarshalIProto\(incompatible\)](<#BaseEvent.UnmarshalIProto>)
 - [type Builder](<#Builder>)
@@ -39,7 +36,6 @@ TODO дока по архитектуре
   - [func \(DisableMarshaler\) UnmarshalIProto\(buf \[\]byte\) \(\[\]byte, error\)](<#DisableMarshaler.UnmarshalIProto>)
 - [type Event](<#Event>)
 - [type EventIDBuilder](<#EventIDBuilder>)
-- [type EventList](<#EventList>)
 - [type EventWithCreationTime](<#EventWithCreationTime>)
 - [type Handler](<#Handler>)
   - [func WithMaxAge\[EvType EventWithCreationTime, EvSlice \~\[\]EvType\]\(handler Handler\[EvType, EvSlice\]\) Handler\[EvType, EvSlice\]](<#WithMaxAge>)
@@ -53,18 +49,10 @@ TODO дока по архитектуре
 - [type MarshalerDisabled](<#MarshalerDisabled>)
 - [type Middleware](<#Middleware>)
 - [type Queue](<#Queue>)
-  - [func Init\(ctx context.Context, conf \*queueconfig.Config\) \(\*Queue, error\)](<#Init>)
-  - [func InitProducer\[T queueconfig.OnlineConf\]\(conf queueconfig.OnlineConfWithSubtree\[T\], opts ...InitOption\) \*Queue](<#InitProducer>)
-  - [func \(q \*Queue\) Client\(\) \*queuedclient.QueuedClient](<#Queue.Client>)
-  - [func \(q \*Queue\) Config\(\) \*queueconfig.Config](<#Queue.Config>)
-  - [func \(q \*Queue\) GetActiveEvents\(ctx context.Context, queueID QueueIDType, count int\) \(\*EventList, error\)](<#Queue.GetActiveEvents>)
-  - [func \(q \*Queue\) GetEventsByIDs\(ctx context.Context, queueID QueueIDType, eventIDs \[\]queuedproto.EventID\) \(\*EventList, error\)](<#Queue.GetEventsByIDs>)
-  - [func \(q \*Queue\) IsRegistered\(queueID uint16\) bool](<#Queue.IsRegistered>)
-  - [func \(q \*Queue\) NewPoller\(logger \*zerolog.Logger\) workerpool.Poller](<#Queue.NewPoller>)
-  - [func \(q \*Queue\) Publish\(ctx context.Context, event Event, opts ...queuedclient.PublishOption\) \(queuedproto.EventID, error\)](<#Queue.Publish>)
-  - [func \(q \*Queue\) Queued\(\) \*queuedclient.QueuedClient](<#Queue.Queued>)
-  - [func \(q \*Queue\) Replace\(ctx context.Context, event Event, opts ...queuedclient.PublishOption\) error](<#Queue.Replace>)
+  - [func InitProducer\[T queueconfig.OnlineConf\]\(conf queueconfig.OnlineConfWithSubtree\[T\], opts ...InitOption\) Queue](<#InitProducer>)
+  - [func NewQueue\(ctx context.Context, conf \*queueconfig.Config\) \(Queue, error\)](<#NewQueue>)
 - [type QueueIDType](<#QueueIDType>)
+- [type QueuedClient](<#QueuedClient>)
 - [type Retry2Option](<#Retry2Option>)
   - [func OnRetry2\[T RetryableEvent2\]\(f func\(T\)\) Retry2Option](<#OnRetry2>)
   - [func OnRetry2Exhausted\[T RetryableEvent2\]\(f func\(T, string\)\) Retry2Option](<#OnRetry2Exhausted>)
@@ -76,7 +64,7 @@ TODO дока по архитектуре
 - [type RetryableEvent2](<#RetryableEvent2>)
 - [type StandaloneMaster](<#StandaloneMaster>)
   - [func InitProcessor\[T queueconfig.OnlineConf\]\(conf queueconfig.OnlineConfWithSubtree\[T\], opts ...InitOption\) \*StandaloneMaster](<#InitProcessor>)
-  - [func NewStandaloneManager\(queue \*Queue, pool \*workerpool.WorkerPool, logger \*zerolog.Logger\) \*StandaloneMaster](<#NewStandaloneManager>)
+  - [func NewStandaloneManager\(queue Queue, pool \*workerpool.WorkerPool, logger \*zerolog.Logger\) \*StandaloneMaster](<#NewStandaloneManager>)
   - [func \(qm \*StandaloneMaster\) Run\(\)](<#StandaloneMaster.Run>)
   - [func \(qm \*StandaloneMaster\) Stop\(\)](<#StandaloneMaster.Stop>)
 - [type Stat](<#Stat>)
@@ -112,16 +100,19 @@ const SignalReload = syscall.SIGHUP
 
 ```go
 var (
-    // ErrUnknownType - тип данных не зарегистрирован методом Register
+    // ErrUnknownType - тип данных не зарегистрирован при помощи Register
     ErrUnknownType = errors.New("unregistered type")
 
-    // ErrUnknownQueue - очередь не зарегистрирована методом Register
+    // ErrUnknownQueue - очередь не зарегистрирована при помощи [Register]
     ErrUnknownQueue = errors.New("unregistered queue")
+
+    // ErrUnknownVersion - версия события не зарегистрирована при помощи [Register]
+    ErrUnknownVersion = errors.New("unregistered version")
 
     // ErrVersionTooBig - версия не должна превышать MaxVersion
     ErrVersionTooBig = errors.New("version number exceeds MaxVersion")
 
-    // ErrInternalHandler - тип структуры юзерского события должен поддерживать Handler, т.к. Register принимает Handler. Говорит о серьёзной ошибке внутри tp
+    // ErrInternalHandler - тип структуры юзерского события должен поддерживать pHandler], т.к. [Register] принимает [Handler]. Говорит о серьёзной ошибке внутри tp
     ErrInternalHandler = errors.New("internal error: handlerInfo.dataType is not Handler")
 
     // ErrHardMemoryLimit - достигнут лимит по памяти oom_hard_limit
@@ -148,32 +139,11 @@ var (
 )
 ```
 
-<a name="EnableUnsafeLogLevel"></a>EnableUnsafeLogLevel \- разрешить установку уровня логгирования при помощи unsafe.
-
-zerolog.SetGlobalLevel устанавливается независимо от этого флага.
-
-Отключить, если будет пугать race detector. go:norace не работает, т.к. из\-за unsafe не может определить виновную горутину/функцию.
-
-TODO отрефакторить логгирование, чтобы не требовался этот костыль.
-
-```go
-var EnableUnsafeLogLevel = true
-```
-
 <a name="SignalsExit"></a>SignalsExit \- graceful exit \(дожидается завершения обработки всех событий, и выходит\)
 
 ```go
 var SignalsExit = [...]os.Signal{syscall.SIGTERM, syscall.SIGINT}
 ```
-
-<a name="CalcShard"></a>
-## func CalcShard
-
-```go
-func CalcShard(eventID uint64, shardNum uint) uint
-```
-
-CalcShard распределяет события по шардам в зависимости от хеша от ID события. Совместимо с перлом \(алгоритм хеширования \- crc от строкового десятичного представления eventID, распределение по шардам \- остаток от деления\).
 
 <a name="EncodeEvent"></a>
 ## func EncodeEvent
@@ -190,16 +160,16 @@ EncodeEvent кодирует событие.
 
 Кодировщику безразлично, передаётся указатель или значение, но для вызова методов по указанным интерфейсам нужно соблюдать правильный тип \(тот, для которого объявлен метод \- очевидно, для Builder нужен указатель\).
 
-ID события, кроме интерфейса EventIDBuilder, можно также передать явно. Номер шарда будет вычислен из ID события, если оно задано одним из этих способов. Если EventID.ID == 0, шард будет выбран по round robin \(queuedclient.BalanceShard\).
+ID события, кроме интерфейса EventIDBuilder, можно также передать явно. Номер шарда будет вычислен из ID события, если оно задано одним из этих способов. Если EventID.ID == 0, шард будет выбран по round robin \(\[queuedclient.BalanceShard\]\).
 
 <a name="Register"></a>
 ## func Register
 
 ```go
-func Register[EvType Event, EvSlice ~[]EvType](q *Queue, handler func(context.Context, EvSlice) error) error
+func Register[EvType Event, EvSlice ~[]EvType](q Queue, handler func(context.Context, EvSlice) error) error
 ```
 
-Register регистрирует обработчик очереди для получения событий. Для отправки регистрация не требуется. handler принимает слайс событий, поддерживающих интерфейс Event \(конкретных типов \- не слайс интерфейсов\). ID очереди и версия события определяется методами QueueID и Version. Для одной очереди могут быть зарегистрированы обработчики событий нескольких версий.
+Register регистрирует обработчик очереди для получения событий. Для отправки \(Publish\) регистрация не требуется. handler принимает слайс событий, поддерживающих интерфейс Event \(конкретных типов \- не слайс интерфейсов\). ID очереди и версия события определяется методами QueueID и Version. Для одной очереди могут быть зарегистрированы обработчики событий нескольких версий.
 
 <a name="BaseEvent"></a>
 ## type BaseEvent
@@ -270,7 +240,7 @@ GetEventID \- возвращает ID события. Код, работающи
 func (bev BaseEvent) HasCustomDefer() bool
 ```
 
-HasCustomDefer \- установлено ли явно время повторной активации вызовом методов [BaseEvent.Defer](<#BaseEvent.Defer>) или \[BaseEvent.Replace\]
+HasCustomDefer \- установлено ли явно время повторной активации вызовом методов [BaseEvent.Defer](<#BaseEvent.Defer>) или \[Queue.Replace\]
 
 <a name="BaseEvent.IsDone"></a>
 ### func \(BaseEvent\) IsDone
@@ -308,23 +278,23 @@ func (BaseEvent) MarshalerDisabled(incompatible)
 
 
 
-<a name="BaseEvent.Publish"></a>
-### func \(BaseEvent\) Publish
-
-```go
-func (bev BaseEvent) Publish(ctx context.Context, data Event) (eventID queuedproto.EventID, err error)
-```
-
-Publish \- враппер к Queue.Publish \(см. его доку для описания параметра и возвращаемого значения\). Отправляет новое событие в очередь, указанную при регистрации для этого типа методом Queue.Register
-
 <a name="BaseEvent.Queue"></a>
 ### func \(BaseEvent\) Queue
 
 ```go
-func (bev BaseEvent) Queue() *Queue
+func (bev BaseEvent) Queue() Queue
 ```
 
+Queue возвращает интерфейс API очередей.
 
+<a name="BaseEvent.Shard"></a>
+### func \(BaseEvent\) Shard
+
+```go
+func (bev BaseEvent) Shard(shardNum uint) uint
+```
+
+Shard распределяет события по шардам в зависимости от хеша от ID события. Совместимо с перлом \(алгоритм хеширования \- crc от строкового десятичного представления eventID, распределение по шардам \- остаток от деления\).
 
 <a name="BaseEvent.UnmarshalAddon"></a>
 ### func \(BaseEvent\) UnmarshalAddon
@@ -396,21 +366,66 @@ UnmarshalIProto \- не делает ничего
 
 Event \- интерфейс обработчика очереди. Структура обработчика должна встраивать тип BaseEvent.
 
-Нужно определить два метода \- Version\(\) и QueueID, остальные унаследуются от встроенного BaseEvent.
+Нужно определить два метода \- Version и QueueID, остальные унаследуются от встроенного BaseEvent.
 
 ```go
 type Event interface {
-    iproto.Marshaler                            // если не реализовать/сгенерить Unmarshaler, обрабатываться такие события не будут, доступна будет только отправка (Publish)
-    Version() VersionType                       // Возвращает версию события. Должен быть определён для типа события.
-    QueueID() QueueIDType                       // Возвращает ID очереди. должен быть определён для типа события.
-    GetEventID() queuedproto.EventID            // Возвращает ID события
-    Done()                                      // Помечает событие обработанным
-    IsDone() bool                               // Был ли вызван метод Done
-    Defer(context.Context, time.Duration) error // Откладывает следующую активацию события на указзанную задержку
-    HasCustomDefer() bool                       // Был ли вызван метод Defer
-    Queue() *Queue
-    Publish(context.Context, Event) (queuedproto.EventID, error)
-    // contains filtered or unexported methods
+    // Marshaler используется для кодирования события при отправке. Должен быть
+    // реализован/сгенерён для типа события.
+    // Если не реализовать/сгенерить Unmarshaler, обрабатываться такие события
+    // не будут (их не получится зарегистрировать вызовом [Register]),
+    // доступна будет только отправка (Publish)
+    iproto.Marshaler
+
+    // Version нужно определить для типа события.
+    Version() VersionType
+
+    // QueueID нужно определить для типа события.
+    QueueID() QueueIDType
+
+    // Shard принимает количество шардов, и должен возвращать номер
+    // шарда queued, в который будет отправлено событие. Обычно
+    // для этого используется ID события.
+    //
+    // В BaseEvent определён метод Shard, совместимый с перловой реализацией.
+    // Тип события может переопределить метод шардирования.
+    Shard(shardNum uint) uint
+
+    // GetEventID возвращает ID события.
+    //
+    // Определён в BaseEvent.
+    GetEventID() queuedproto.EventID
+
+    // Queue возвращает интерфейс [Queue] для работы с API очередей.
+    //
+    // Определён в BaseEvent.
+    Queue() Queue
+
+    // Defer откладывает следующую активацию события на указзанную задержку.
+    // Выполняется сразу, а не в конце обработки пачки событий (как это
+    // происходит при вызове Done, или при дефолтном дефере).
+    //
+    // Определён в BaseEvent.
+    Defer(context.Context, time.Duration) error
+
+    // HasCustomDefer возвращает признак, был ли вызван метод [Defer] явно.
+    //
+    // Определён в BaseEvent.
+    HasCustomDefer() bool
+
+    // Done помечает событие успешно обработанным. Такие события удаляются из очереди
+    // в конце цикла обработки пачки событий, полученных из очереди (под пачкой имеются
+    // ввиду все события из одной очереди, включая все их версии - т.е. потенциально
+    // больше, чем размер слайса, переданного обработчику). Удаление выполняется
+    // одним запросом.
+    //
+    // Определён в BaseEvent.
+    Done()
+
+    // IsDone возвращает признак успешного выполнения события.
+    //
+    // Определён в BaseEvent.
+    IsDone() bool
 }
 ```
 
@@ -425,21 +440,12 @@ type EventIDBuilder interface {
 }
 ```
 
-<a name="EventList"></a>
-## type EventList
-
-EventList \- список событий, прилетающих из queued для одной очереди. TODO подумать про перенос в internal, чтобы не путать разработчиков. Сущность внутренняя.
-
-```go
-type EventList struct {
-    // contains filtered or unexported fields
-}
-```
-
 <a name="EventWithCreationTime"></a>
 ## type EventWithCreationTime
 
-EventWithCreationTime \- событие, встраивающее \[addons.CreationTime\]. Поддерживает middleware \[addons.CreationTime\]
+EventWithCreationTime \- событие, встраивающее \[addons.CreationTime\].
+
+Поддерживает middleware \[addons.CreationTime\]
 
 ```go
 type EventWithCreationTime interface {
@@ -487,6 +493,11 @@ func WithRetry[EvType RetryableEvent, EvSlice ~[]EvType](handler Handler[EvType,
 
 WithRetry \- ограничивает количество попыток обработки события.
 
+При помощи опций можно задать коллбеки:
+
+- [OnRetry](<#OnRetry>) \- вызывается после увеличения счётчика событий в случае неудачной обработки \(вызова метода Retry\). После последней попытки не вызывается.
+- [OnRetryExhausted](<#OnRetryExhausted>) \- вызывается после последней неудачной попытки обработки.
+
 Настройки в onlineconf \(задаются для очереди или глобально\):
 
 ```
@@ -498,8 +509,8 @@ retry_exp   - экспонента. Формат - float. Значение по 
 
 Задержка вычисляется по формуле:
   constant:   retry_delay
-  linear:     retry_delay + retry_coeff * Count
-  exponential: retry_delay + retry_coeff * retry_exp ^ Count
+  linear:     retry_delay + retry_coeff * retryCount
+  exponential: retry_delay + retry_coeff * retry_exp ^ retryCount
 ```
 
 где Count \- номер текущей попытки \(начиная с 0\)
@@ -559,7 +570,7 @@ type IgnoreDuplicateItems interface {
 <a name="InitOption"></a>
 ## type InitOption
 
-
+InitOption \- [WithInstanceName](<#WithInstanceName>), [WithLogger](<#WithLogger>)
 
 ```go
 type InitOption func(*InitOptions)
@@ -572,7 +583,9 @@ type InitOption func(*InitOptions)
 func WithInstanceName(instanceName string) InitOption
 ```
 
-WithInstanceName устанавливает имя инстанса. По умолчанию, для обработчиков читается из командной строки из флага \-instance, для продюсеров \- DefaultProducerInstance \("producer"\)
+WithInstanceName устанавливает имя инстанса.
+
+По умолчанию, для обработчиков читается из командной строки из флага \-instance, для продюсеров \- DefaultProducerInstance \("producer"\)
 
 <a name="WithLogger"></a>
 ### func WithLogger
@@ -581,12 +594,14 @@ WithInstanceName устанавливает имя инстанса. По умо
 func WithLogger(logger *zerolog.Logger) InitOption
 ```
 
-WithLogger устанавливает логгер. По умолчанию, вызывается mylog.InitZerolog\(\)
+WithLogger устанавливает логгер.
+
+По умолчанию, вызывается \[mylog.InitZerolog\].
 
 <a name="InitOptions"></a>
 ## type InitOptions
 
-
+InitOptions \- тип напрямую использовать не надо. Не сделан приватным для упрощения написания тестов.
 
 ```go
 type InitOptions struct {
@@ -617,28 +632,47 @@ type Middleware[EvType Event, EvSlice ~[]EvType] func(Handler[EvType, EvSlice]) 
 <a name="Queue"></a>
 ## type Queue
 
-Queue \- высокоуровневое API очередей. Содержит информацию об обрабатываемых очередях \(см. Register\)
+Queue \- высокоуровневое API очередей.
+
+В комментариях описано поведение реализации, возвращаемой [NewQueue](<#NewQueue>).
 
 ```go
-type Queue struct {
-    // contains filtered or unexported fields
+type Queue interface {
+    // Client возвращает интерфейс низкоуровневого API очередей
+    Client() QueuedClient
+
+    // Config возвращает высокоуровневый конфиг очередей с возможностью определения значений
+    // для каждой очереди, с возможностью задания глобальных и per-instance дефолтов.
+    Config() *queueconfig.Config
+
+    // NewPoller возвращает интерфейс для опроса событий из очереди.
+    // Вынесен для возможности внешней реализации разных стратегий опроса очереди
+    // (например, managed master).
+    NewPoller(logger *zerolog.Logger) workerpool.Poller
+
+    // IsRegistered проверяет, зарегистрирована ли указанная очередь вызовом Register.
+    IsRegistered(queueID uint16) bool
+
+    // Publish кодирует событие при помощи метода Encode, и отправляет его в очередь методом [queuedclient.Publish].
+    // Клиент очередей должен быть проинициализирован.
+    //
+    // Возвращается ID события (сгенерённый методом BuildEventID(), либо возвращённый queued).
+    //
+    // Если у события есть метод IgnoreDuplicateItems, и он возвращает true, дубли при
+    // совпадении ID события игнорируются (также подавляется ошибка в логе queued флагом queuedproto.FlagIgnoreWrongItem).
+    Publish(ctx context.Context, event Event, opts ...queuedclient.PublishOption) (queuedproto.EventID, error)
+
+    // Replace заменяет существующее событие в очереди. ID события должно быть обязательно задано.
+    // Если время срабатывания не установлено через опции, оно не изменяется.
+    Replace(ctx context.Context, event Event, opts ...queuedclient.PublishOption) error
 }
 ```
-
-<a name="Init"></a>
-### func Init
-
-```go
-func Init(ctx context.Context, conf *queueconfig.Config) (*Queue, error)
-```
-
-Init создаёт объект для высокоуровневой работы с API очередей. Инициализирует клиент очередей \(queuedclient\) с указанным конфигом.
 
 <a name="InitProducer"></a>
 ### func InitProducer
 
 ```go
-func InitProducer[T queueconfig.OnlineConf](conf queueconfig.OnlineConfWithSubtree[T], opts ...InitOption) *Queue
+func InitProducer[T queueconfig.OnlineConf](conf queueconfig.OnlineConfWithSubtree[T], opts ...InitOption) Queue
 ```
 
 InitProducer \- инициализация типового продюсера \(веб\-сервис, и т.д.\):
@@ -679,106 +713,18 @@ func (svc *Service) PostUserDataHandler(...) {
 Опции:
 
 - [WithInstanceName](<#WithInstanceName>) \- по умолчанию, \`producer\`
-- [WithLogger](<#WithLogger>) \- если не указано явно, инициализируется при помощи mylog.InitZerolog.
+- [WithLogger](<#WithLogger>) \- если не указано явно, инициализируется при помощи \[mylog.InitZerolog\].
 
-В случае ошибки инициализации происходит выход \(zerolog.Logger.Fatal\). Предполагается вызов из функции main.
+В случае ошибки инициализации происходит выход \(\[zerolog.Logger.Fatal\]\). Предполагается вызов из функции main.
 
-<a name="Queue.Client"></a>
-### func \(\*Queue\) Client
-
-```go
-func (q *Queue) Client() *queuedclient.QueuedClient
-```
-
-Client возвращает клиент очередей.
-
-Это \- API нижнего уровня, не стоит им пользоваться без необходимости.
-
-Для удаления событий из обработчиков стоит пользоваться методом BaseEvent.Done, для установки времени задержки \- BaseEvent.Defer.
-
-Если будут нужны какие\-то методы "среднего уровня", имеет смысл их добавить к типу Queue.
-
-<a name="Queue.Config"></a>
-### func \(\*Queue\) Config
+<a name="NewQueue"></a>
+### func NewQueue
 
 ```go
-func (q *Queue) Config() *queueconfig.Config
+func NewQueue(ctx context.Context, conf *queueconfig.Config) (Queue, error)
 ```
 
-Config возвращает высокоуровневый конфиг очередей с возможностью определения значений для каждой очереди.
-
-<a name="Queue.GetActiveEvents"></a>
-### func \(\*Queue\) GetActiveEvents
-
-```go
-func (q *Queue) GetActiveEvents(ctx context.Context, queueID QueueIDType, count int) (*EventList, error)
-```
-
-GetActiveEvents получает активные события \(наступило время срабатывания\) в декодированном виде из очереди queueID. Если count не задано \(==0\), используется значение из конфига \(fetch\_batch\_size\).
-
-Вместе с ошибкой может вернуться и валидный \(не\-nil\) результат, этот кейс надо учитывать. Это означает, что ошибку вернули только некоторые из шардов.
-
-<a name="Queue.GetEventsByIDs"></a>
-### func \(\*Queue\) GetEventsByIDs
-
-```go
-func (q *Queue) GetEventsByIDs(ctx context.Context, queueID QueueIDType, eventIDs []queuedproto.EventID) (*EventList, error)
-```
-
-GetEventsByIDs получает события в декодированном виде с указанными ID из очереди queueID
-
-Вместе с ошибкой может вернуться и валидный \(не\-nil\) результат, этот кейс надо учитывать. Это означает, что ошибку вернули только некоторые из шардов.
-
-<a name="Queue.IsRegistered"></a>
-### func \(\*Queue\) IsRegistered
-
-```go
-func (q *Queue) IsRegistered(queueID uint16) bool
-```
-
-IsRegistered проверяет, зарегистрирован ли обработчик очереди.
-
-<a name="Queue.NewPoller"></a>
-### func \(\*Queue\) NewPoller
-
-```go
-func (q *Queue) NewPoller(logger *zerolog.Logger) workerpool.Poller
-```
-
-NewPoller возвращает объект для опроса новых событий из WorkerPool
-
-<a name="Queue.Publish"></a>
-### func \(\*Queue\) Publish
-
-```go
-func (q *Queue) Publish(ctx context.Context, event Event, opts ...queuedclient.PublishOption) (queuedproto.EventID, error)
-```
-
-Publish кодирует событие при помощи метода Encode, и отправляет его в очередь методом queuedclient.Publish. Клиент очередей должен быть проинициализирован.
-
-Возвращается ID события \(сгенерённый методом BuildEventID\(\), либо возвращённый queued\).
-
-Если у события есть метод IgnoreDuplicateItems, и он возвращает true, дубли при совпадении ID события игнорируются \(также подавляется ошибка в логе queued флагом queuedproto.FlagIgnoreWrongItem\).
-
-<a name="Queue.Queued"></a>
-### func \(\*Queue\) Queued
-
-```go
-func (q *Queue) Queued() *queuedclient.QueuedClient
-```
-
-Queued возвращает клиент очередей.
-
-Deprecated: переименовано в [Queue.Client](<#Queue.Client>)
-
-<a name="Queue.Replace"></a>
-### func \(\*Queue\) Replace
-
-```go
-func (q *Queue) Replace(ctx context.Context, event Event, opts ...queuedclient.PublishOption) error
-```
-
-Replace заменяет существующее событие в очереди. ID события должно быть обязательно задано. Если время срабатывания не установлено через опции, оно не изменяется.
+NewQueue создаёт объект для высокоуровневой работы с API очередей. Инициализирует клиент очередей \(\[queuedclient\]\) с указанным конфигом.
 
 <a name="QueueIDType"></a>
 ## type QueueIDType
@@ -787,6 +733,52 @@ QueueIDType \- тип id очереди. Используем type alias \- пр
 
 ```go
 type QueueIDType = uint16
+```
+
+<a name="QueuedClient"></a>
+## type QueuedClient
+
+QueuedClient \- интерфейс низкоуровневого API очередей \(клиента queued\). Реализован в \[queuedclient.QueuedClient\] \(там же \- более подробное описание методов\).
+
+```go
+type QueuedClient interface {
+    // Publish отправляет событие в очередь.
+    // Автоинкремент ID и способы задания задержки описаны в документации к пакету queuedclient.
+    Publish(ctx context.Context, queueID uint16, eventID queuedproto.EventID, flags uint32, eventData []byte, opts ...queuedclient.PublishOption) (queuedproto.EventID, error)
+
+    // Replace заменяет существующее событие в очереди.
+    Replace(ctx context.Context, queueID uint16, eventID queuedproto.EventID, eventData []byte, opts ...queuedclient.PublishOption) (bool, error)
+
+    // Defer устанавливает задержку обработки для указанных событий. Если задержка не указана (delay == 0), используется значение defer_time из конфига.
+    Defer(ctx context.Context, queueID uint16, delay time.Duration, eventIDs []queuedproto.EventID) error
+
+    // Delete удаляет указанные события параллельно изо всех необходимых шардов пачками по update_batch_size событий.
+    Delete(ctx context.Context, queueID uint16, eventIDs []queuedproto.EventID) error
+
+    // GetActive получает активные события из очереди queueID изо всех шардов одновременно.
+    GetActive(ctx context.Context, queueID uint16, count int) (queuedproto.ItemList, error)
+
+    // GetByIDs запрашивает события из очереди queueID с указанными ID из указанных шардов параллельно.
+    GetByIDs(ctx context.Context, queueID uint16, eventIDs []queuedproto.EventID) (queuedproto.ItemList, error)
+
+    // GetByIDsBroadcast запрашивает события из очереди queueID с указанными ID изо всех шардов одновременно.
+    GetByIDsBroadcast(ctx context.Context, queueID uint16, eventIDs []uint64) (queuedproto.ItemList, error)
+
+    // SetActivationTime устанавливает время активации для указанных событий.
+    SetActivationTime(ctx context.Context, queueID uint16, atime time.Time, eventIDs []queuedproto.EventID) error
+
+    // ShardNum возвращает количество сконфигурированных шардов queued.
+    ShardNum() uint
+
+    // MakeBroadcastRequest посылает запрос req параллельно во все шарды.
+    MakeBroadcastRequest(ctx context.Context, req queuedproto.Request, resFunc queuedclient.ResultFunc) error
+
+    // MakeMulticastRequest посылает запросы для указанных eventIDs в нужные шарды.
+    MakeMulticastRequest(ctx context.Context, batchSize int, eventIDs []queuedproto.EventID, reqFunc queuedclient.RequestFunc, resFunc queuedclient.ResultFunc) error
+
+    // MakeUnicastRequest посылает запрос req к указанному шарду.
+    MakeUnicastRequest(ctx context.Context, shard uint, req queuedproto.Request) (usedShard uint, respBytes []byte, err error)
+}
 ```
 
 <a name="Retry2Option"></a>
@@ -828,7 +820,7 @@ Retry2CounterNames позволяет задать альтернативные 
 <a name="RetryOption"></a>
 ## type RetryOption
 
-
+RetryOption \- [OnRetry](<#OnRetry>), [OnRetryExhausted](<#OnRetryExhausted>)
 
 ```go
 type RetryOption func(*retryOpt)
@@ -889,13 +881,13 @@ type RetryableEvent2 interface {
 <a name="StandaloneMaster"></a>
 ## type StandaloneMaster
 
-StandaloneMaster \- управление пулом обработчиков очередей при помощи onlineconf. Поддерживает все методы типа Queue.
+StandaloneMaster \- управление пулом обработчиков очередей при помощи onlineconf. Поддерживает все методы типа [Queue](<#Queue>).
 
 Не путать с перловым менеджером очередей.
 
 ```go
 type StandaloneMaster struct {
-    *Queue
+    Queue
     // contains filtered or unexported fields
 }
 ```
@@ -928,20 +920,20 @@ func main() {
 Опции:
 
 - [WithInstanceName](<#WithInstanceName>) \- по умолчанию \- читается параметр командной строки \-instance \(flag.Parse\(\) из main\(\) в этом случае вызывать до вызова InitProcessor не следует\).
-- [WithLogger](<#WithLogger>) \- если не указано явно, инициализируется при помощи mylog.InitZerolog.
+- [WithLogger](<#WithLogger>) \- если не указано явно, инициализируется при помощи \[mylog.InitZerolog\].
 
-В случае ошибки инициализации происходит выход \(zerolog.Logger.Fatal\). Предполагается вызов из функции main.
+В случае ошибки инициализации происходит выход \(\[zerolog.Logger.Fatal\]\). Предполагается вызов из функции main.
 
 <a name="NewStandaloneManager"></a>
 ### func NewStandaloneManager
 
 ```go
-func NewStandaloneManager(queue *Queue, pool *workerpool.WorkerPool, logger *zerolog.Logger) *StandaloneMaster
+func NewStandaloneManager(queue Queue, pool *workerpool.WorkerPool, logger *zerolog.Logger) *StandaloneMaster
 ```
 
 NewStandaloneManager создаёт новый объект для управления пулом.
 
-Это \- низкоуровневый интерфейс. Для типового кейса следует юзать обёртку InitProcessor.
+Это \- низкоуровневый интерфейс. Для типового кейса следует юзать обёртку [InitProcessor](<#InitProcessor>).
 
 <a name="StandaloneMaster.Run"></a>
 ### func \(\*StandaloneMaster\) Run
@@ -1018,7 +1010,7 @@ import "gitlab.cebc.tools/go/tp.git/encodings"
 
 Package encodings \- поддержка сериализации событий.
 
-Бинарное представление всех форматов событий должно начинаться с байта версии. Из\-за особенностей реализации перлового формата, верхние 3 бита зарезервированы под флаги, поэтому номер версии должен быть в диапазоне 0\-31 \(queuedproto.VersionMask\). По номеру версии определяется также и формат \(см. tp.Queue.Register\), поэтому это ограничение касается всех форматов \- не только перлового.
+Бинарное представление всех форматов событий должно начинаться с байта версии. Из\-за особенностей реализации перлового формата, верхние 3 бита зарезервированы под флаги, поэтому номер версии должен быть в диапазоне 0\-31 \(\[queuedproto.VersionMask\]\). По номеру версии определяется также и формат \(см. \[tp.Queue.Register\]\), поэтому это ограничение касается всех форматов \- не только перлового.
 
 Сейчас реализовано два формата \- Perl и Protobuf, они задаются одноимёнными константами.
 
@@ -1026,7 +1018,7 @@ Package encodings \- поддержка сериализации событий.
 
 ### Perl
 
-Кроме основного payload, с которым вопросов возникать не должно \(штатное кодирование средствами gitlab.cebc.tools/go/easygo.git/iproto в queuedproto.PerlData.Data\), перловый формат поддерживает два механизма передачи дополнительных данных в TLV\-формате: addons \(MR::TP::Addon, используются в современных проектах на перле\) и extensions \(MR::Queue::Extensions, используются в MM\).
+Кроме основного payload, с которым вопросов возникать не должно \(штатное кодирование средствами github.com/my\-mail\-ru/go\-iproto в \[queuedproto.PerlData.Data\]\), перловый формат поддерживает два механизма передачи дополнительных данных в TLV\-формате: addons \(MR::TP::Addon, используются в современных проектах на перле\) и extensions \(MR::Queue::Extensions, используются в MM\).
 
 Возможности обоих механизмов:
 
@@ -1034,11 +1026,9 @@ Package encodings \- поддержка сериализации событий.
 - поля доступны через свойства объекта события
 - для некоторых типов реализовано автозаполнение
 
-Расширения \(extensions\) пока не поддерживаются в go, аддоны реализованы, но для некоторых аддонов \(Retry и Retry2\) пока не реализована высокоуровневая логика.
+Расширения \(extensions\) пока не поддерживаются в go, аддоны реализованы. Поддержка аддонов и расширений на уровне протокола queued описана там же: \[queuedproto.PerlData\].
 
-Поддержка аддонов и расширений на уровне протокола queued описана там же: queuedproto.PerlData
-
-Флаг FlagEncodeInUTF8 пока устанавливается при кодировании всегда. Это может вызывать небольшой оверхед при обработке событий без текстовых полей в перле. При декодировании этот флаг ингорируется, т.к. не поддерживать utf8 go не умеет :\)
+Флаг \[queuedproto.FlagEncodeInUTF8\] пока устанавливается при кодировании всегда. Это может вызывать небольшой оверхед при обработке событий без текстовых полей в перле. При декодировании этот флаг ингорируется, т.к. не поддерживать utf8 go не умеет :\)
 
 Также в очередях перловых проектов возможно указывать формат сериализации поля \(cbor, array\_as\_str и т.д.\). Всё это можно реализовать, объявляя методы MarshalIProto/UnmarshalIProto для своих структур. Когда/если надоест \- можно реализовать генераторы таких методов для указанных типов.
 
@@ -1046,12 +1036,12 @@ Package encodings \- поддержка сериализации событий.
 
 Реализованы следующие аддоны \(указан перловый аналог\):
 
-- addons.CreationTime MR::TP::Addon::CreationTime
-- addons.Retry MR::TP::Addon::Retry
-- addons.Retry2 MR::TP::Addon::Retry2
-- addons.Producer MR::TP::Addon::Producer
+- \[addons.CreationTime\]: MR::TP::Addon::CreationTime
+- \[addons.Retry\]: MR::TP::Addon::Retry
+- \[addons.Retry2\]: MR::TP::Addon::Retry2
+- \[addons.Producer\]: MR::TP::Addon::Producer
 
-Пакет addons входит в состав библиотеки queuedproto, где и реализован нижний уровень аддонов: gitlab.cebc.tools/dev/queued\-go\-lib/addons
+Пакет \[addons\] входит в состав библиотеки \[queuedproto\], где и реализован нижний уровень аддонов: github.com/my\-mail\-ru/go\-queuedproto/addons
 
 Для использования аддонов, нужно вложить в свою структуру события нужные типы аддонов:
 
@@ -1069,7 +1059,7 @@ var _ tp.Handler = &MyEvent{}
 
 Аддоны поддерживаются только на верхнем уровне структуры \(не в других встроенных или именованных подструктурах\).
 
-Для реализации автозаполнения используется интерфейс tp.Builder \(как и для самих событий\). Если используется один аддон, произойдёт автоматический проброс этого метода юзерской структуре, но если используется два и более аддонов с таким методом, магии не произойдёт \(таковы правила встраивания структур в go\), поэтому нужно это реализовать вручную:
+Для реализации автозаполнения используется интерфейс \[tp.Builder\] \(как и для самих событий\). Если используется один аддон, произойдёт автоматический проброс этого метода юзерской структуре, но если используется два и более аддонов с таким методом, магии не произойдёт \(таковы правила встраивания структур в go\), поэтому нужно это реализовать вручную:
 
 ```
 func (ev *MyEvent) Build() {
@@ -1084,7 +1074,7 @@ func (ev *MyEvent) Build() {
 
 ### Protobuf
 
-Структуру, сгенерённую из .proto\-файла при помощи protoc\-gen\-go, вместе с tp.Event, нужно вложить в свою структуру, для которой нужно будет определить метод Handle \(и, возможно, Build и BuildEventID\):
+Структуру, сгенерённую из .proto\-файла при помощи protoc\-gen\-go, вместе с \[tp.Event\], нужно вложить в свою структуру, для которой нужно будет определить метод Handle \(и, возможно, Build и BuildEventID\):
 
 ```
 type MyEvent struct {
@@ -1197,7 +1187,7 @@ const AllocSize = 64
 func AllocBytes() []byte
 ```
 
-
+AllocBytes выделяет буфер с capacity AllocSize
 
 # queueconfig
 
@@ -1243,13 +1233,13 @@ fetch_batch_size               FetchBatchSize  strconv.ParseInt
 update_batch_size              UpdateBatchSize strconv.ParseInt
 ```
 
-### Подробно конфигурационные значения описаны в README.md
+Подробно конфигурационные значения описаны в README.md.
 
-Также, объект Config поддерживает интерфейс oconf.OnlineConf, и с его помощью можно обращаться и к значениям, заданным вне пути $ProjectRoot/tp/go \(внутри $ProjectRoot\).
+Также, объект [Config](<#Config>) поддерживает интерфейс [OnlineConf](<#OnlineConf>), и с его помощью можно обращаться и к произвольным значениям вне конфигурации очередей.
 
-Для параметров, у которых есть дефолтные значения, ошибка не возвращается. Для логгирования проблем с такими параметрами \(синтаксические ошибки, и т.д.\) соответствующим методом можно передать контекст. Если не требуется логгирование через контекст, вместо контекста можно передать nil \(используется mylog.Ctx\).
+Для параметров, у которых есть дефолтные значения, ошибка не возвращается. Для логгирования проблем с такими параметрами \(синтаксические ошибки, и т.д.\) соответствующим методом можно передать контекст. Если не требуется логгирование через контекст, вместо контекста можно передать nil \(используется \[mylog.Ctx\]\).
 
-Во избежание избыточного логгирования, про каждый ошибочный параметр в лог пишется только один раз. При обновлении конфига/мягком рестарте следует вызвать метод ClearErrCache для очистки списка путей, про которые была запись в лог об ошибке.
+Во избежание избыточного логгирования, про каждый ошибочный параметр в лог пишется только один раз. При обновлении конфига/мягком рестарте следует вызвать метод [Config.ClearErrCache](<#Config.ClearErrCache>) для очистки списка путей, про которые была запись в лог об ошибке.
 
 Методы, возвращающие обязательные параметры, ошибку возвращают, в случае получения ошибки следует прервать выполнение \(при первом запуске\) или проигнорировать изменения в конфиге \(при обновлении конфига в процессе работы\).
 
@@ -1306,12 +1296,21 @@ const (
 )
 ```
 
-<a name="RetryConstant"></a>retry\_types
+<a name="RetryConstant"></a>Типы задержки для \[tp.WithRetry\] и \[tp.WithRetry2\] \(retry\_type\).
 
 ```go
 const (
+    // RetryConstant - постоянная задержка при каждой повторной попытке:
+    //  - [tp.WithRetry]: retry_delay
+    //  - [tp.WithRetry2]: retry1_delay и retry2_delay (имена возможно переопределить, см. опции [tp.WithRetry2])
     RetryConstant = iota
+
+    // RetryLinear - линейная задержка повторных попыток.
+    // retry_delay + retry_coeff * retryCount
     RetryLinear
+
+    // RetryExponential - экспоненциальная задержка повторных попыток.
+    // retry_delay + retry_coeff * retry_exp ^ retryCount
     RetryExponential
 )
 ```
@@ -1391,7 +1390,7 @@ Unwrap возвращает Err для работы с errors.Is и т.д.
 <a name="Config"></a>
 ## type Config
 
-Config \- настройки обработчика очередей. Можно пользоваться, как обычным объектом с интерфейсом Onlineconf для получения настроек относительно корня проекта. Также предусмотрены методы для получения настроек per\-instance и pre\-queue.
+Config \- настройки обработчика очередей. Можно пользоваться, как обычным объектом с интерфейсом OnlineConf для получения настроек относительно корня проекта. Также предусмотрены методы для получения настроек per\-instance и pre\-queue.
 
 ```go
 type Config struct {
@@ -1560,7 +1559,7 @@ RetryLimit возвращает лимит повторных попыток ret
 func (c *Config) RetryType(queueID uint16) (int, error)
 ```
 
-RetryType возвращает тип задержки повтора retry\_type, заданный для указанной очереди, или глобально. Используется для \[tp.WithRetry\] и \[tp.WithRetry2\]. По умолчанию, возвращается RetryConstant.
+RetryType возвращает тип задержки повтора retry\_type, заданный для указанной очереди, или глобально. Используется для \[tp.WithRetry\] и \[tp.WithRetry2\]. По умолчанию, возвращается [RetryConstant](<#RetryConstant>)
 
 <a name="Config.SlotsCount"></a>
 ### func \(\*Config\) SlotsCount
@@ -1644,17 +1643,16 @@ Package queuedclient \- низкоуровневый клиент queued.
 
 Высокоуровневые аналоги методов queuedclient.QueuedClient:
 
-```
-GetActive  tp.Queue.GetActiveEvents
-GetByIDs   tp.Queue.GetEventsByIDs
-Delete     tp.Event.Done + tp.eventList.commit
-Defer      tp.Event.Defer (кастомный), tp.eventList.commit (дефолтный)
-Publish    tp.Queue.Publish, tp.Event.Publish
-```
+- [QueuedClient.Delete](<#QueuedClient.Delete>): tp.Event.Done
+- [QueuedClient.Defer](<#QueuedClient.Defer>): tp.Event.Defer
+- [QueuedClient.Publish](<#QueuedClient.Publish>): tp.Queue.Publish
+- [QueuedClient.Replace](<#QueuedClient.Replace>): tp.Queue.Replace
 
-Шардингом этот пакет НЕ занимается\! Какой шард передали \- такой и используется. Для unicast\-режима поддерживается чередование шардов для распределения объёмов хранимых событий, для его использования вместо номера шарда надо указать константу BalanceShard.
+Шардингом этот пакет НЕ занимается\! Какой шард передали \- такой и используется. Для unicast\-режима поддерживается чередование шардов для распределения объёмов хранимых событий, для его использования вместо номера шарда надо указать константу [BalanceShard](<#ConfServers>).
 
 Multicast/broadcast методы отправляют запросы в указанные/все шарды параллельно.
+
+Для кастомного задания шарда на уровне события, следует переопределить метод \[tp.Event.Shard\].
 
 ## Index
 
@@ -1668,6 +1666,7 @@ Multicast/broadcast методы отправляют запросы в указ
 - [type PublishOption](<#PublishOption>)
   - [func PublishActivationTime\(t time.Time\) PublishOption](<#PublishActivationTime>)
   - [func PublishInitialDelay\(d time.Duration\) PublishOption](<#PublishInitialDelay>)
+- [type PublishOptions](<#PublishOptions>)
 - [type QueuedClient](<#QueuedClient>)
   - [func Dial\(ctx context.Context, conf \*queueconfig.Config\) \(\*QueuedClient, error\)](<#Dial>)
   - [func \(qc \*QueuedClient\) Defer\(ctx context.Context, queueID uint16, delay time.Duration, eventIDs \[\]queuedproto.EventID\) error](<#QueuedClient.Defer>)
@@ -1771,7 +1770,7 @@ GetPID \- хак для получения ID, обеспечивающего у
 - NAT N:1 \(уже один раз такое было\)
 - контейнеры/кубер, где pid может быть 1, или другой небольшой \(при запуске в шелле/из скрипта, в странных кейсах \- из\-под systemd\)
 
-Поэтому для небольших pid будем генерить 32\-битный рандом \("честный" crypt/random, честность зависит от ядра/рантайма контейнера\)
+Поэтому для небольших pid будем генерить 32\-битный рандом \("честный" [crypt/random](<https://pkg.go.dev/crypt/random/>), честность зависит от ядра/рантайма контейнера\)
 
 Чтобы генерить рандомный "pid" всегда, можно задать в онлайнконфе /queueds/main/min\_pid больше максимально возможного pid для платформы \(32768 для linux, 99999 для \*bsd \- поэтому лучше вписывать "совсем много", если планируется тестировать на макбуках без докера\)
 
@@ -1820,10 +1819,10 @@ ToError преобразует мульти\-ошибку в стандартн�
 <a name="PublishOption"></a>
 ## type PublishOption
 
-PublishOption \- опции \[Publish\]
+PublishOption \- опции [QueuedClient.Publish](<#QueuedClient.Publish>): [PublishActivationTime](<#PublishActivationTime>) и [PublishInitialDelay](<#PublishInitialDelay>).
 
 ```go
-type PublishOption func(*publishOptions)
+type PublishOption func(*PublishOptions)
 ```
 
 <a name="PublishActivationTime"></a>
@@ -1843,6 +1842,17 @@ func PublishInitialDelay(d time.Duration) PublishOption
 ```
 
 PublishInitialDelay устанавливает задержку обработки нового события. Если не установлено \- используется заданное в конфиге значение.
+
+<a name="PublishOptions"></a>
+## type PublishOptions
+
+
+
+```go
+type PublishOptions struct {
+    // contains filtered or unexported fields
+}
+```
 
 <a name="QueuedClient"></a>
 ## type QueuedClient
@@ -1885,7 +1895,7 @@ Defer устанавливает задержку обработки для ук
 func (qc *QueuedClient) Delete(ctx context.Context, queueID uint16, eventIDs []queuedproto.EventID) error
 ```
 
-Delete удаляет указанные события параллельно изо всех необходимых шардов пачками по update\_batch\_size событий. TODO может быть, игнорить ErrItemLocked и просто писать его в лог?
+Delete удаляет указанные события параллельно изо всех необходимых шардов пачками по update\_batch\_size событий. TODO может быть, игнорить \[queuedproto.ErrItemLocked\] и просто писать его в лог?
 
 <a name="QueuedClient.GetActive"></a>
 ### func \(\*QueuedClient\) GetActive
@@ -1920,9 +1930,7 @@ GetByIDs запрашивает события из очереди queueID с у
 func (qc *QueuedClient) GetByIDsBroadcast(ctx context.Context, queueID uint16, eventIDs []uint64) (queuedproto.ItemList, error)
 ```
 
-GetByIDsBroadcast запрашивает события из очереди queueID с указанными ID изо всех шардов одновременно.
-
-#### ID событий указываются без номера шарда, обычными uint64
+GetByIDsBroadcast запрашивает события из очереди queueID с указанными ID изо всех шардов одновременно. ID событий указываются без номера шарда, обычными uint64
 
 Ретраи в случае ошибок не производятся.
 
@@ -1971,7 +1979,7 @@ MakeUnicastRequest посылает запрос req к указанному ш�
 
 В случае получения не\-логической ошибки \(\!queuedproto.IsSoftError\(err\)\), производится ещё /queueds/multi/retry\_count попыток с задержкой /queueds/multi/retry\_delay. Если после всех этих попыток ошибка повторяется \- она возвращается.
 
-Если задан shard == BalanceShard, шард выбирается по round robin. В этом случае, каждый ретрай посылается в следующий шард.
+Если задан shard == [BalanceShard](<#ConfServers>), шард выбирается по round robin. В этом случае, каждый ретрай посылается в следующий шард.
 
 <a name="QueuedClient.Publish"></a>
 ### func \(\*QueuedClient\) Publish
@@ -1980,13 +1988,13 @@ MakeUnicastRequest посылает запрос req к указанному ш�
 func (qc *QueuedClient) Publish(ctx context.Context, queueID uint16, eventID queuedproto.EventID, flags uint32, eventData []byte, opts ...PublishOption) (queuedproto.EventID, error)
 ```
 
-Publish отправляет событие в очередь. Если eventID.ID == 0, queued создаёт новый ID, который возвращается. Если задан eventID.Shard == BalanceShard, шард выбирается по round robin. Если шард задан, а ID \- нет, происходит автоинкремент ID в указанном шарде.
+Publish отправляет событие в очередь. Если eventID.ID == 0, queued создаёт новый ID, который возвращается. Если задан eventID.Shard == [BalanceShard](<#ConfServers>), шард выбирается по round robin. Если шард задан, а ID \- нет, происходит автоинкремент ID в указанном шарде.
 
 Можно задать время активации события при помощи опции [PublishActivationTime](<#PublishActivationTime>) или задержку [PublishInitialDelay](<#PublishInitialDelay>). Если эти опции не заданы, используется задержка из конфига initial\_delay. Задержка, заданная при помощи PublishInitialDelay\(0\) считается заданной явно, дефолтная задержка из конфига в этом случае не берётся. Если это значение не задано для очереди или глобально \- событие активируется без задержки.
 
 В случае получения не\-логической ошибки \(\!queuedproto.IsSoftError\(err\)\), производится ещё /queueds/multi/retry\_count попыток с задержкой /queueds/multi/retry\_delay. Если после всех этих попыток ошибка повторяется \- она возвращается.
 
-Если задан eventID.Shard == BalanceShard, то каждый ретрай посылается в следующий шард.
+Если задан eventID.Shard == [BalanceShard](<#ConfServers>), то каждый ретрай посылается в следующий шард.
 
 ID запроса \(queuedproto.ReqAddItem.ReqID\) для всех ретраев отправляется один и тот же, на случай, если у нас шардов меньше, чем retry\_count \(например, 1\), и 1й запрос ушёл, но ответ потерялся.
 
@@ -2026,7 +2034,7 @@ ShardNum возвращает количество шардов, указанн�
 <a name="RequestFunc"></a>
 ## type RequestFunc
 
-RequestFunc вызывается функцией MakeMulticastRequest для формирования запроса для указанных ID \(относящихся к одному шарду\)
+RequestFunc вызывается функцией [QueuedClient.MakeMulticastRequest](<#QueuedClient.MakeMulticastRequest>) для формирования запроса для указанных ID \(относящихся к одному шарду\)
 
 ```go
 type RequestFunc func(eventIDs []uint64) queuedproto.Request
@@ -2035,9 +2043,9 @@ type RequestFunc func(eventIDs []uint64) queuedproto.Request
 <a name="ResultFunc"></a>
 ## type ResultFunc
 
-ResultFunc вызывается функциями MakeBroadcastRequest и MakeMulticastRequest для сохранения результата, полученного из указанного шарда. Результат надо сохранять либо через замыкание \- либо передавать в качестве этой функции bound method объекта, куда сохраняются данные.
+ResultFunc вызывается функциями [QueuedClient.MakeBroadcastRequest](<#QueuedClient.MakeBroadcastRequest>) и [QueuedClient.MakeMulticastRequest](<#QueuedClient.MakeMulticastRequest>) для сохранения результата, полученного из указанного шарда. Результат надо сохранять либо через замыкание \- либо передавать в качестве этой функции bound method объекта, куда сохраняются данные.
 
-Эта функция вызывается из разных горутин и должна быть thread\-safe \(не использовать прямой append/обычный map без лока\! использовать каналы, sync.Map и т.д.\)
+Эта функция вызывается из разных горутин и должна быть thread\-safe \(не использовать прямой append/обычный map без лока\! использовать каналы, [sync.Map](<https://pkg.go.dev/sync/#Map>) и т.д.\)
 
 ```go
 type ResultFunc func(shard uint, result []byte) error
@@ -2175,28 +2183,6 @@ type Work struct {
     Do  func()
 }
 ```
-
-# tptest
-
-```go
-import "gitlab.cebc.tools/go/tp.git/test"
-```
-
-Package tptest contains integration tests
-
-## Index
-
-- [func ConfigDir\(\) string](<#ConfigDir>)
-
-
-<a name="ConfigDir"></a>
-## func ConfigDir
-
-```go
-func ConfigDir() string
-```
-
-ConfigDir returns path to directory with TREE.cdb file.
 
 # workerpool
 
@@ -3131,2540 +3117,5 @@ const (
     Sleeping  State = 7
 )
 ```
-
-# examples
-
-```go
-import "gitlab.cebc.tools/go/tp.git/test/examples"
-```
-
-## Index
-
-- [Constants](<#constants>)
-- [type Service](<#Service>)
-  - [func \(\*Service\) Handle\(ctx context.Context, events \[\]SimpleEvent\) error](<#Service.Handle>)
-- [type SimpleEvent](<#SimpleEvent>)
-  - [func \(recvSimpleEvent SimpleEvent\) MarshalIProto\(buf \[\]byte\) \(\[\]byte, error\)](<#SimpleEvent.MarshalIProto>)
-  - [func \(SimpleEvent\) QueueID\(\) uint16](<#SimpleEvent.QueueID>)
-  - [func \(recv\_SimpleEvent \*SimpleEvent\) UnmarshalIProto\(buf \[\]byte\) \(\[\]byte, error\)](<#SimpleEvent.UnmarshalIProto>)
-  - [func \(SimpleEvent\) Version\(\) uint8](<#SimpleEvent.Version>)
-
-
-## Constants
-
-<a name="SimpleQueueID"></a>
-
-```go
-const SimpleQueueID = 1122
-```
-
-<a name="Service"></a>
-## type Service
-
-
-
-```go
-type Service struct {
-    DatabaseConnection any
-}
-```
-
-<a name="Service.Handle"></a>
-### func \(\*Service\) Handle
-
-```go
-func (*Service) Handle(ctx context.Context, events []SimpleEvent) error
-```
-
-
-
-<a name="SimpleEvent"></a>
-## type SimpleEvent
-
-
-
-```go
-type SimpleEvent struct {
-    tp.BaseEvent
-
-    UserID   uint32
-    UserName string `iproto:"ber"`
-}
-```
-
-<a name="SimpleEvent.MarshalIProto"></a>
-### func \(SimpleEvent\) MarshalIProto
-
-```go
-func (recvSimpleEvent SimpleEvent) MarshalIProto(buf []byte) ([]byte, error)
-```
-
-
-
-<a name="SimpleEvent.QueueID"></a>
-### func \(SimpleEvent\) QueueID
-
-```go
-func (SimpleEvent) QueueID() uint16
-```
-
-
-
-<a name="SimpleEvent.UnmarshalIProto"></a>
-### func \(\*SimpleEvent\) UnmarshalIProto
-
-```go
-func (recv_SimpleEvent *SimpleEvent) UnmarshalIProto(buf []byte) ([]byte, error)
-```
-
-
-
-<a name="SimpleEvent.Version"></a>
-### func \(SimpleEvent\) Version
-
-```go
-func (SimpleEvent) Version() uint8
-```
-
-
-
-# rootpath
-
-```go
-import "gitlab.cebc.tools/go/tp.git/test/rootpath"
-```
-
-Package rootpath provides root path of the project.
-
-## Index
-
-- [Variables](<#variables>)
-
-
-## Variables
-
-<a name="Root"></a>
-
-```go
-var (
-
-    // Root contains absolute path of the project
-    Root = filepath.Join(filepath.Dir(b), "../..")
-)
-```
-
-# mock\_iproto
-
-```go
-import "gitlab.cebc.tools/go/tp.git/test/mock/iproto"
-```
-
-Package mock\_iproto is a generated GoMock package.
-
-## Index
-
-- [type MockConnection](<#MockConnection>)
-  - [func NewMockConnection\(ctrl \*gomock.Controller\) \*MockConnection](<#NewMockConnection>)
-  - [func \(m \*MockConnection\) Call\(ctx context.Context, message uint32, data \[\]byte\) \(\[\]byte, error\)](<#MockConnection.Call>)
-  - [func \(m \*MockConnection\) Close\(\)](<#MockConnection.Close>)
-  - [func \(m \*MockConnection\) Done\(\) \<\-chan struct\{\}](<#MockConnection.Done>)
-  - [func \(m \*MockConnection\) EXPECT\(\) \*MockConnectionMockRecorder](<#MockConnection.EXPECT>)
-  - [func \(m \*MockConnection\) GetBytes\(n int\) \[\]byte](<#MockConnection.GetBytes>)
-  - [func \(m \*MockConnection\) LocalAddr\(\) net.Addr](<#MockConnection.LocalAddr>)
-  - [func \(m \*MockConnection\) Notify\(ctx context.Context, message uint32, data \[\]byte\) error](<#MockConnection.Notify>)
-  - [func \(m \*MockConnection\) OnClose\(arg0 func\(\)\)](<#MockConnection.OnClose>)
-  - [func \(m \*MockConnection\) PutBytes\(p \[\]byte\)](<#MockConnection.PutBytes>)
-  - [func \(m \*MockConnection\) RemoteAddr\(\) net.Addr](<#MockConnection.RemoteAddr>)
-  - [func \(m \*MockConnection\) Send\(ctx context.Context, packet iproto.Packet\) error](<#MockConnection.Send>)
-  - [func \(m \*MockConnection\) Shutdown\(\)](<#MockConnection.Shutdown>)
-- [type MockConnectionCallCall](<#MockConnectionCallCall>)
-  - [func \(c \*MockConnectionCallCall\) Do\(f func\(context.Context, uint32, \[\]byte\) \(\[\]byte, error\)\) \*MockConnectionCallCall](<#MockConnectionCallCall.Do>)
-  - [func \(c \*MockConnectionCallCall\) DoAndReturn\(f func\(context.Context, uint32, \[\]byte\) \(\[\]byte, error\)\) \*MockConnectionCallCall](<#MockConnectionCallCall.DoAndReturn>)
-  - [func \(c \*MockConnectionCallCall\) Return\(arg0 \[\]byte, arg1 error\) \*MockConnectionCallCall](<#MockConnectionCallCall.Return>)
-- [type MockConnectionCloseCall](<#MockConnectionCloseCall>)
-  - [func \(c \*MockConnectionCloseCall\) Do\(f func\(\)\) \*MockConnectionCloseCall](<#MockConnectionCloseCall.Do>)
-  - [func \(c \*MockConnectionCloseCall\) DoAndReturn\(f func\(\)\) \*MockConnectionCloseCall](<#MockConnectionCloseCall.DoAndReturn>)
-  - [func \(c \*MockConnectionCloseCall\) Return\(\) \*MockConnectionCloseCall](<#MockConnectionCloseCall.Return>)
-- [type MockConnectionDoneCall](<#MockConnectionDoneCall>)
-  - [func \(c \*MockConnectionDoneCall\) Do\(f func\(\) \<\-chan struct\{\}\) \*MockConnectionDoneCall](<#MockConnectionDoneCall.Do>)
-  - [func \(c \*MockConnectionDoneCall\) DoAndReturn\(f func\(\) \<\-chan struct\{\}\) \*MockConnectionDoneCall](<#MockConnectionDoneCall.DoAndReturn>)
-  - [func \(c \*MockConnectionDoneCall\) Return\(arg0 \<\-chan struct\{\}\) \*MockConnectionDoneCall](<#MockConnectionDoneCall.Return>)
-- [type MockConnectionGetBytesCall](<#MockConnectionGetBytesCall>)
-  - [func \(c \*MockConnectionGetBytesCall\) Do\(f func\(int\) \[\]byte\) \*MockConnectionGetBytesCall](<#MockConnectionGetBytesCall.Do>)
-  - [func \(c \*MockConnectionGetBytesCall\) DoAndReturn\(f func\(int\) \[\]byte\) \*MockConnectionGetBytesCall](<#MockConnectionGetBytesCall.DoAndReturn>)
-  - [func \(c \*MockConnectionGetBytesCall\) Return\(arg0 \[\]byte\) \*MockConnectionGetBytesCall](<#MockConnectionGetBytesCall.Return>)
-- [type MockConnectionLocalAddrCall](<#MockConnectionLocalAddrCall>)
-  - [func \(c \*MockConnectionLocalAddrCall\) Do\(f func\(\) net.Addr\) \*MockConnectionLocalAddrCall](<#MockConnectionLocalAddrCall.Do>)
-  - [func \(c \*MockConnectionLocalAddrCall\) DoAndReturn\(f func\(\) net.Addr\) \*MockConnectionLocalAddrCall](<#MockConnectionLocalAddrCall.DoAndReturn>)
-  - [func \(c \*MockConnectionLocalAddrCall\) Return\(arg0 net.Addr\) \*MockConnectionLocalAddrCall](<#MockConnectionLocalAddrCall.Return>)
-- [type MockConnectionMockRecorder](<#MockConnectionMockRecorder>)
-  - [func \(mr \*MockConnectionMockRecorder\) Call\(ctx, message, data any\) \*MockConnectionCallCall](<#MockConnectionMockRecorder.Call>)
-  - [func \(mr \*MockConnectionMockRecorder\) Close\(\) \*MockConnectionCloseCall](<#MockConnectionMockRecorder.Close>)
-  - [func \(mr \*MockConnectionMockRecorder\) Done\(\) \*MockConnectionDoneCall](<#MockConnectionMockRecorder.Done>)
-  - [func \(mr \*MockConnectionMockRecorder\) GetBytes\(n any\) \*MockConnectionGetBytesCall](<#MockConnectionMockRecorder.GetBytes>)
-  - [func \(mr \*MockConnectionMockRecorder\) LocalAddr\(\) \*MockConnectionLocalAddrCall](<#MockConnectionMockRecorder.LocalAddr>)
-  - [func \(mr \*MockConnectionMockRecorder\) Notify\(ctx, message, data any\) \*MockConnectionNotifyCall](<#MockConnectionMockRecorder.Notify>)
-  - [func \(mr \*MockConnectionMockRecorder\) OnClose\(arg0 any\) \*MockConnectionOnCloseCall](<#MockConnectionMockRecorder.OnClose>)
-  - [func \(mr \*MockConnectionMockRecorder\) PutBytes\(p any\) \*MockConnectionPutBytesCall](<#MockConnectionMockRecorder.PutBytes>)
-  - [func \(mr \*MockConnectionMockRecorder\) RemoteAddr\(\) \*MockConnectionRemoteAddrCall](<#MockConnectionMockRecorder.RemoteAddr>)
-  - [func \(mr \*MockConnectionMockRecorder\) Send\(ctx, packet any\) \*MockConnectionSendCall](<#MockConnectionMockRecorder.Send>)
-  - [func \(mr \*MockConnectionMockRecorder\) Shutdown\(\) \*MockConnectionShutdownCall](<#MockConnectionMockRecorder.Shutdown>)
-- [type MockConnectionNotifyCall](<#MockConnectionNotifyCall>)
-  - [func \(c \*MockConnectionNotifyCall\) Do\(f func\(context.Context, uint32, \[\]byte\) error\) \*MockConnectionNotifyCall](<#MockConnectionNotifyCall.Do>)
-  - [func \(c \*MockConnectionNotifyCall\) DoAndReturn\(f func\(context.Context, uint32, \[\]byte\) error\) \*MockConnectionNotifyCall](<#MockConnectionNotifyCall.DoAndReturn>)
-  - [func \(c \*MockConnectionNotifyCall\) Return\(arg0 error\) \*MockConnectionNotifyCall](<#MockConnectionNotifyCall.Return>)
-- [type MockConnectionOnCloseCall](<#MockConnectionOnCloseCall>)
-  - [func \(c \*MockConnectionOnCloseCall\) Do\(f func\(func\(\)\)\) \*MockConnectionOnCloseCall](<#MockConnectionOnCloseCall.Do>)
-  - [func \(c \*MockConnectionOnCloseCall\) DoAndReturn\(f func\(func\(\)\)\) \*MockConnectionOnCloseCall](<#MockConnectionOnCloseCall.DoAndReturn>)
-  - [func \(c \*MockConnectionOnCloseCall\) Return\(\) \*MockConnectionOnCloseCall](<#MockConnectionOnCloseCall.Return>)
-- [type MockConnectionPutBytesCall](<#MockConnectionPutBytesCall>)
-  - [func \(c \*MockConnectionPutBytesCall\) Do\(f func\(\[\]byte\)\) \*MockConnectionPutBytesCall](<#MockConnectionPutBytesCall.Do>)
-  - [func \(c \*MockConnectionPutBytesCall\) DoAndReturn\(f func\(\[\]byte\)\) \*MockConnectionPutBytesCall](<#MockConnectionPutBytesCall.DoAndReturn>)
-  - [func \(c \*MockConnectionPutBytesCall\) Return\(\) \*MockConnectionPutBytesCall](<#MockConnectionPutBytesCall.Return>)
-- [type MockConnectionRemoteAddrCall](<#MockConnectionRemoteAddrCall>)
-  - [func \(c \*MockConnectionRemoteAddrCall\) Do\(f func\(\) net.Addr\) \*MockConnectionRemoteAddrCall](<#MockConnectionRemoteAddrCall.Do>)
-  - [func \(c \*MockConnectionRemoteAddrCall\) DoAndReturn\(f func\(\) net.Addr\) \*MockConnectionRemoteAddrCall](<#MockConnectionRemoteAddrCall.DoAndReturn>)
-  - [func \(c \*MockConnectionRemoteAddrCall\) Return\(arg0 net.Addr\) \*MockConnectionRemoteAddrCall](<#MockConnectionRemoteAddrCall.Return>)
-- [type MockConnectionSendCall](<#MockConnectionSendCall>)
-  - [func \(c \*MockConnectionSendCall\) Do\(f func\(context.Context, iproto.Packet\) error\) \*MockConnectionSendCall](<#MockConnectionSendCall.Do>)
-  - [func \(c \*MockConnectionSendCall\) DoAndReturn\(f func\(context.Context, iproto.Packet\) error\) \*MockConnectionSendCall](<#MockConnectionSendCall.DoAndReturn>)
-  - [func \(c \*MockConnectionSendCall\) Return\(arg0 error\) \*MockConnectionSendCall](<#MockConnectionSendCall.Return>)
-- [type MockConnectionShutdownCall](<#MockConnectionShutdownCall>)
-  - [func \(c \*MockConnectionShutdownCall\) Do\(f func\(\)\) \*MockConnectionShutdownCall](<#MockConnectionShutdownCall.Do>)
-  - [func \(c \*MockConnectionShutdownCall\) DoAndReturn\(f func\(\)\) \*MockConnectionShutdownCall](<#MockConnectionShutdownCall.DoAndReturn>)
-  - [func \(c \*MockConnectionShutdownCall\) Return\(\) \*MockConnectionShutdownCall](<#MockConnectionShutdownCall.Return>)
-
-
-<a name="MockConnection"></a>
-## type MockConnection
-
-MockConnection is a mock of Connection interface.
-
-```go
-type MockConnection struct {
-    // contains filtered or unexported fields
-}
-```
-
-<a name="NewMockConnection"></a>
-### func NewMockConnection
-
-```go
-func NewMockConnection(ctrl *gomock.Controller) *MockConnection
-```
-
-NewMockConnection creates a new mock instance.
-
-<a name="MockConnection.Call"></a>
-### func \(\*MockConnection\) Call
-
-```go
-func (m *MockConnection) Call(ctx context.Context, message uint32, data []byte) ([]byte, error)
-```
-
-Call mocks base method.
-
-<a name="MockConnection.Close"></a>
-### func \(\*MockConnection\) Close
-
-```go
-func (m *MockConnection) Close()
-```
-
-Close mocks base method.
-
-<a name="MockConnection.Done"></a>
-### func \(\*MockConnection\) Done
-
-```go
-func (m *MockConnection) Done() <-chan struct{}
-```
-
-Done mocks base method.
-
-<a name="MockConnection.EXPECT"></a>
-### func \(\*MockConnection\) EXPECT
-
-```go
-func (m *MockConnection) EXPECT() *MockConnectionMockRecorder
-```
-
-EXPECT returns an object that allows the caller to indicate expected use.
-
-<a name="MockConnection.GetBytes"></a>
-### func \(\*MockConnection\) GetBytes
-
-```go
-func (m *MockConnection) GetBytes(n int) []byte
-```
-
-GetBytes mocks base method.
-
-<a name="MockConnection.LocalAddr"></a>
-### func \(\*MockConnection\) LocalAddr
-
-```go
-func (m *MockConnection) LocalAddr() net.Addr
-```
-
-LocalAddr mocks base method.
-
-<a name="MockConnection.Notify"></a>
-### func \(\*MockConnection\) Notify
-
-```go
-func (m *MockConnection) Notify(ctx context.Context, message uint32, data []byte) error
-```
-
-Notify mocks base method.
-
-<a name="MockConnection.OnClose"></a>
-### func \(\*MockConnection\) OnClose
-
-```go
-func (m *MockConnection) OnClose(arg0 func())
-```
-
-OnClose mocks base method.
-
-<a name="MockConnection.PutBytes"></a>
-### func \(\*MockConnection\) PutBytes
-
-```go
-func (m *MockConnection) PutBytes(p []byte)
-```
-
-PutBytes mocks base method.
-
-<a name="MockConnection.RemoteAddr"></a>
-### func \(\*MockConnection\) RemoteAddr
-
-```go
-func (m *MockConnection) RemoteAddr() net.Addr
-```
-
-RemoteAddr mocks base method.
-
-<a name="MockConnection.Send"></a>
-### func \(\*MockConnection\) Send
-
-```go
-func (m *MockConnection) Send(ctx context.Context, packet iproto.Packet) error
-```
-
-Send mocks base method.
-
-<a name="MockConnection.Shutdown"></a>
-### func \(\*MockConnection\) Shutdown
-
-```go
-func (m *MockConnection) Shutdown()
-```
-
-Shutdown mocks base method.
-
-<a name="MockConnectionCallCall"></a>
-## type MockConnectionCallCall
-
-MockConnectionCallCall wrap \*gomock.Call
-
-```go
-type MockConnectionCallCall struct {
-    *gomock.Call
-}
-```
-
-<a name="MockConnectionCallCall.Do"></a>
-### func \(\*MockConnectionCallCall\) Do
-
-```go
-func (c *MockConnectionCallCall) Do(f func(context.Context, uint32, []byte) ([]byte, error)) *MockConnectionCallCall
-```
-
-Do rewrite \*gomock.Call.Do
-
-<a name="MockConnectionCallCall.DoAndReturn"></a>
-### func \(\*MockConnectionCallCall\) DoAndReturn
-
-```go
-func (c *MockConnectionCallCall) DoAndReturn(f func(context.Context, uint32, []byte) ([]byte, error)) *MockConnectionCallCall
-```
-
-DoAndReturn rewrite \*gomock.Call.DoAndReturn
-
-<a name="MockConnectionCallCall.Return"></a>
-### func \(\*MockConnectionCallCall\) Return
-
-```go
-func (c *MockConnectionCallCall) Return(arg0 []byte, arg1 error) *MockConnectionCallCall
-```
-
-Return rewrite \*gomock.Call.Return
-
-<a name="MockConnectionCloseCall"></a>
-## type MockConnectionCloseCall
-
-MockConnectionCloseCall wrap \*gomock.Call
-
-```go
-type MockConnectionCloseCall struct {
-    *gomock.Call
-}
-```
-
-<a name="MockConnectionCloseCall.Do"></a>
-### func \(\*MockConnectionCloseCall\) Do
-
-```go
-func (c *MockConnectionCloseCall) Do(f func()) *MockConnectionCloseCall
-```
-
-Do rewrite \*gomock.Call.Do
-
-<a name="MockConnectionCloseCall.DoAndReturn"></a>
-### func \(\*MockConnectionCloseCall\) DoAndReturn
-
-```go
-func (c *MockConnectionCloseCall) DoAndReturn(f func()) *MockConnectionCloseCall
-```
-
-DoAndReturn rewrite \*gomock.Call.DoAndReturn
-
-<a name="MockConnectionCloseCall.Return"></a>
-### func \(\*MockConnectionCloseCall\) Return
-
-```go
-func (c *MockConnectionCloseCall) Return() *MockConnectionCloseCall
-```
-
-Return rewrite \*gomock.Call.Return
-
-<a name="MockConnectionDoneCall"></a>
-## type MockConnectionDoneCall
-
-MockConnectionDoneCall wrap \*gomock.Call
-
-```go
-type MockConnectionDoneCall struct {
-    *gomock.Call
-}
-```
-
-<a name="MockConnectionDoneCall.Do"></a>
-### func \(\*MockConnectionDoneCall\) Do
-
-```go
-func (c *MockConnectionDoneCall) Do(f func() <-chan struct{}) *MockConnectionDoneCall
-```
-
-Do rewrite \*gomock.Call.Do
-
-<a name="MockConnectionDoneCall.DoAndReturn"></a>
-### func \(\*MockConnectionDoneCall\) DoAndReturn
-
-```go
-func (c *MockConnectionDoneCall) DoAndReturn(f func() <-chan struct{}) *MockConnectionDoneCall
-```
-
-DoAndReturn rewrite \*gomock.Call.DoAndReturn
-
-<a name="MockConnectionDoneCall.Return"></a>
-### func \(\*MockConnectionDoneCall\) Return
-
-```go
-func (c *MockConnectionDoneCall) Return(arg0 <-chan struct{}) *MockConnectionDoneCall
-```
-
-Return rewrite \*gomock.Call.Return
-
-<a name="MockConnectionGetBytesCall"></a>
-## type MockConnectionGetBytesCall
-
-MockConnectionGetBytesCall wrap \*gomock.Call
-
-```go
-type MockConnectionGetBytesCall struct {
-    *gomock.Call
-}
-```
-
-<a name="MockConnectionGetBytesCall.Do"></a>
-### func \(\*MockConnectionGetBytesCall\) Do
-
-```go
-func (c *MockConnectionGetBytesCall) Do(f func(int) []byte) *MockConnectionGetBytesCall
-```
-
-Do rewrite \*gomock.Call.Do
-
-<a name="MockConnectionGetBytesCall.DoAndReturn"></a>
-### func \(\*MockConnectionGetBytesCall\) DoAndReturn
-
-```go
-func (c *MockConnectionGetBytesCall) DoAndReturn(f func(int) []byte) *MockConnectionGetBytesCall
-```
-
-DoAndReturn rewrite \*gomock.Call.DoAndReturn
-
-<a name="MockConnectionGetBytesCall.Return"></a>
-### func \(\*MockConnectionGetBytesCall\) Return
-
-```go
-func (c *MockConnectionGetBytesCall) Return(arg0 []byte) *MockConnectionGetBytesCall
-```
-
-Return rewrite \*gomock.Call.Return
-
-<a name="MockConnectionLocalAddrCall"></a>
-## type MockConnectionLocalAddrCall
-
-MockConnectionLocalAddrCall wrap \*gomock.Call
-
-```go
-type MockConnectionLocalAddrCall struct {
-    *gomock.Call
-}
-```
-
-<a name="MockConnectionLocalAddrCall.Do"></a>
-### func \(\*MockConnectionLocalAddrCall\) Do
-
-```go
-func (c *MockConnectionLocalAddrCall) Do(f func() net.Addr) *MockConnectionLocalAddrCall
-```
-
-Do rewrite \*gomock.Call.Do
-
-<a name="MockConnectionLocalAddrCall.DoAndReturn"></a>
-### func \(\*MockConnectionLocalAddrCall\) DoAndReturn
-
-```go
-func (c *MockConnectionLocalAddrCall) DoAndReturn(f func() net.Addr) *MockConnectionLocalAddrCall
-```
-
-DoAndReturn rewrite \*gomock.Call.DoAndReturn
-
-<a name="MockConnectionLocalAddrCall.Return"></a>
-### func \(\*MockConnectionLocalAddrCall\) Return
-
-```go
-func (c *MockConnectionLocalAddrCall) Return(arg0 net.Addr) *MockConnectionLocalAddrCall
-```
-
-Return rewrite \*gomock.Call.Return
-
-<a name="MockConnectionMockRecorder"></a>
-## type MockConnectionMockRecorder
-
-MockConnectionMockRecorder is the mock recorder for MockConnection.
-
-```go
-type MockConnectionMockRecorder struct {
-    // contains filtered or unexported fields
-}
-```
-
-<a name="MockConnectionMockRecorder.Call"></a>
-### func \(\*MockConnectionMockRecorder\) Call
-
-```go
-func (mr *MockConnectionMockRecorder) Call(ctx, message, data any) *MockConnectionCallCall
-```
-
-Call indicates an expected call of Call.
-
-<a name="MockConnectionMockRecorder.Close"></a>
-### func \(\*MockConnectionMockRecorder\) Close
-
-```go
-func (mr *MockConnectionMockRecorder) Close() *MockConnectionCloseCall
-```
-
-Close indicates an expected call of Close.
-
-<a name="MockConnectionMockRecorder.Done"></a>
-### func \(\*MockConnectionMockRecorder\) Done
-
-```go
-func (mr *MockConnectionMockRecorder) Done() *MockConnectionDoneCall
-```
-
-Done indicates an expected call of Done.
-
-<a name="MockConnectionMockRecorder.GetBytes"></a>
-### func \(\*MockConnectionMockRecorder\) GetBytes
-
-```go
-func (mr *MockConnectionMockRecorder) GetBytes(n any) *MockConnectionGetBytesCall
-```
-
-GetBytes indicates an expected call of GetBytes.
-
-<a name="MockConnectionMockRecorder.LocalAddr"></a>
-### func \(\*MockConnectionMockRecorder\) LocalAddr
-
-```go
-func (mr *MockConnectionMockRecorder) LocalAddr() *MockConnectionLocalAddrCall
-```
-
-LocalAddr indicates an expected call of LocalAddr.
-
-<a name="MockConnectionMockRecorder.Notify"></a>
-### func \(\*MockConnectionMockRecorder\) Notify
-
-```go
-func (mr *MockConnectionMockRecorder) Notify(ctx, message, data any) *MockConnectionNotifyCall
-```
-
-Notify indicates an expected call of Notify.
-
-<a name="MockConnectionMockRecorder.OnClose"></a>
-### func \(\*MockConnectionMockRecorder\) OnClose
-
-```go
-func (mr *MockConnectionMockRecorder) OnClose(arg0 any) *MockConnectionOnCloseCall
-```
-
-OnClose indicates an expected call of OnClose.
-
-<a name="MockConnectionMockRecorder.PutBytes"></a>
-### func \(\*MockConnectionMockRecorder\) PutBytes
-
-```go
-func (mr *MockConnectionMockRecorder) PutBytes(p any) *MockConnectionPutBytesCall
-```
-
-PutBytes indicates an expected call of PutBytes.
-
-<a name="MockConnectionMockRecorder.RemoteAddr"></a>
-### func \(\*MockConnectionMockRecorder\) RemoteAddr
-
-```go
-func (mr *MockConnectionMockRecorder) RemoteAddr() *MockConnectionRemoteAddrCall
-```
-
-RemoteAddr indicates an expected call of RemoteAddr.
-
-<a name="MockConnectionMockRecorder.Send"></a>
-### func \(\*MockConnectionMockRecorder\) Send
-
-```go
-func (mr *MockConnectionMockRecorder) Send(ctx, packet any) *MockConnectionSendCall
-```
-
-Send indicates an expected call of Send.
-
-<a name="MockConnectionMockRecorder.Shutdown"></a>
-### func \(\*MockConnectionMockRecorder\) Shutdown
-
-```go
-func (mr *MockConnectionMockRecorder) Shutdown() *MockConnectionShutdownCall
-```
-
-Shutdown indicates an expected call of Shutdown.
-
-<a name="MockConnectionNotifyCall"></a>
-## type MockConnectionNotifyCall
-
-MockConnectionNotifyCall wrap \*gomock.Call
-
-```go
-type MockConnectionNotifyCall struct {
-    *gomock.Call
-}
-```
-
-<a name="MockConnectionNotifyCall.Do"></a>
-### func \(\*MockConnectionNotifyCall\) Do
-
-```go
-func (c *MockConnectionNotifyCall) Do(f func(context.Context, uint32, []byte) error) *MockConnectionNotifyCall
-```
-
-Do rewrite \*gomock.Call.Do
-
-<a name="MockConnectionNotifyCall.DoAndReturn"></a>
-### func \(\*MockConnectionNotifyCall\) DoAndReturn
-
-```go
-func (c *MockConnectionNotifyCall) DoAndReturn(f func(context.Context, uint32, []byte) error) *MockConnectionNotifyCall
-```
-
-DoAndReturn rewrite \*gomock.Call.DoAndReturn
-
-<a name="MockConnectionNotifyCall.Return"></a>
-### func \(\*MockConnectionNotifyCall\) Return
-
-```go
-func (c *MockConnectionNotifyCall) Return(arg0 error) *MockConnectionNotifyCall
-```
-
-Return rewrite \*gomock.Call.Return
-
-<a name="MockConnectionOnCloseCall"></a>
-## type MockConnectionOnCloseCall
-
-MockConnectionOnCloseCall wrap \*gomock.Call
-
-```go
-type MockConnectionOnCloseCall struct {
-    *gomock.Call
-}
-```
-
-<a name="MockConnectionOnCloseCall.Do"></a>
-### func \(\*MockConnectionOnCloseCall\) Do
-
-```go
-func (c *MockConnectionOnCloseCall) Do(f func(func())) *MockConnectionOnCloseCall
-```
-
-Do rewrite \*gomock.Call.Do
-
-<a name="MockConnectionOnCloseCall.DoAndReturn"></a>
-### func \(\*MockConnectionOnCloseCall\) DoAndReturn
-
-```go
-func (c *MockConnectionOnCloseCall) DoAndReturn(f func(func())) *MockConnectionOnCloseCall
-```
-
-DoAndReturn rewrite \*gomock.Call.DoAndReturn
-
-<a name="MockConnectionOnCloseCall.Return"></a>
-### func \(\*MockConnectionOnCloseCall\) Return
-
-```go
-func (c *MockConnectionOnCloseCall) Return() *MockConnectionOnCloseCall
-```
-
-Return rewrite \*gomock.Call.Return
-
-<a name="MockConnectionPutBytesCall"></a>
-## type MockConnectionPutBytesCall
-
-MockConnectionPutBytesCall wrap \*gomock.Call
-
-```go
-type MockConnectionPutBytesCall struct {
-    *gomock.Call
-}
-```
-
-<a name="MockConnectionPutBytesCall.Do"></a>
-### func \(\*MockConnectionPutBytesCall\) Do
-
-```go
-func (c *MockConnectionPutBytesCall) Do(f func([]byte)) *MockConnectionPutBytesCall
-```
-
-Do rewrite \*gomock.Call.Do
-
-<a name="MockConnectionPutBytesCall.DoAndReturn"></a>
-### func \(\*MockConnectionPutBytesCall\) DoAndReturn
-
-```go
-func (c *MockConnectionPutBytesCall) DoAndReturn(f func([]byte)) *MockConnectionPutBytesCall
-```
-
-DoAndReturn rewrite \*gomock.Call.DoAndReturn
-
-<a name="MockConnectionPutBytesCall.Return"></a>
-### func \(\*MockConnectionPutBytesCall\) Return
-
-```go
-func (c *MockConnectionPutBytesCall) Return() *MockConnectionPutBytesCall
-```
-
-Return rewrite \*gomock.Call.Return
-
-<a name="MockConnectionRemoteAddrCall"></a>
-## type MockConnectionRemoteAddrCall
-
-MockConnectionRemoteAddrCall wrap \*gomock.Call
-
-```go
-type MockConnectionRemoteAddrCall struct {
-    *gomock.Call
-}
-```
-
-<a name="MockConnectionRemoteAddrCall.Do"></a>
-### func \(\*MockConnectionRemoteAddrCall\) Do
-
-```go
-func (c *MockConnectionRemoteAddrCall) Do(f func() net.Addr) *MockConnectionRemoteAddrCall
-```
-
-Do rewrite \*gomock.Call.Do
-
-<a name="MockConnectionRemoteAddrCall.DoAndReturn"></a>
-### func \(\*MockConnectionRemoteAddrCall\) DoAndReturn
-
-```go
-func (c *MockConnectionRemoteAddrCall) DoAndReturn(f func() net.Addr) *MockConnectionRemoteAddrCall
-```
-
-DoAndReturn rewrite \*gomock.Call.DoAndReturn
-
-<a name="MockConnectionRemoteAddrCall.Return"></a>
-### func \(\*MockConnectionRemoteAddrCall\) Return
-
-```go
-func (c *MockConnectionRemoteAddrCall) Return(arg0 net.Addr) *MockConnectionRemoteAddrCall
-```
-
-Return rewrite \*gomock.Call.Return
-
-<a name="MockConnectionSendCall"></a>
-## type MockConnectionSendCall
-
-MockConnectionSendCall wrap \*gomock.Call
-
-```go
-type MockConnectionSendCall struct {
-    *gomock.Call
-}
-```
-
-<a name="MockConnectionSendCall.Do"></a>
-### func \(\*MockConnectionSendCall\) Do
-
-```go
-func (c *MockConnectionSendCall) Do(f func(context.Context, iproto.Packet) error) *MockConnectionSendCall
-```
-
-Do rewrite \*gomock.Call.Do
-
-<a name="MockConnectionSendCall.DoAndReturn"></a>
-### func \(\*MockConnectionSendCall\) DoAndReturn
-
-```go
-func (c *MockConnectionSendCall) DoAndReturn(f func(context.Context, iproto.Packet) error) *MockConnectionSendCall
-```
-
-DoAndReturn rewrite \*gomock.Call.DoAndReturn
-
-<a name="MockConnectionSendCall.Return"></a>
-### func \(\*MockConnectionSendCall\) Return
-
-```go
-func (c *MockConnectionSendCall) Return(arg0 error) *MockConnectionSendCall
-```
-
-Return rewrite \*gomock.Call.Return
-
-<a name="MockConnectionShutdownCall"></a>
-## type MockConnectionShutdownCall
-
-MockConnectionShutdownCall wrap \*gomock.Call
-
-```go
-type MockConnectionShutdownCall struct {
-    *gomock.Call
-}
-```
-
-<a name="MockConnectionShutdownCall.Do"></a>
-### func \(\*MockConnectionShutdownCall\) Do
-
-```go
-func (c *MockConnectionShutdownCall) Do(f func()) *MockConnectionShutdownCall
-```
-
-Do rewrite \*gomock.Call.Do
-
-<a name="MockConnectionShutdownCall.DoAndReturn"></a>
-### func \(\*MockConnectionShutdownCall\) DoAndReturn
-
-```go
-func (c *MockConnectionShutdownCall) DoAndReturn(f func()) *MockConnectionShutdownCall
-```
-
-DoAndReturn rewrite \*gomock.Call.DoAndReturn
-
-<a name="MockConnectionShutdownCall.Return"></a>
-### func \(\*MockConnectionShutdownCall\) Return
-
-```go
-func (c *MockConnectionShutdownCall) Return() *MockConnectionShutdownCall
-```
-
-Return rewrite \*gomock.Call.Return
-
-# mock\_poller
-
-```go
-import "gitlab.cebc.tools/go/tp.git/test/mock/poller"
-```
-
-Package mock\_poller is a generated GoMock package.
-
-## Index
-
-- [type MockPoller](<#MockPoller>)
-  - [func NewMockPoller\(ctrl \*gomock.Controller\) \*MockPoller](<#NewMockPoller>)
-  - [func \(m \*MockPoller\) EXPECT\(\) \*MockPollerMockRecorder](<#MockPoller.EXPECT>)
-  - [func \(m \*MockPoller\) EntityIDName\(\) string](<#MockPoller.EntityIDName>)
-  - [func \(m \*MockPoller\) Poll\(arg0 workerpool.JobTypeID\) workerpool.Worker](<#MockPoller.Poll>)
-- [type MockPollerEntityIDNameCall](<#MockPollerEntityIDNameCall>)
-  - [func \(c \*MockPollerEntityIDNameCall\) Do\(f func\(\) string\) \*MockPollerEntityIDNameCall](<#MockPollerEntityIDNameCall.Do>)
-  - [func \(c \*MockPollerEntityIDNameCall\) DoAndReturn\(f func\(\) string\) \*MockPollerEntityIDNameCall](<#MockPollerEntityIDNameCall.DoAndReturn>)
-  - [func \(c \*MockPollerEntityIDNameCall\) Return\(arg0 string\) \*MockPollerEntityIDNameCall](<#MockPollerEntityIDNameCall.Return>)
-- [type MockPollerMockRecorder](<#MockPollerMockRecorder>)
-  - [func \(mr \*MockPollerMockRecorder\) EntityIDName\(\) \*MockPollerEntityIDNameCall](<#MockPollerMockRecorder.EntityIDName>)
-  - [func \(mr \*MockPollerMockRecorder\) Poll\(arg0 any\) \*MockPollerPollCall](<#MockPollerMockRecorder.Poll>)
-- [type MockPollerPollCall](<#MockPollerPollCall>)
-  - [func \(c \*MockPollerPollCall\) Do\(f func\(workerpool.JobTypeID\) workerpool.Worker\) \*MockPollerPollCall](<#MockPollerPollCall.Do>)
-  - [func \(c \*MockPollerPollCall\) DoAndReturn\(f func\(workerpool.JobTypeID\) workerpool.Worker\) \*MockPollerPollCall](<#MockPollerPollCall.DoAndReturn>)
-  - [func \(c \*MockPollerPollCall\) Return\(arg0 workerpool.Worker\) \*MockPollerPollCall](<#MockPollerPollCall.Return>)
-- [type MockWorker](<#MockWorker>)
-  - [func NewMockWorker\(ctrl \*gomock.Controller\) \*MockWorker](<#NewMockWorker>)
-  - [func \(m \*MockWorker\) EXPECT\(\) \*MockWorkerMockRecorder](<#MockWorker.EXPECT>)
-  - [func \(m \*MockWorker\) Stat\(\) workerpool.WorkerStat](<#MockWorker.Stat>)
-  - [func \(m \*MockWorker\) Work\(\)](<#MockWorker.Work>)
-- [type MockWorkerMockRecorder](<#MockWorkerMockRecorder>)
-  - [func \(mr \*MockWorkerMockRecorder\) Stat\(\) \*MockWorkerStatCall](<#MockWorkerMockRecorder.Stat>)
-  - [func \(mr \*MockWorkerMockRecorder\) Work\(\) \*MockWorkerWorkCall](<#MockWorkerMockRecorder.Work>)
-- [type MockWorkerStat](<#MockWorkerStat>)
-  - [func NewMockWorkerStat\(ctrl \*gomock.Controller\) \*MockWorkerStat](<#NewMockWorkerStat>)
-  - [func \(m \*MockWorkerStat\) EXPECT\(\) \*MockWorkerStatMockRecorder](<#MockWorkerStat.EXPECT>)
-  - [func \(m \*MockWorkerStat\) Errors\(\) uint32](<#MockWorkerStat.Errors>)
-  - [func \(m \*MockWorkerStat\) Processed\(\) uint32](<#MockWorkerStat.Processed>)
-- [type MockWorkerStatCall](<#MockWorkerStatCall>)
-  - [func \(c \*MockWorkerStatCall\) Do\(f func\(\) workerpool.WorkerStat\) \*MockWorkerStatCall](<#MockWorkerStatCall.Do>)
-  - [func \(c \*MockWorkerStatCall\) DoAndReturn\(f func\(\) workerpool.WorkerStat\) \*MockWorkerStatCall](<#MockWorkerStatCall.DoAndReturn>)
-  - [func \(c \*MockWorkerStatCall\) Return\(arg0 workerpool.WorkerStat\) \*MockWorkerStatCall](<#MockWorkerStatCall.Return>)
-- [type MockWorkerStatErrorsCall](<#MockWorkerStatErrorsCall>)
-  - [func \(c \*MockWorkerStatErrorsCall\) Do\(f func\(\) uint32\) \*MockWorkerStatErrorsCall](<#MockWorkerStatErrorsCall.Do>)
-  - [func \(c \*MockWorkerStatErrorsCall\) DoAndReturn\(f func\(\) uint32\) \*MockWorkerStatErrorsCall](<#MockWorkerStatErrorsCall.DoAndReturn>)
-  - [func \(c \*MockWorkerStatErrorsCall\) Return\(arg0 uint32\) \*MockWorkerStatErrorsCall](<#MockWorkerStatErrorsCall.Return>)
-- [type MockWorkerStatMockRecorder](<#MockWorkerStatMockRecorder>)
-  - [func \(mr \*MockWorkerStatMockRecorder\) Errors\(\) \*MockWorkerStatErrorsCall](<#MockWorkerStatMockRecorder.Errors>)
-  - [func \(mr \*MockWorkerStatMockRecorder\) Processed\(\) \*MockWorkerStatProcessedCall](<#MockWorkerStatMockRecorder.Processed>)
-- [type MockWorkerStatProcessedCall](<#MockWorkerStatProcessedCall>)
-  - [func \(c \*MockWorkerStatProcessedCall\) Do\(f func\(\) uint32\) \*MockWorkerStatProcessedCall](<#MockWorkerStatProcessedCall.Do>)
-  - [func \(c \*MockWorkerStatProcessedCall\) DoAndReturn\(f func\(\) uint32\) \*MockWorkerStatProcessedCall](<#MockWorkerStatProcessedCall.DoAndReturn>)
-  - [func \(c \*MockWorkerStatProcessedCall\) Return\(arg0 uint32\) \*MockWorkerStatProcessedCall](<#MockWorkerStatProcessedCall.Return>)
-- [type MockWorkerWorkCall](<#MockWorkerWorkCall>)
-  - [func \(c \*MockWorkerWorkCall\) Do\(f func\(\)\) \*MockWorkerWorkCall](<#MockWorkerWorkCall.Do>)
-  - [func \(c \*MockWorkerWorkCall\) DoAndReturn\(f func\(\)\) \*MockWorkerWorkCall](<#MockWorkerWorkCall.DoAndReturn>)
-  - [func \(c \*MockWorkerWorkCall\) Return\(\) \*MockWorkerWorkCall](<#MockWorkerWorkCall.Return>)
-
-
-<a name="MockPoller"></a>
-## type MockPoller
-
-MockPoller is a mock of Poller interface.
-
-```go
-type MockPoller struct {
-    // contains filtered or unexported fields
-}
-```
-
-<a name="NewMockPoller"></a>
-### func NewMockPoller
-
-```go
-func NewMockPoller(ctrl *gomock.Controller) *MockPoller
-```
-
-NewMockPoller creates a new mock instance.
-
-<a name="MockPoller.EXPECT"></a>
-### func \(\*MockPoller\) EXPECT
-
-```go
-func (m *MockPoller) EXPECT() *MockPollerMockRecorder
-```
-
-EXPECT returns an object that allows the caller to indicate expected use.
-
-<a name="MockPoller.EntityIDName"></a>
-### func \(\*MockPoller\) EntityIDName
-
-```go
-func (m *MockPoller) EntityIDName() string
-```
-
-EntityIDName mocks base method.
-
-<a name="MockPoller.Poll"></a>
-### func \(\*MockPoller\) Poll
-
-```go
-func (m *MockPoller) Poll(arg0 workerpool.JobTypeID) workerpool.Worker
-```
-
-Poll mocks base method.
-
-<a name="MockPollerEntityIDNameCall"></a>
-## type MockPollerEntityIDNameCall
-
-MockPollerEntityIDNameCall wrap \*gomock.Call
-
-```go
-type MockPollerEntityIDNameCall struct {
-    *gomock.Call
-}
-```
-
-<a name="MockPollerEntityIDNameCall.Do"></a>
-### func \(\*MockPollerEntityIDNameCall\) Do
-
-```go
-func (c *MockPollerEntityIDNameCall) Do(f func() string) *MockPollerEntityIDNameCall
-```
-
-Do rewrite \*gomock.Call.Do
-
-<a name="MockPollerEntityIDNameCall.DoAndReturn"></a>
-### func \(\*MockPollerEntityIDNameCall\) DoAndReturn
-
-```go
-func (c *MockPollerEntityIDNameCall) DoAndReturn(f func() string) *MockPollerEntityIDNameCall
-```
-
-DoAndReturn rewrite \*gomock.Call.DoAndReturn
-
-<a name="MockPollerEntityIDNameCall.Return"></a>
-### func \(\*MockPollerEntityIDNameCall\) Return
-
-```go
-func (c *MockPollerEntityIDNameCall) Return(arg0 string) *MockPollerEntityIDNameCall
-```
-
-Return rewrite \*gomock.Call.Return
-
-<a name="MockPollerMockRecorder"></a>
-## type MockPollerMockRecorder
-
-MockPollerMockRecorder is the mock recorder for MockPoller.
-
-```go
-type MockPollerMockRecorder struct {
-    // contains filtered or unexported fields
-}
-```
-
-<a name="MockPollerMockRecorder.EntityIDName"></a>
-### func \(\*MockPollerMockRecorder\) EntityIDName
-
-```go
-func (mr *MockPollerMockRecorder) EntityIDName() *MockPollerEntityIDNameCall
-```
-
-EntityIDName indicates an expected call of EntityIDName.
-
-<a name="MockPollerMockRecorder.Poll"></a>
-### func \(\*MockPollerMockRecorder\) Poll
-
-```go
-func (mr *MockPollerMockRecorder) Poll(arg0 any) *MockPollerPollCall
-```
-
-Poll indicates an expected call of Poll.
-
-<a name="MockPollerPollCall"></a>
-## type MockPollerPollCall
-
-MockPollerPollCall wrap \*gomock.Call
-
-```go
-type MockPollerPollCall struct {
-    *gomock.Call
-}
-```
-
-<a name="MockPollerPollCall.Do"></a>
-### func \(\*MockPollerPollCall\) Do
-
-```go
-func (c *MockPollerPollCall) Do(f func(workerpool.JobTypeID) workerpool.Worker) *MockPollerPollCall
-```
-
-Do rewrite \*gomock.Call.Do
-
-<a name="MockPollerPollCall.DoAndReturn"></a>
-### func \(\*MockPollerPollCall\) DoAndReturn
-
-```go
-func (c *MockPollerPollCall) DoAndReturn(f func(workerpool.JobTypeID) workerpool.Worker) *MockPollerPollCall
-```
-
-DoAndReturn rewrite \*gomock.Call.DoAndReturn
-
-<a name="MockPollerPollCall.Return"></a>
-### func \(\*MockPollerPollCall\) Return
-
-```go
-func (c *MockPollerPollCall) Return(arg0 workerpool.Worker) *MockPollerPollCall
-```
-
-Return rewrite \*gomock.Call.Return
-
-<a name="MockWorker"></a>
-## type MockWorker
-
-MockWorker is a mock of Worker interface.
-
-```go
-type MockWorker struct {
-    // contains filtered or unexported fields
-}
-```
-
-<a name="NewMockWorker"></a>
-### func NewMockWorker
-
-```go
-func NewMockWorker(ctrl *gomock.Controller) *MockWorker
-```
-
-NewMockWorker creates a new mock instance.
-
-<a name="MockWorker.EXPECT"></a>
-### func \(\*MockWorker\) EXPECT
-
-```go
-func (m *MockWorker) EXPECT() *MockWorkerMockRecorder
-```
-
-EXPECT returns an object that allows the caller to indicate expected use.
-
-<a name="MockWorker.Stat"></a>
-### func \(\*MockWorker\) Stat
-
-```go
-func (m *MockWorker) Stat() workerpool.WorkerStat
-```
-
-Stat mocks base method.
-
-<a name="MockWorker.Work"></a>
-### func \(\*MockWorker\) Work
-
-```go
-func (m *MockWorker) Work()
-```
-
-Work mocks base method.
-
-<a name="MockWorkerMockRecorder"></a>
-## type MockWorkerMockRecorder
-
-MockWorkerMockRecorder is the mock recorder for MockWorker.
-
-```go
-type MockWorkerMockRecorder struct {
-    // contains filtered or unexported fields
-}
-```
-
-<a name="MockWorkerMockRecorder.Stat"></a>
-### func \(\*MockWorkerMockRecorder\) Stat
-
-```go
-func (mr *MockWorkerMockRecorder) Stat() *MockWorkerStatCall
-```
-
-Stat indicates an expected call of Stat.
-
-<a name="MockWorkerMockRecorder.Work"></a>
-### func \(\*MockWorkerMockRecorder\) Work
-
-```go
-func (mr *MockWorkerMockRecorder) Work() *MockWorkerWorkCall
-```
-
-Work indicates an expected call of Work.
-
-<a name="MockWorkerStat"></a>
-## type MockWorkerStat
-
-MockWorkerStat is a mock of WorkerStat interface.
-
-```go
-type MockWorkerStat struct {
-    // contains filtered or unexported fields
-}
-```
-
-<a name="NewMockWorkerStat"></a>
-### func NewMockWorkerStat
-
-```go
-func NewMockWorkerStat(ctrl *gomock.Controller) *MockWorkerStat
-```
-
-NewMockWorkerStat creates a new mock instance.
-
-<a name="MockWorkerStat.EXPECT"></a>
-### func \(\*MockWorkerStat\) EXPECT
-
-```go
-func (m *MockWorkerStat) EXPECT() *MockWorkerStatMockRecorder
-```
-
-EXPECT returns an object that allows the caller to indicate expected use.
-
-<a name="MockWorkerStat.Errors"></a>
-### func \(\*MockWorkerStat\) Errors
-
-```go
-func (m *MockWorkerStat) Errors() uint32
-```
-
-Errors mocks base method.
-
-<a name="MockWorkerStat.Processed"></a>
-### func \(\*MockWorkerStat\) Processed
-
-```go
-func (m *MockWorkerStat) Processed() uint32
-```
-
-Processed mocks base method.
-
-<a name="MockWorkerStatCall"></a>
-## type MockWorkerStatCall
-
-MockWorkerStatCall wrap \*gomock.Call
-
-```go
-type MockWorkerStatCall struct {
-    *gomock.Call
-}
-```
-
-<a name="MockWorkerStatCall.Do"></a>
-### func \(\*MockWorkerStatCall\) Do
-
-```go
-func (c *MockWorkerStatCall) Do(f func() workerpool.WorkerStat) *MockWorkerStatCall
-```
-
-Do rewrite \*gomock.Call.Do
-
-<a name="MockWorkerStatCall.DoAndReturn"></a>
-### func \(\*MockWorkerStatCall\) DoAndReturn
-
-```go
-func (c *MockWorkerStatCall) DoAndReturn(f func() workerpool.WorkerStat) *MockWorkerStatCall
-```
-
-DoAndReturn rewrite \*gomock.Call.DoAndReturn
-
-<a name="MockWorkerStatCall.Return"></a>
-### func \(\*MockWorkerStatCall\) Return
-
-```go
-func (c *MockWorkerStatCall) Return(arg0 workerpool.WorkerStat) *MockWorkerStatCall
-```
-
-Return rewrite \*gomock.Call.Return
-
-<a name="MockWorkerStatErrorsCall"></a>
-## type MockWorkerStatErrorsCall
-
-MockWorkerStatErrorsCall wrap \*gomock.Call
-
-```go
-type MockWorkerStatErrorsCall struct {
-    *gomock.Call
-}
-```
-
-<a name="MockWorkerStatErrorsCall.Do"></a>
-### func \(\*MockWorkerStatErrorsCall\) Do
-
-```go
-func (c *MockWorkerStatErrorsCall) Do(f func() uint32) *MockWorkerStatErrorsCall
-```
-
-Do rewrite \*gomock.Call.Do
-
-<a name="MockWorkerStatErrorsCall.DoAndReturn"></a>
-### func \(\*MockWorkerStatErrorsCall\) DoAndReturn
-
-```go
-func (c *MockWorkerStatErrorsCall) DoAndReturn(f func() uint32) *MockWorkerStatErrorsCall
-```
-
-DoAndReturn rewrite \*gomock.Call.DoAndReturn
-
-<a name="MockWorkerStatErrorsCall.Return"></a>
-### func \(\*MockWorkerStatErrorsCall\) Return
-
-```go
-func (c *MockWorkerStatErrorsCall) Return(arg0 uint32) *MockWorkerStatErrorsCall
-```
-
-Return rewrite \*gomock.Call.Return
-
-<a name="MockWorkerStatMockRecorder"></a>
-## type MockWorkerStatMockRecorder
-
-MockWorkerStatMockRecorder is the mock recorder for MockWorkerStat.
-
-```go
-type MockWorkerStatMockRecorder struct {
-    // contains filtered or unexported fields
-}
-```
-
-<a name="MockWorkerStatMockRecorder.Errors"></a>
-### func \(\*MockWorkerStatMockRecorder\) Errors
-
-```go
-func (mr *MockWorkerStatMockRecorder) Errors() *MockWorkerStatErrorsCall
-```
-
-Errors indicates an expected call of Errors.
-
-<a name="MockWorkerStatMockRecorder.Processed"></a>
-### func \(\*MockWorkerStatMockRecorder\) Processed
-
-```go
-func (mr *MockWorkerStatMockRecorder) Processed() *MockWorkerStatProcessedCall
-```
-
-Processed indicates an expected call of Processed.
-
-<a name="MockWorkerStatProcessedCall"></a>
-## type MockWorkerStatProcessedCall
-
-MockWorkerStatProcessedCall wrap \*gomock.Call
-
-```go
-type MockWorkerStatProcessedCall struct {
-    *gomock.Call
-}
-```
-
-<a name="MockWorkerStatProcessedCall.Do"></a>
-### func \(\*MockWorkerStatProcessedCall\) Do
-
-```go
-func (c *MockWorkerStatProcessedCall) Do(f func() uint32) *MockWorkerStatProcessedCall
-```
-
-Do rewrite \*gomock.Call.Do
-
-<a name="MockWorkerStatProcessedCall.DoAndReturn"></a>
-### func \(\*MockWorkerStatProcessedCall\) DoAndReturn
-
-```go
-func (c *MockWorkerStatProcessedCall) DoAndReturn(f func() uint32) *MockWorkerStatProcessedCall
-```
-
-DoAndReturn rewrite \*gomock.Call.DoAndReturn
-
-<a name="MockWorkerStatProcessedCall.Return"></a>
-### func \(\*MockWorkerStatProcessedCall\) Return
-
-```go
-func (c *MockWorkerStatProcessedCall) Return(arg0 uint32) *MockWorkerStatProcessedCall
-```
-
-Return rewrite \*gomock.Call.Return
-
-<a name="MockWorkerWorkCall"></a>
-## type MockWorkerWorkCall
-
-MockWorkerWorkCall wrap \*gomock.Call
-
-```go
-type MockWorkerWorkCall struct {
-    *gomock.Call
-}
-```
-
-<a name="MockWorkerWorkCall.Do"></a>
-### func \(\*MockWorkerWorkCall\) Do
-
-```go
-func (c *MockWorkerWorkCall) Do(f func()) *MockWorkerWorkCall
-```
-
-Do rewrite \*gomock.Call.Do
-
-<a name="MockWorkerWorkCall.DoAndReturn"></a>
-### func \(\*MockWorkerWorkCall\) DoAndReturn
-
-```go
-func (c *MockWorkerWorkCall) DoAndReturn(f func()) *MockWorkerWorkCall
-```
-
-DoAndReturn rewrite \*gomock.Call.DoAndReturn
-
-<a name="MockWorkerWorkCall.Return"></a>
-### func \(\*MockWorkerWorkCall\) Return
-
-```go
-func (c *MockWorkerWorkCall) Return() *MockWorkerWorkCall
-```
-
-Return rewrite \*gomock.Call.Return
-
-# mock\_queue
-
-```go
-import "gitlab.cebc.tools/go/tp.git/test/mock/queue"
-```
-
-Package mock\_queue is a generated GoMock package.
-
-## Index
-
-- [type MockQueue](<#MockQueue>)
-  - [func NewMockQueue\(ctrl \*gomock.Controller\) \*MockQueue](<#NewMockQueue>)
-  - [func \(m \*MockQueue\) EXPECT\(\) \*MockQueueMockRecorder](<#MockQueue.EXPECT>)
-  - [func \(m \*MockQueue\) IsRegistered\(queueID uint16\) bool](<#MockQueue.IsRegistered>)
-- [type MockQueueIsRegisteredCall](<#MockQueueIsRegisteredCall>)
-  - [func \(c \*MockQueueIsRegisteredCall\) Do\(f func\(uint16\) bool\) \*MockQueueIsRegisteredCall](<#MockQueueIsRegisteredCall.Do>)
-  - [func \(c \*MockQueueIsRegisteredCall\) DoAndReturn\(f func\(uint16\) bool\) \*MockQueueIsRegisteredCall](<#MockQueueIsRegisteredCall.DoAndReturn>)
-  - [func \(c \*MockQueueIsRegisteredCall\) Return\(arg0 bool\) \*MockQueueIsRegisteredCall](<#MockQueueIsRegisteredCall.Return>)
-- [type MockQueueMockRecorder](<#MockQueueMockRecorder>)
-  - [func \(mr \*MockQueueMockRecorder\) IsRegistered\(queueID any\) \*MockQueueIsRegisteredCall](<#MockQueueMockRecorder.IsRegistered>)
-
-
-<a name="MockQueue"></a>
-## type MockQueue
-
-MockQueue is a mock of Queue interface.
-
-```go
-type MockQueue struct {
-    // contains filtered or unexported fields
-}
-```
-
-<a name="NewMockQueue"></a>
-### func NewMockQueue
-
-```go
-func NewMockQueue(ctrl *gomock.Controller) *MockQueue
-```
-
-NewMockQueue creates a new mock instance.
-
-<a name="MockQueue.EXPECT"></a>
-### func \(\*MockQueue\) EXPECT
-
-```go
-func (m *MockQueue) EXPECT() *MockQueueMockRecorder
-```
-
-EXPECT returns an object that allows the caller to indicate expected use.
-
-<a name="MockQueue.IsRegistered"></a>
-### func \(\*MockQueue\) IsRegistered
-
-```go
-func (m *MockQueue) IsRegistered(queueID uint16) bool
-```
-
-IsRegistered mocks base method.
-
-<a name="MockQueueIsRegisteredCall"></a>
-## type MockQueueIsRegisteredCall
-
-MockQueueIsRegisteredCall wrap \*gomock.Call
-
-```go
-type MockQueueIsRegisteredCall struct {
-    *gomock.Call
-}
-```
-
-<a name="MockQueueIsRegisteredCall.Do"></a>
-### func \(\*MockQueueIsRegisteredCall\) Do
-
-```go
-func (c *MockQueueIsRegisteredCall) Do(f func(uint16) bool) *MockQueueIsRegisteredCall
-```
-
-Do rewrite \*gomock.Call.Do
-
-<a name="MockQueueIsRegisteredCall.DoAndReturn"></a>
-### func \(\*MockQueueIsRegisteredCall\) DoAndReturn
-
-```go
-func (c *MockQueueIsRegisteredCall) DoAndReturn(f func(uint16) bool) *MockQueueIsRegisteredCall
-```
-
-DoAndReturn rewrite \*gomock.Call.DoAndReturn
-
-<a name="MockQueueIsRegisteredCall.Return"></a>
-### func \(\*MockQueueIsRegisteredCall\) Return
-
-```go
-func (c *MockQueueIsRegisteredCall) Return(arg0 bool) *MockQueueIsRegisteredCall
-```
-
-Return rewrite \*gomock.Call.Return
-
-<a name="MockQueueMockRecorder"></a>
-## type MockQueueMockRecorder
-
-MockQueueMockRecorder is the mock recorder for MockQueue.
-
-```go
-type MockQueueMockRecorder struct {
-    // contains filtered or unexported fields
-}
-```
-
-<a name="MockQueueMockRecorder.IsRegistered"></a>
-### func \(\*MockQueueMockRecorder\) IsRegistered
-
-```go
-func (mr *MockQueueMockRecorder) IsRegistered(queueID any) *MockQueueIsRegisteredCall
-```
-
-IsRegistered indicates an expected call of IsRegistered.
-
-# mock\_slotpool
-
-```go
-import "gitlab.cebc.tools/go/tp.git/test/mock/slotpool"
-```
-
-Package mock\_slotpool is a generated GoMock package.
-
-## Index
-
-- [type MockPool](<#MockPool>)
-  - [func NewMockPool\(ctrl \*gomock.Controller\) \*MockPool](<#NewMockPool>)
-  - [func \(m \*MockPool\) AddSlot\(\)](<#MockPool.AddSlot>)
-  - [func \(m \*MockPool\) AssignSlot\(id uint32, w slotpool.Work\) error](<#MockPool.AssignSlot>)
-  - [func \(m \*MockPool\) EXPECT\(\) \*MockPoolMockRecorder](<#MockPool.EXPECT>)
-  - [func \(m \*MockPool\) Finish\(\)](<#MockPool.Finish>)
-  - [func \(m \*MockPool\) ReleaseSlot\(id uint32\) error](<#MockPool.ReleaseSlot>)
-  - [func \(m \*MockPool\) RemoveSlot\(\)](<#MockPool.RemoveSlot>)
-  - [func \(m \*MockPool\) SlotStates\(\) \[\]slotpool.SlotState](<#MockPool.SlotStates>)
-- [type MockPoolAddSlotCall](<#MockPoolAddSlotCall>)
-  - [func \(c \*MockPoolAddSlotCall\) Do\(f func\(\)\) \*MockPoolAddSlotCall](<#MockPoolAddSlotCall.Do>)
-  - [func \(c \*MockPoolAddSlotCall\) DoAndReturn\(f func\(\)\) \*MockPoolAddSlotCall](<#MockPoolAddSlotCall.DoAndReturn>)
-  - [func \(c \*MockPoolAddSlotCall\) Return\(\) \*MockPoolAddSlotCall](<#MockPoolAddSlotCall.Return>)
-- [type MockPoolAssignSlotCall](<#MockPoolAssignSlotCall>)
-  - [func \(c \*MockPoolAssignSlotCall\) Do\(f func\(uint32, slotpool.Work\) error\) \*MockPoolAssignSlotCall](<#MockPoolAssignSlotCall.Do>)
-  - [func \(c \*MockPoolAssignSlotCall\) DoAndReturn\(f func\(uint32, slotpool.Work\) error\) \*MockPoolAssignSlotCall](<#MockPoolAssignSlotCall.DoAndReturn>)
-  - [func \(c \*MockPoolAssignSlotCall\) Return\(arg0 error\) \*MockPoolAssignSlotCall](<#MockPoolAssignSlotCall.Return>)
-- [type MockPoolFinishCall](<#MockPoolFinishCall>)
-  - [func \(c \*MockPoolFinishCall\) Do\(f func\(\)\) \*MockPoolFinishCall](<#MockPoolFinishCall.Do>)
-  - [func \(c \*MockPoolFinishCall\) DoAndReturn\(f func\(\)\) \*MockPoolFinishCall](<#MockPoolFinishCall.DoAndReturn>)
-  - [func \(c \*MockPoolFinishCall\) Return\(\) \*MockPoolFinishCall](<#MockPoolFinishCall.Return>)
-- [type MockPoolMockRecorder](<#MockPoolMockRecorder>)
-  - [func \(mr \*MockPoolMockRecorder\) AddSlot\(\) \*MockPoolAddSlotCall](<#MockPoolMockRecorder.AddSlot>)
-  - [func \(mr \*MockPoolMockRecorder\) AssignSlot\(id, w any\) \*MockPoolAssignSlotCall](<#MockPoolMockRecorder.AssignSlot>)
-  - [func \(mr \*MockPoolMockRecorder\) Finish\(\) \*MockPoolFinishCall](<#MockPoolMockRecorder.Finish>)
-  - [func \(mr \*MockPoolMockRecorder\) ReleaseSlot\(id any\) \*MockPoolReleaseSlotCall](<#MockPoolMockRecorder.ReleaseSlot>)
-  - [func \(mr \*MockPoolMockRecorder\) RemoveSlot\(\) \*MockPoolRemoveSlotCall](<#MockPoolMockRecorder.RemoveSlot>)
-  - [func \(mr \*MockPoolMockRecorder\) SlotStates\(\) \*MockPoolSlotStatesCall](<#MockPoolMockRecorder.SlotStates>)
-- [type MockPoolReleaseSlotCall](<#MockPoolReleaseSlotCall>)
-  - [func \(c \*MockPoolReleaseSlotCall\) Do\(f func\(uint32\) error\) \*MockPoolReleaseSlotCall](<#MockPoolReleaseSlotCall.Do>)
-  - [func \(c \*MockPoolReleaseSlotCall\) DoAndReturn\(f func\(uint32\) error\) \*MockPoolReleaseSlotCall](<#MockPoolReleaseSlotCall.DoAndReturn>)
-  - [func \(c \*MockPoolReleaseSlotCall\) Return\(arg0 error\) \*MockPoolReleaseSlotCall](<#MockPoolReleaseSlotCall.Return>)
-- [type MockPoolRemoveSlotCall](<#MockPoolRemoveSlotCall>)
-  - [func \(c \*MockPoolRemoveSlotCall\) Do\(f func\(\)\) \*MockPoolRemoveSlotCall](<#MockPoolRemoveSlotCall.Do>)
-  - [func \(c \*MockPoolRemoveSlotCall\) DoAndReturn\(f func\(\)\) \*MockPoolRemoveSlotCall](<#MockPoolRemoveSlotCall.DoAndReturn>)
-  - [func \(c \*MockPoolRemoveSlotCall\) Return\(\) \*MockPoolRemoveSlotCall](<#MockPoolRemoveSlotCall.Return>)
-- [type MockPoolSlotStatesCall](<#MockPoolSlotStatesCall>)
-  - [func \(c \*MockPoolSlotStatesCall\) Do\(f func\(\) \[\]slotpool.SlotState\) \*MockPoolSlotStatesCall](<#MockPoolSlotStatesCall.Do>)
-  - [func \(c \*MockPoolSlotStatesCall\) DoAndReturn\(f func\(\) \[\]slotpool.SlotState\) \*MockPoolSlotStatesCall](<#MockPoolSlotStatesCall.DoAndReturn>)
-  - [func \(c \*MockPoolSlotStatesCall\) Return\(arg0 \[\]slotpool.SlotState\) \*MockPoolSlotStatesCall](<#MockPoolSlotStatesCall.Return>)
-
-
-<a name="MockPool"></a>
-## type MockPool
-
-MockPool is a mock of Pool interface.
-
-```go
-type MockPool struct {
-    // contains filtered or unexported fields
-}
-```
-
-<a name="NewMockPool"></a>
-### func NewMockPool
-
-```go
-func NewMockPool(ctrl *gomock.Controller) *MockPool
-```
-
-NewMockPool creates a new mock instance.
-
-<a name="MockPool.AddSlot"></a>
-### func \(\*MockPool\) AddSlot
-
-```go
-func (m *MockPool) AddSlot()
-```
-
-AddSlot mocks base method.
-
-<a name="MockPool.AssignSlot"></a>
-### func \(\*MockPool\) AssignSlot
-
-```go
-func (m *MockPool) AssignSlot(id uint32, w slotpool.Work) error
-```
-
-AssignSlot mocks base method.
-
-<a name="MockPool.EXPECT"></a>
-### func \(\*MockPool\) EXPECT
-
-```go
-func (m *MockPool) EXPECT() *MockPoolMockRecorder
-```
-
-EXPECT returns an object that allows the caller to indicate expected use.
-
-<a name="MockPool.Finish"></a>
-### func \(\*MockPool\) Finish
-
-```go
-func (m *MockPool) Finish()
-```
-
-Finish mocks base method.
-
-<a name="MockPool.ReleaseSlot"></a>
-### func \(\*MockPool\) ReleaseSlot
-
-```go
-func (m *MockPool) ReleaseSlot(id uint32) error
-```
-
-ReleaseSlot mocks base method.
-
-<a name="MockPool.RemoveSlot"></a>
-### func \(\*MockPool\) RemoveSlot
-
-```go
-func (m *MockPool) RemoveSlot()
-```
-
-RemoveSlot mocks base method.
-
-<a name="MockPool.SlotStates"></a>
-### func \(\*MockPool\) SlotStates
-
-```go
-func (m *MockPool) SlotStates() []slotpool.SlotState
-```
-
-SlotStates mocks base method.
-
-<a name="MockPoolAddSlotCall"></a>
-## type MockPoolAddSlotCall
-
-MockPoolAddSlotCall wrap \*gomock.Call
-
-```go
-type MockPoolAddSlotCall struct {
-    *gomock.Call
-}
-```
-
-<a name="MockPoolAddSlotCall.Do"></a>
-### func \(\*MockPoolAddSlotCall\) Do
-
-```go
-func (c *MockPoolAddSlotCall) Do(f func()) *MockPoolAddSlotCall
-```
-
-Do rewrite \*gomock.Call.Do
-
-<a name="MockPoolAddSlotCall.DoAndReturn"></a>
-### func \(\*MockPoolAddSlotCall\) DoAndReturn
-
-```go
-func (c *MockPoolAddSlotCall) DoAndReturn(f func()) *MockPoolAddSlotCall
-```
-
-DoAndReturn rewrite \*gomock.Call.DoAndReturn
-
-<a name="MockPoolAddSlotCall.Return"></a>
-### func \(\*MockPoolAddSlotCall\) Return
-
-```go
-func (c *MockPoolAddSlotCall) Return() *MockPoolAddSlotCall
-```
-
-Return rewrite \*gomock.Call.Return
-
-<a name="MockPoolAssignSlotCall"></a>
-## type MockPoolAssignSlotCall
-
-MockPoolAssignSlotCall wrap \*gomock.Call
-
-```go
-type MockPoolAssignSlotCall struct {
-    *gomock.Call
-}
-```
-
-<a name="MockPoolAssignSlotCall.Do"></a>
-### func \(\*MockPoolAssignSlotCall\) Do
-
-```go
-func (c *MockPoolAssignSlotCall) Do(f func(uint32, slotpool.Work) error) *MockPoolAssignSlotCall
-```
-
-Do rewrite \*gomock.Call.Do
-
-<a name="MockPoolAssignSlotCall.DoAndReturn"></a>
-### func \(\*MockPoolAssignSlotCall\) DoAndReturn
-
-```go
-func (c *MockPoolAssignSlotCall) DoAndReturn(f func(uint32, slotpool.Work) error) *MockPoolAssignSlotCall
-```
-
-DoAndReturn rewrite \*gomock.Call.DoAndReturn
-
-<a name="MockPoolAssignSlotCall.Return"></a>
-### func \(\*MockPoolAssignSlotCall\) Return
-
-```go
-func (c *MockPoolAssignSlotCall) Return(arg0 error) *MockPoolAssignSlotCall
-```
-
-Return rewrite \*gomock.Call.Return
-
-<a name="MockPoolFinishCall"></a>
-## type MockPoolFinishCall
-
-MockPoolFinishCall wrap \*gomock.Call
-
-```go
-type MockPoolFinishCall struct {
-    *gomock.Call
-}
-```
-
-<a name="MockPoolFinishCall.Do"></a>
-### func \(\*MockPoolFinishCall\) Do
-
-```go
-func (c *MockPoolFinishCall) Do(f func()) *MockPoolFinishCall
-```
-
-Do rewrite \*gomock.Call.Do
-
-<a name="MockPoolFinishCall.DoAndReturn"></a>
-### func \(\*MockPoolFinishCall\) DoAndReturn
-
-```go
-func (c *MockPoolFinishCall) DoAndReturn(f func()) *MockPoolFinishCall
-```
-
-DoAndReturn rewrite \*gomock.Call.DoAndReturn
-
-<a name="MockPoolFinishCall.Return"></a>
-### func \(\*MockPoolFinishCall\) Return
-
-```go
-func (c *MockPoolFinishCall) Return() *MockPoolFinishCall
-```
-
-Return rewrite \*gomock.Call.Return
-
-<a name="MockPoolMockRecorder"></a>
-## type MockPoolMockRecorder
-
-MockPoolMockRecorder is the mock recorder for MockPool.
-
-```go
-type MockPoolMockRecorder struct {
-    // contains filtered or unexported fields
-}
-```
-
-<a name="MockPoolMockRecorder.AddSlot"></a>
-### func \(\*MockPoolMockRecorder\) AddSlot
-
-```go
-func (mr *MockPoolMockRecorder) AddSlot() *MockPoolAddSlotCall
-```
-
-AddSlot indicates an expected call of AddSlot.
-
-<a name="MockPoolMockRecorder.AssignSlot"></a>
-### func \(\*MockPoolMockRecorder\) AssignSlot
-
-```go
-func (mr *MockPoolMockRecorder) AssignSlot(id, w any) *MockPoolAssignSlotCall
-```
-
-AssignSlot indicates an expected call of AssignSlot.
-
-<a name="MockPoolMockRecorder.Finish"></a>
-### func \(\*MockPoolMockRecorder\) Finish
-
-```go
-func (mr *MockPoolMockRecorder) Finish() *MockPoolFinishCall
-```
-
-Finish indicates an expected call of Finish.
-
-<a name="MockPoolMockRecorder.ReleaseSlot"></a>
-### func \(\*MockPoolMockRecorder\) ReleaseSlot
-
-```go
-func (mr *MockPoolMockRecorder) ReleaseSlot(id any) *MockPoolReleaseSlotCall
-```
-
-ReleaseSlot indicates an expected call of ReleaseSlot.
-
-<a name="MockPoolMockRecorder.RemoveSlot"></a>
-### func \(\*MockPoolMockRecorder\) RemoveSlot
-
-```go
-func (mr *MockPoolMockRecorder) RemoveSlot() *MockPoolRemoveSlotCall
-```
-
-RemoveSlot indicates an expected call of RemoveSlot.
-
-<a name="MockPoolMockRecorder.SlotStates"></a>
-### func \(\*MockPoolMockRecorder\) SlotStates
-
-```go
-func (mr *MockPoolMockRecorder) SlotStates() *MockPoolSlotStatesCall
-```
-
-SlotStates indicates an expected call of SlotStates.
-
-<a name="MockPoolReleaseSlotCall"></a>
-## type MockPoolReleaseSlotCall
-
-MockPoolReleaseSlotCall wrap \*gomock.Call
-
-```go
-type MockPoolReleaseSlotCall struct {
-    *gomock.Call
-}
-```
-
-<a name="MockPoolReleaseSlotCall.Do"></a>
-### func \(\*MockPoolReleaseSlotCall\) Do
-
-```go
-func (c *MockPoolReleaseSlotCall) Do(f func(uint32) error) *MockPoolReleaseSlotCall
-```
-
-Do rewrite \*gomock.Call.Do
-
-<a name="MockPoolReleaseSlotCall.DoAndReturn"></a>
-### func \(\*MockPoolReleaseSlotCall\) DoAndReturn
-
-```go
-func (c *MockPoolReleaseSlotCall) DoAndReturn(f func(uint32) error) *MockPoolReleaseSlotCall
-```
-
-DoAndReturn rewrite \*gomock.Call.DoAndReturn
-
-<a name="MockPoolReleaseSlotCall.Return"></a>
-### func \(\*MockPoolReleaseSlotCall\) Return
-
-```go
-func (c *MockPoolReleaseSlotCall) Return(arg0 error) *MockPoolReleaseSlotCall
-```
-
-Return rewrite \*gomock.Call.Return
-
-<a name="MockPoolRemoveSlotCall"></a>
-## type MockPoolRemoveSlotCall
-
-MockPoolRemoveSlotCall wrap \*gomock.Call
-
-```go
-type MockPoolRemoveSlotCall struct {
-    *gomock.Call
-}
-```
-
-<a name="MockPoolRemoveSlotCall.Do"></a>
-### func \(\*MockPoolRemoveSlotCall\) Do
-
-```go
-func (c *MockPoolRemoveSlotCall) Do(f func()) *MockPoolRemoveSlotCall
-```
-
-Do rewrite \*gomock.Call.Do
-
-<a name="MockPoolRemoveSlotCall.DoAndReturn"></a>
-### func \(\*MockPoolRemoveSlotCall\) DoAndReturn
-
-```go
-func (c *MockPoolRemoveSlotCall) DoAndReturn(f func()) *MockPoolRemoveSlotCall
-```
-
-DoAndReturn rewrite \*gomock.Call.DoAndReturn
-
-<a name="MockPoolRemoveSlotCall.Return"></a>
-### func \(\*MockPoolRemoveSlotCall\) Return
-
-```go
-func (c *MockPoolRemoveSlotCall) Return() *MockPoolRemoveSlotCall
-```
-
-Return rewrite \*gomock.Call.Return
-
-<a name="MockPoolSlotStatesCall"></a>
-## type MockPoolSlotStatesCall
-
-MockPoolSlotStatesCall wrap \*gomock.Call
-
-```go
-type MockPoolSlotStatesCall struct {
-    *gomock.Call
-}
-```
-
-<a name="MockPoolSlotStatesCall.Do"></a>
-### func \(\*MockPoolSlotStatesCall\) Do
-
-```go
-func (c *MockPoolSlotStatesCall) Do(f func() []slotpool.SlotState) *MockPoolSlotStatesCall
-```
-
-Do rewrite \*gomock.Call.Do
-
-<a name="MockPoolSlotStatesCall.DoAndReturn"></a>
-### func \(\*MockPoolSlotStatesCall\) DoAndReturn
-
-```go
-func (c *MockPoolSlotStatesCall) DoAndReturn(f func() []slotpool.SlotState) *MockPoolSlotStatesCall
-```
-
-DoAndReturn rewrite \*gomock.Call.DoAndReturn
-
-<a name="MockPoolSlotStatesCall.Return"></a>
-### func \(\*MockPoolSlotStatesCall\) Return
-
-```go
-func (c *MockPoolSlotStatesCall) Return(arg0 []slotpool.SlotState) *MockPoolSlotStatesCall
-```
-
-Return rewrite \*gomock.Call.Return
-
-# mock\_stat
-
-```go
-import "gitlab.cebc.tools/go/tp.git/test/mock/stats"
-```
-
-Package mock\_stat is a generated GoMock package.
-
-## Index
-
-- [type MockSlotStat](<#MockSlotStat>)
-  - [func NewMockSlotStat\(ctrl \*gomock.Controller\) \*MockSlotStat](<#NewMockSlotStat>)
-  - [func \(m \*MockSlotStat\) AddQueueErrors\(queueID, n uint32\)](<#MockSlotStat.AddQueueErrors>)
-  - [func \(m \*MockSlotStat\) AddQueueProcessed\(queueID, n uint32\)](<#MockSlotStat.AddQueueProcessed>)
-  - [func \(m \*MockSlotStat\) AddQueueWaitTime\(queueID uint32, t float64\)](<#MockSlotStat.AddQueueWaitTime>)
-  - [func \(m \*MockSlotStat\) AddQueueWorkTime\(queueID uint32, t float64\)](<#MockSlotStat.AddQueueWorkTime>)
-  - [func \(m \*MockSlotStat\) EXPECT\(\) \*MockSlotStatMockRecorder](<#MockSlotStat.EXPECT>)
-  - [func \(m \*MockSlotStat\) IncrementQueueLoop\(queueID uint32\)](<#MockSlotStat.IncrementQueueLoop>)
-  - [func \(m \*MockSlotStat\) IncrementSlotError\(\)](<#MockSlotStat.IncrementSlotError>)
-  - [func \(m \*MockSlotStat\) SetQueueID\(id uint32\)](<#MockSlotStat.SetQueueID>)
-  - [func \(m \*MockSlotStat\) SetState\(state stats.State\)](<#MockSlotStat.SetState>)
-  - [func \(m \*MockSlotStat\) Stat\(\) stats.SlotStat](<#MockSlotStat.Stat>)
-- [type MockSlotStatAddQueueErrorsCall](<#MockSlotStatAddQueueErrorsCall>)
-  - [func \(c \*MockSlotStatAddQueueErrorsCall\) Do\(f func\(uint32, uint32\)\) \*MockSlotStatAddQueueErrorsCall](<#MockSlotStatAddQueueErrorsCall.Do>)
-  - [func \(c \*MockSlotStatAddQueueErrorsCall\) DoAndReturn\(f func\(uint32, uint32\)\) \*MockSlotStatAddQueueErrorsCall](<#MockSlotStatAddQueueErrorsCall.DoAndReturn>)
-  - [func \(c \*MockSlotStatAddQueueErrorsCall\) Return\(\) \*MockSlotStatAddQueueErrorsCall](<#MockSlotStatAddQueueErrorsCall.Return>)
-- [type MockSlotStatAddQueueProcessedCall](<#MockSlotStatAddQueueProcessedCall>)
-  - [func \(c \*MockSlotStatAddQueueProcessedCall\) Do\(f func\(uint32, uint32\)\) \*MockSlotStatAddQueueProcessedCall](<#MockSlotStatAddQueueProcessedCall.Do>)
-  - [func \(c \*MockSlotStatAddQueueProcessedCall\) DoAndReturn\(f func\(uint32, uint32\)\) \*MockSlotStatAddQueueProcessedCall](<#MockSlotStatAddQueueProcessedCall.DoAndReturn>)
-  - [func \(c \*MockSlotStatAddQueueProcessedCall\) Return\(\) \*MockSlotStatAddQueueProcessedCall](<#MockSlotStatAddQueueProcessedCall.Return>)
-- [type MockSlotStatAddQueueWaitTimeCall](<#MockSlotStatAddQueueWaitTimeCall>)
-  - [func \(c \*MockSlotStatAddQueueWaitTimeCall\) Do\(f func\(uint32, float64\)\) \*MockSlotStatAddQueueWaitTimeCall](<#MockSlotStatAddQueueWaitTimeCall.Do>)
-  - [func \(c \*MockSlotStatAddQueueWaitTimeCall\) DoAndReturn\(f func\(uint32, float64\)\) \*MockSlotStatAddQueueWaitTimeCall](<#MockSlotStatAddQueueWaitTimeCall.DoAndReturn>)
-  - [func \(c \*MockSlotStatAddQueueWaitTimeCall\) Return\(\) \*MockSlotStatAddQueueWaitTimeCall](<#MockSlotStatAddQueueWaitTimeCall.Return>)
-- [type MockSlotStatAddQueueWorkTimeCall](<#MockSlotStatAddQueueWorkTimeCall>)
-  - [func \(c \*MockSlotStatAddQueueWorkTimeCall\) Do\(f func\(uint32, float64\)\) \*MockSlotStatAddQueueWorkTimeCall](<#MockSlotStatAddQueueWorkTimeCall.Do>)
-  - [func \(c \*MockSlotStatAddQueueWorkTimeCall\) DoAndReturn\(f func\(uint32, float64\)\) \*MockSlotStatAddQueueWorkTimeCall](<#MockSlotStatAddQueueWorkTimeCall.DoAndReturn>)
-  - [func \(c \*MockSlotStatAddQueueWorkTimeCall\) Return\(\) \*MockSlotStatAddQueueWorkTimeCall](<#MockSlotStatAddQueueWorkTimeCall.Return>)
-- [type MockSlotStatIncrementQueueLoopCall](<#MockSlotStatIncrementQueueLoopCall>)
-  - [func \(c \*MockSlotStatIncrementQueueLoopCall\) Do\(f func\(uint32\)\) \*MockSlotStatIncrementQueueLoopCall](<#MockSlotStatIncrementQueueLoopCall.Do>)
-  - [func \(c \*MockSlotStatIncrementQueueLoopCall\) DoAndReturn\(f func\(uint32\)\) \*MockSlotStatIncrementQueueLoopCall](<#MockSlotStatIncrementQueueLoopCall.DoAndReturn>)
-  - [func \(c \*MockSlotStatIncrementQueueLoopCall\) Return\(\) \*MockSlotStatIncrementQueueLoopCall](<#MockSlotStatIncrementQueueLoopCall.Return>)
-- [type MockSlotStatIncrementSlotErrorCall](<#MockSlotStatIncrementSlotErrorCall>)
-  - [func \(c \*MockSlotStatIncrementSlotErrorCall\) Do\(f func\(\)\) \*MockSlotStatIncrementSlotErrorCall](<#MockSlotStatIncrementSlotErrorCall.Do>)
-  - [func \(c \*MockSlotStatIncrementSlotErrorCall\) DoAndReturn\(f func\(\)\) \*MockSlotStatIncrementSlotErrorCall](<#MockSlotStatIncrementSlotErrorCall.DoAndReturn>)
-  - [func \(c \*MockSlotStatIncrementSlotErrorCall\) Return\(\) \*MockSlotStatIncrementSlotErrorCall](<#MockSlotStatIncrementSlotErrorCall.Return>)
-- [type MockSlotStatMockRecorder](<#MockSlotStatMockRecorder>)
-  - [func \(mr \*MockSlotStatMockRecorder\) AddQueueErrors\(queueID, n any\) \*MockSlotStatAddQueueErrorsCall](<#MockSlotStatMockRecorder.AddQueueErrors>)
-  - [func \(mr \*MockSlotStatMockRecorder\) AddQueueProcessed\(queueID, n any\) \*MockSlotStatAddQueueProcessedCall](<#MockSlotStatMockRecorder.AddQueueProcessed>)
-  - [func \(mr \*MockSlotStatMockRecorder\) AddQueueWaitTime\(queueID, t any\) \*MockSlotStatAddQueueWaitTimeCall](<#MockSlotStatMockRecorder.AddQueueWaitTime>)
-  - [func \(mr \*MockSlotStatMockRecorder\) AddQueueWorkTime\(queueID, t any\) \*MockSlotStatAddQueueWorkTimeCall](<#MockSlotStatMockRecorder.AddQueueWorkTime>)
-  - [func \(mr \*MockSlotStatMockRecorder\) IncrementQueueLoop\(queueID any\) \*MockSlotStatIncrementQueueLoopCall](<#MockSlotStatMockRecorder.IncrementQueueLoop>)
-  - [func \(mr \*MockSlotStatMockRecorder\) IncrementSlotError\(\) \*MockSlotStatIncrementSlotErrorCall](<#MockSlotStatMockRecorder.IncrementSlotError>)
-  - [func \(mr \*MockSlotStatMockRecorder\) SetQueueID\(id any\) \*MockSlotStatSetQueueIDCall](<#MockSlotStatMockRecorder.SetQueueID>)
-  - [func \(mr \*MockSlotStatMockRecorder\) SetState\(state any\) \*MockSlotStatSetStateCall](<#MockSlotStatMockRecorder.SetState>)
-  - [func \(mr \*MockSlotStatMockRecorder\) Stat\(\) \*MockSlotStatStatCall](<#MockSlotStatMockRecorder.Stat>)
-- [type MockSlotStatSetQueueIDCall](<#MockSlotStatSetQueueIDCall>)
-  - [func \(c \*MockSlotStatSetQueueIDCall\) Do\(f func\(uint32\)\) \*MockSlotStatSetQueueIDCall](<#MockSlotStatSetQueueIDCall.Do>)
-  - [func \(c \*MockSlotStatSetQueueIDCall\) DoAndReturn\(f func\(uint32\)\) \*MockSlotStatSetQueueIDCall](<#MockSlotStatSetQueueIDCall.DoAndReturn>)
-  - [func \(c \*MockSlotStatSetQueueIDCall\) Return\(\) \*MockSlotStatSetQueueIDCall](<#MockSlotStatSetQueueIDCall.Return>)
-- [type MockSlotStatSetStateCall](<#MockSlotStatSetStateCall>)
-  - [func \(c \*MockSlotStatSetStateCall\) Do\(f func\(stats.State\)\) \*MockSlotStatSetStateCall](<#MockSlotStatSetStateCall.Do>)
-  - [func \(c \*MockSlotStatSetStateCall\) DoAndReturn\(f func\(stats.State\)\) \*MockSlotStatSetStateCall](<#MockSlotStatSetStateCall.DoAndReturn>)
-  - [func \(c \*MockSlotStatSetStateCall\) Return\(\) \*MockSlotStatSetStateCall](<#MockSlotStatSetStateCall.Return>)
-- [type MockSlotStatStatCall](<#MockSlotStatStatCall>)
-  - [func \(c \*MockSlotStatStatCall\) Do\(f func\(\) stats.SlotStat\) \*MockSlotStatStatCall](<#MockSlotStatStatCall.Do>)
-  - [func \(c \*MockSlotStatStatCall\) DoAndReturn\(f func\(\) stats.SlotStat\) \*MockSlotStatStatCall](<#MockSlotStatStatCall.DoAndReturn>)
-  - [func \(c \*MockSlotStatStatCall\) Return\(arg0 stats.SlotStat\) \*MockSlotStatStatCall](<#MockSlotStatStatCall.Return>)
-
-
-<a name="MockSlotStat"></a>
-## type MockSlotStat
-
-MockSlotStat is a mock of SlotStat interface.
-
-```go
-type MockSlotStat struct {
-    // contains filtered or unexported fields
-}
-```
-
-<a name="NewMockSlotStat"></a>
-### func NewMockSlotStat
-
-```go
-func NewMockSlotStat(ctrl *gomock.Controller) *MockSlotStat
-```
-
-NewMockSlotStat creates a new mock instance.
-
-<a name="MockSlotStat.AddQueueErrors"></a>
-### func \(\*MockSlotStat\) AddQueueErrors
-
-```go
-func (m *MockSlotStat) AddQueueErrors(queueID, n uint32)
-```
-
-AddQueueErrors mocks base method.
-
-<a name="MockSlotStat.AddQueueProcessed"></a>
-### func \(\*MockSlotStat\) AddQueueProcessed
-
-```go
-func (m *MockSlotStat) AddQueueProcessed(queueID, n uint32)
-```
-
-AddQueueProcessed mocks base method.
-
-<a name="MockSlotStat.AddQueueWaitTime"></a>
-### func \(\*MockSlotStat\) AddQueueWaitTime
-
-```go
-func (m *MockSlotStat) AddQueueWaitTime(queueID uint32, t float64)
-```
-
-AddQueueWaitTime mocks base method.
-
-<a name="MockSlotStat.AddQueueWorkTime"></a>
-### func \(\*MockSlotStat\) AddQueueWorkTime
-
-```go
-func (m *MockSlotStat) AddQueueWorkTime(queueID uint32, t float64)
-```
-
-AddQueueWorkTime mocks base method.
-
-<a name="MockSlotStat.EXPECT"></a>
-### func \(\*MockSlotStat\) EXPECT
-
-```go
-func (m *MockSlotStat) EXPECT() *MockSlotStatMockRecorder
-```
-
-EXPECT returns an object that allows the caller to indicate expected use.
-
-<a name="MockSlotStat.IncrementQueueLoop"></a>
-### func \(\*MockSlotStat\) IncrementQueueLoop
-
-```go
-func (m *MockSlotStat) IncrementQueueLoop(queueID uint32)
-```
-
-IncrementQueueLoop mocks base method.
-
-<a name="MockSlotStat.IncrementSlotError"></a>
-### func \(\*MockSlotStat\) IncrementSlotError
-
-```go
-func (m *MockSlotStat) IncrementSlotError()
-```
-
-IncrementSlotError mocks base method.
-
-<a name="MockSlotStat.SetQueueID"></a>
-### func \(\*MockSlotStat\) SetQueueID
-
-```go
-func (m *MockSlotStat) SetQueueID(id uint32)
-```
-
-SetQueueID mocks base method.
-
-<a name="MockSlotStat.SetState"></a>
-### func \(\*MockSlotStat\) SetState
-
-```go
-func (m *MockSlotStat) SetState(state stats.State)
-```
-
-SetState mocks base method.
-
-<a name="MockSlotStat.Stat"></a>
-### func \(\*MockSlotStat\) Stat
-
-```go
-func (m *MockSlotStat) Stat() stats.SlotStat
-```
-
-Stat mocks base method.
-
-<a name="MockSlotStatAddQueueErrorsCall"></a>
-## type MockSlotStatAddQueueErrorsCall
-
-MockSlotStatAddQueueErrorsCall wrap \*gomock.Call
-
-```go
-type MockSlotStatAddQueueErrorsCall struct {
-    *gomock.Call
-}
-```
-
-<a name="MockSlotStatAddQueueErrorsCall.Do"></a>
-### func \(\*MockSlotStatAddQueueErrorsCall\) Do
-
-```go
-func (c *MockSlotStatAddQueueErrorsCall) Do(f func(uint32, uint32)) *MockSlotStatAddQueueErrorsCall
-```
-
-Do rewrite \*gomock.Call.Do
-
-<a name="MockSlotStatAddQueueErrorsCall.DoAndReturn"></a>
-### func \(\*MockSlotStatAddQueueErrorsCall\) DoAndReturn
-
-```go
-func (c *MockSlotStatAddQueueErrorsCall) DoAndReturn(f func(uint32, uint32)) *MockSlotStatAddQueueErrorsCall
-```
-
-DoAndReturn rewrite \*gomock.Call.DoAndReturn
-
-<a name="MockSlotStatAddQueueErrorsCall.Return"></a>
-### func \(\*MockSlotStatAddQueueErrorsCall\) Return
-
-```go
-func (c *MockSlotStatAddQueueErrorsCall) Return() *MockSlotStatAddQueueErrorsCall
-```
-
-Return rewrite \*gomock.Call.Return
-
-<a name="MockSlotStatAddQueueProcessedCall"></a>
-## type MockSlotStatAddQueueProcessedCall
-
-MockSlotStatAddQueueProcessedCall wrap \*gomock.Call
-
-```go
-type MockSlotStatAddQueueProcessedCall struct {
-    *gomock.Call
-}
-```
-
-<a name="MockSlotStatAddQueueProcessedCall.Do"></a>
-### func \(\*MockSlotStatAddQueueProcessedCall\) Do
-
-```go
-func (c *MockSlotStatAddQueueProcessedCall) Do(f func(uint32, uint32)) *MockSlotStatAddQueueProcessedCall
-```
-
-Do rewrite \*gomock.Call.Do
-
-<a name="MockSlotStatAddQueueProcessedCall.DoAndReturn"></a>
-### func \(\*MockSlotStatAddQueueProcessedCall\) DoAndReturn
-
-```go
-func (c *MockSlotStatAddQueueProcessedCall) DoAndReturn(f func(uint32, uint32)) *MockSlotStatAddQueueProcessedCall
-```
-
-DoAndReturn rewrite \*gomock.Call.DoAndReturn
-
-<a name="MockSlotStatAddQueueProcessedCall.Return"></a>
-### func \(\*MockSlotStatAddQueueProcessedCall\) Return
-
-```go
-func (c *MockSlotStatAddQueueProcessedCall) Return() *MockSlotStatAddQueueProcessedCall
-```
-
-Return rewrite \*gomock.Call.Return
-
-<a name="MockSlotStatAddQueueWaitTimeCall"></a>
-## type MockSlotStatAddQueueWaitTimeCall
-
-MockSlotStatAddQueueWaitTimeCall wrap \*gomock.Call
-
-```go
-type MockSlotStatAddQueueWaitTimeCall struct {
-    *gomock.Call
-}
-```
-
-<a name="MockSlotStatAddQueueWaitTimeCall.Do"></a>
-### func \(\*MockSlotStatAddQueueWaitTimeCall\) Do
-
-```go
-func (c *MockSlotStatAddQueueWaitTimeCall) Do(f func(uint32, float64)) *MockSlotStatAddQueueWaitTimeCall
-```
-
-Do rewrite \*gomock.Call.Do
-
-<a name="MockSlotStatAddQueueWaitTimeCall.DoAndReturn"></a>
-### func \(\*MockSlotStatAddQueueWaitTimeCall\) DoAndReturn
-
-```go
-func (c *MockSlotStatAddQueueWaitTimeCall) DoAndReturn(f func(uint32, float64)) *MockSlotStatAddQueueWaitTimeCall
-```
-
-DoAndReturn rewrite \*gomock.Call.DoAndReturn
-
-<a name="MockSlotStatAddQueueWaitTimeCall.Return"></a>
-### func \(\*MockSlotStatAddQueueWaitTimeCall\) Return
-
-```go
-func (c *MockSlotStatAddQueueWaitTimeCall) Return() *MockSlotStatAddQueueWaitTimeCall
-```
-
-Return rewrite \*gomock.Call.Return
-
-<a name="MockSlotStatAddQueueWorkTimeCall"></a>
-## type MockSlotStatAddQueueWorkTimeCall
-
-MockSlotStatAddQueueWorkTimeCall wrap \*gomock.Call
-
-```go
-type MockSlotStatAddQueueWorkTimeCall struct {
-    *gomock.Call
-}
-```
-
-<a name="MockSlotStatAddQueueWorkTimeCall.Do"></a>
-### func \(\*MockSlotStatAddQueueWorkTimeCall\) Do
-
-```go
-func (c *MockSlotStatAddQueueWorkTimeCall) Do(f func(uint32, float64)) *MockSlotStatAddQueueWorkTimeCall
-```
-
-Do rewrite \*gomock.Call.Do
-
-<a name="MockSlotStatAddQueueWorkTimeCall.DoAndReturn"></a>
-### func \(\*MockSlotStatAddQueueWorkTimeCall\) DoAndReturn
-
-```go
-func (c *MockSlotStatAddQueueWorkTimeCall) DoAndReturn(f func(uint32, float64)) *MockSlotStatAddQueueWorkTimeCall
-```
-
-DoAndReturn rewrite \*gomock.Call.DoAndReturn
-
-<a name="MockSlotStatAddQueueWorkTimeCall.Return"></a>
-### func \(\*MockSlotStatAddQueueWorkTimeCall\) Return
-
-```go
-func (c *MockSlotStatAddQueueWorkTimeCall) Return() *MockSlotStatAddQueueWorkTimeCall
-```
-
-Return rewrite \*gomock.Call.Return
-
-<a name="MockSlotStatIncrementQueueLoopCall"></a>
-## type MockSlotStatIncrementQueueLoopCall
-
-MockSlotStatIncrementQueueLoopCall wrap \*gomock.Call
-
-```go
-type MockSlotStatIncrementQueueLoopCall struct {
-    *gomock.Call
-}
-```
-
-<a name="MockSlotStatIncrementQueueLoopCall.Do"></a>
-### func \(\*MockSlotStatIncrementQueueLoopCall\) Do
-
-```go
-func (c *MockSlotStatIncrementQueueLoopCall) Do(f func(uint32)) *MockSlotStatIncrementQueueLoopCall
-```
-
-Do rewrite \*gomock.Call.Do
-
-<a name="MockSlotStatIncrementQueueLoopCall.DoAndReturn"></a>
-### func \(\*MockSlotStatIncrementQueueLoopCall\) DoAndReturn
-
-```go
-func (c *MockSlotStatIncrementQueueLoopCall) DoAndReturn(f func(uint32)) *MockSlotStatIncrementQueueLoopCall
-```
-
-DoAndReturn rewrite \*gomock.Call.DoAndReturn
-
-<a name="MockSlotStatIncrementQueueLoopCall.Return"></a>
-### func \(\*MockSlotStatIncrementQueueLoopCall\) Return
-
-```go
-func (c *MockSlotStatIncrementQueueLoopCall) Return() *MockSlotStatIncrementQueueLoopCall
-```
-
-Return rewrite \*gomock.Call.Return
-
-<a name="MockSlotStatIncrementSlotErrorCall"></a>
-## type MockSlotStatIncrementSlotErrorCall
-
-MockSlotStatIncrementSlotErrorCall wrap \*gomock.Call
-
-```go
-type MockSlotStatIncrementSlotErrorCall struct {
-    *gomock.Call
-}
-```
-
-<a name="MockSlotStatIncrementSlotErrorCall.Do"></a>
-### func \(\*MockSlotStatIncrementSlotErrorCall\) Do
-
-```go
-func (c *MockSlotStatIncrementSlotErrorCall) Do(f func()) *MockSlotStatIncrementSlotErrorCall
-```
-
-Do rewrite \*gomock.Call.Do
-
-<a name="MockSlotStatIncrementSlotErrorCall.DoAndReturn"></a>
-### func \(\*MockSlotStatIncrementSlotErrorCall\) DoAndReturn
-
-```go
-func (c *MockSlotStatIncrementSlotErrorCall) DoAndReturn(f func()) *MockSlotStatIncrementSlotErrorCall
-```
-
-DoAndReturn rewrite \*gomock.Call.DoAndReturn
-
-<a name="MockSlotStatIncrementSlotErrorCall.Return"></a>
-### func \(\*MockSlotStatIncrementSlotErrorCall\) Return
-
-```go
-func (c *MockSlotStatIncrementSlotErrorCall) Return() *MockSlotStatIncrementSlotErrorCall
-```
-
-Return rewrite \*gomock.Call.Return
-
-<a name="MockSlotStatMockRecorder"></a>
-## type MockSlotStatMockRecorder
-
-MockSlotStatMockRecorder is the mock recorder for MockSlotStat.
-
-```go
-type MockSlotStatMockRecorder struct {
-    // contains filtered or unexported fields
-}
-```
-
-<a name="MockSlotStatMockRecorder.AddQueueErrors"></a>
-### func \(\*MockSlotStatMockRecorder\) AddQueueErrors
-
-```go
-func (mr *MockSlotStatMockRecorder) AddQueueErrors(queueID, n any) *MockSlotStatAddQueueErrorsCall
-```
-
-AddQueueErrors indicates an expected call of AddQueueErrors.
-
-<a name="MockSlotStatMockRecorder.AddQueueProcessed"></a>
-### func \(\*MockSlotStatMockRecorder\) AddQueueProcessed
-
-```go
-func (mr *MockSlotStatMockRecorder) AddQueueProcessed(queueID, n any) *MockSlotStatAddQueueProcessedCall
-```
-
-AddQueueProcessed indicates an expected call of AddQueueProcessed.
-
-<a name="MockSlotStatMockRecorder.AddQueueWaitTime"></a>
-### func \(\*MockSlotStatMockRecorder\) AddQueueWaitTime
-
-```go
-func (mr *MockSlotStatMockRecorder) AddQueueWaitTime(queueID, t any) *MockSlotStatAddQueueWaitTimeCall
-```
-
-AddQueueWaitTime indicates an expected call of AddQueueWaitTime.
-
-<a name="MockSlotStatMockRecorder.AddQueueWorkTime"></a>
-### func \(\*MockSlotStatMockRecorder\) AddQueueWorkTime
-
-```go
-func (mr *MockSlotStatMockRecorder) AddQueueWorkTime(queueID, t any) *MockSlotStatAddQueueWorkTimeCall
-```
-
-AddQueueWorkTime indicates an expected call of AddQueueWorkTime.
-
-<a name="MockSlotStatMockRecorder.IncrementQueueLoop"></a>
-### func \(\*MockSlotStatMockRecorder\) IncrementQueueLoop
-
-```go
-func (mr *MockSlotStatMockRecorder) IncrementQueueLoop(queueID any) *MockSlotStatIncrementQueueLoopCall
-```
-
-IncrementQueueLoop indicates an expected call of IncrementQueueLoop.
-
-<a name="MockSlotStatMockRecorder.IncrementSlotError"></a>
-### func \(\*MockSlotStatMockRecorder\) IncrementSlotError
-
-```go
-func (mr *MockSlotStatMockRecorder) IncrementSlotError() *MockSlotStatIncrementSlotErrorCall
-```
-
-IncrementSlotError indicates an expected call of IncrementSlotError.
-
-<a name="MockSlotStatMockRecorder.SetQueueID"></a>
-### func \(\*MockSlotStatMockRecorder\) SetQueueID
-
-```go
-func (mr *MockSlotStatMockRecorder) SetQueueID(id any) *MockSlotStatSetQueueIDCall
-```
-
-SetQueueID indicates an expected call of SetQueueID.
-
-<a name="MockSlotStatMockRecorder.SetState"></a>
-### func \(\*MockSlotStatMockRecorder\) SetState
-
-```go
-func (mr *MockSlotStatMockRecorder) SetState(state any) *MockSlotStatSetStateCall
-```
-
-SetState indicates an expected call of SetState.
-
-<a name="MockSlotStatMockRecorder.Stat"></a>
-### func \(\*MockSlotStatMockRecorder\) Stat
-
-```go
-func (mr *MockSlotStatMockRecorder) Stat() *MockSlotStatStatCall
-```
-
-Stat indicates an expected call of Stat.
-
-<a name="MockSlotStatSetQueueIDCall"></a>
-## type MockSlotStatSetQueueIDCall
-
-MockSlotStatSetQueueIDCall wrap \*gomock.Call
-
-```go
-type MockSlotStatSetQueueIDCall struct {
-    *gomock.Call
-}
-```
-
-<a name="MockSlotStatSetQueueIDCall.Do"></a>
-### func \(\*MockSlotStatSetQueueIDCall\) Do
-
-```go
-func (c *MockSlotStatSetQueueIDCall) Do(f func(uint32)) *MockSlotStatSetQueueIDCall
-```
-
-Do rewrite \*gomock.Call.Do
-
-<a name="MockSlotStatSetQueueIDCall.DoAndReturn"></a>
-### func \(\*MockSlotStatSetQueueIDCall\) DoAndReturn
-
-```go
-func (c *MockSlotStatSetQueueIDCall) DoAndReturn(f func(uint32)) *MockSlotStatSetQueueIDCall
-```
-
-DoAndReturn rewrite \*gomock.Call.DoAndReturn
-
-<a name="MockSlotStatSetQueueIDCall.Return"></a>
-### func \(\*MockSlotStatSetQueueIDCall\) Return
-
-```go
-func (c *MockSlotStatSetQueueIDCall) Return() *MockSlotStatSetQueueIDCall
-```
-
-Return rewrite \*gomock.Call.Return
-
-<a name="MockSlotStatSetStateCall"></a>
-## type MockSlotStatSetStateCall
-
-MockSlotStatSetStateCall wrap \*gomock.Call
-
-```go
-type MockSlotStatSetStateCall struct {
-    *gomock.Call
-}
-```
-
-<a name="MockSlotStatSetStateCall.Do"></a>
-### func \(\*MockSlotStatSetStateCall\) Do
-
-```go
-func (c *MockSlotStatSetStateCall) Do(f func(stats.State)) *MockSlotStatSetStateCall
-```
-
-Do rewrite \*gomock.Call.Do
-
-<a name="MockSlotStatSetStateCall.DoAndReturn"></a>
-### func \(\*MockSlotStatSetStateCall\) DoAndReturn
-
-```go
-func (c *MockSlotStatSetStateCall) DoAndReturn(f func(stats.State)) *MockSlotStatSetStateCall
-```
-
-DoAndReturn rewrite \*gomock.Call.DoAndReturn
-
-<a name="MockSlotStatSetStateCall.Return"></a>
-### func \(\*MockSlotStatSetStateCall\) Return
-
-```go
-func (c *MockSlotStatSetStateCall) Return() *MockSlotStatSetStateCall
-```
-
-Return rewrite \*gomock.Call.Return
-
-<a name="MockSlotStatStatCall"></a>
-## type MockSlotStatStatCall
-
-MockSlotStatStatCall wrap \*gomock.Call
-
-```go
-type MockSlotStatStatCall struct {
-    *gomock.Call
-}
-```
-
-<a name="MockSlotStatStatCall.Do"></a>
-### func \(\*MockSlotStatStatCall\) Do
-
-```go
-func (c *MockSlotStatStatCall) Do(f func() stats.SlotStat) *MockSlotStatStatCall
-```
-
-Do rewrite \*gomock.Call.Do
-
-<a name="MockSlotStatStatCall.DoAndReturn"></a>
-### func \(\*MockSlotStatStatCall\) DoAndReturn
-
-```go
-func (c *MockSlotStatStatCall) DoAndReturn(f func() stats.SlotStat) *MockSlotStatStatCall
-```
-
-DoAndReturn rewrite \*gomock.Call.DoAndReturn
-
-<a name="MockSlotStatStatCall.Return"></a>
-### func \(\*MockSlotStatStatCall\) Return
-
-```go
-func (c *MockSlotStatStatCall) Return(arg0 stats.SlotStat) *MockSlotStatStatCall
-```
-
-Return rewrite \*gomock.Call.Return
 
 Generated by [gomarkdoc](<https://github.com/princjef/gomarkdoc>)

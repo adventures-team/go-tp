@@ -253,16 +253,25 @@ func (c *Config) MaxAge(queueID uint16) (uint32, error) {
 	return uint32(d.Seconds()), nil
 }
 
-// retry_types
+// Типы задержки для [tp.WithRetry] и [tp.WithRetry2] (retry_type).
 const (
+	// RetryConstant - постоянная задержка при каждой повторной попытке:
+	//  - [tp.WithRetry]: retry_delay
+	//  - [tp.WithRetry2]: retry1_delay и retry2_delay (имена возможно переопределить, см. опции [tp.WithRetry2])
 	RetryConstant = iota
+
+	// RetryLinear - линейная задержка повторных попыток.
+	// retry_delay + retry_coeff * retryCount
 	RetryLinear
+
+	// RetryExponential - экспоненциальная задержка повторных попыток.
+	// retry_delay + retry_coeff * retry_exp ^ retryCount
 	RetryExponential
 )
 
 // RetryType возвращает тип задержки повтора retry_type, заданный для указанной очереди, или глобально.
 // Используется для [tp.WithRetry] и [tp.WithRetry2].
-// По умолчанию, возвращается RetryConstant.
+// По умолчанию, возвращается [RetryConstant]
 func (c *Config) RetryType(queueID uint16) (int, error) {
 	typ, path, err := c.getStringPerQueue(queueID, "/retry_type")
 	if err != nil {
