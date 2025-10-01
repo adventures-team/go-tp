@@ -67,9 +67,14 @@ func (c *Config) OOMCheckPeriod(ctx context.Context) time.Duration {
 	return DefaultOOMCheckPeriod
 }
 
-// WorkersMaxCount получает workers_max
-// TODO логика не соответствует доке и standalone.go - поправить.
-func (c *Config) WorkersMaxCount(ctx context.Context) (int, error) {
+// WorkersMaxCount получает workers_max.
+//
+// Используемые значения:
+//
+//	< 0: не используется (предусмотрено, чтобы не удалять значение, если часто приходится включать эту фичу)
+//	= 0: тушатся обработчики всех очередей на этом инстансе
+//	> 0: максимальное кол-во обработчиков всех очередей на этом инстансе
+func (c *Config) WorkersMaxCount() (int, error) {
 	count, err := c.getIntPerInstance("/workers_max")
 	if count < 0 {
 		err = &ConfError{
@@ -78,10 +83,6 @@ func (c *Config) WorkersMaxCount(ctx context.Context) (int, error) {
 			Err:   ErrWorkersCount,
 		}
 		count = 0
-	}
-
-	if err != nil {
-		c.logError(ctx, err, nil, "workers_max is mandatory")
 	}
 
 	return count, err

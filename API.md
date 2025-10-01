@@ -1274,7 +1274,7 @@ update_batch_size              UpdateBatchSize strconv.ParseInt
   - [func \(c \*Config\) Subscribe\(\) \(chan struct\{\}, error\)](<#Config.Subscribe>)
   - [func \(c \*Config\) UpdateBatchSize\(ctx context.Context, queueID uint16\) int](<#Config.UpdateBatchSize>)
   - [func \(c \*Config\) WorkersCount\(ctx context.Context, queueID uint16\) \(int, error\)](<#Config.WorkersCount>)
-  - [func \(c \*Config\) WorkersMaxCount\(ctx context.Context\) \(int, error\)](<#Config.WorkersMaxCount>)
+  - [func \(c \*Config\) WorkersMaxCount\(\) \(int, error\)](<#Config.WorkersMaxCount>)
 - [type OnlineConf](<#OnlineConf>)
 - [type OnlineConfWithSubtree](<#OnlineConfWithSubtree>)
 
@@ -1601,10 +1601,18 @@ WorkersCount получает workers для указанной очереди, 
 ### func \(\*Config\) WorkersMaxCount
 
 ```go
-func (c *Config) WorkersMaxCount(ctx context.Context) (int, error)
+func (c *Config) WorkersMaxCount() (int, error)
 ```
 
-WorkersMaxCount получает workers\_max TODO логика не соответствует доке и standalone.go \- поправить.
+WorkersMaxCount получает workers\_max.
+
+Используемые значения:
+
+```
+< 0: не используется (предусмотрено, чтобы не удалять значение, если часто приходится включать эту фичу)
+= 0: тушатся обработчики всех очередей на этом инстансе
+> 0: максимальное кол-во обработчиков всех очередей на этом инстансе
+```
 
 <a name="OnlineConf"></a>
 ## type OnlineConf

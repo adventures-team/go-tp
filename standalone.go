@@ -85,7 +85,7 @@ func (qm *StandaloneMaster) applyConfig(ctx context.Context) error {
 	}
 
 	workersTotal := 0
-	workersMax, err := qm.Config().WorkersMaxCount(ctx)
+	workersMax, err := qm.Config().WorkersMaxCount()
 	hasWorkersMax := err == nil
 	queueWorkers := make([]queueIDWorkers, 0, len(confQueueIDs))
 
