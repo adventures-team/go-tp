@@ -238,14 +238,6 @@ func (qm *StandaloneMaster) startStop(queueWorkers []queueIDWorkers) {
 func (qm *StandaloneMaster) Run() {
 	ctx := qm.logger.WithContext(context.Background())
 
-	err := qm.applyConfig(ctx)
-	if err != nil {
-		qm.pool.Stop()
-		qm.logger.Err(err).Msg("config error, exiting")
-
-		return
-	}
-
 	go qm.runGoro(ctx) // менеджер конфига запускается асинхронно, т.к. просто посылает команды пулу
 
 	qm.pool.Run() // пул должен запускаться синхронно, чтобы выход из Manage происходил после окончания всей обработки
@@ -260,6 +252,14 @@ func (qm *StandaloneMaster) runGoro(ctx context.Context) {
 			go qm.runGoro(ctx)
 		}
 	}()
+
+	err := qm.applyConfig(ctx)
+	if err != nil {
+		qm.pool.Stop() // Stop умеет работать асинхронно (т.е. Stop, вызванный до запуска пула, приведёт к его мгновенному выходу при запуске)
+		qm.logger.Err(err).Msg("config error, exiting")
+
+		return
+	}
 
 	reloadSigChan := make(chan os.Signal, 1)
 	exitSigChan := make(chan os.Signal, 1)
