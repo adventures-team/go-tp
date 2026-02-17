@@ -75,7 +75,8 @@ func InitProcessor[T queueconfig.OnlineConf](conf queueconfig.OnlineConfWithSubt
 
 	if opt.instanceName == "" {
 		instanceParam := flag.String("instance", "", "queue processor instance name")
-		flag.Parse()
+
+		flag.Parse() //nolint:revive
 
 		if *instanceParam == "" {
 			opt.logger.Fatal().Msg("-instance parameter is required when Config.InstanceName is not set")

@@ -204,7 +204,7 @@ func limitWorkers(queueWorkers []queueIDWorkers, excess int) {
 }
 
 func (qm *StandaloneMaster) startStop(queueWorkers []queueIDWorkers) {
-	flipFlop := false // чтобы не заводить 2 мэпа - такой странный алгоритм
+	flipFlop := false // чтобы не заводить 2 мэпа - такой странный алгоритм TODO документировать его, либо переделать
 	for _, old := range qm.queuesRunning {
 		flipFlop = !old
 		break

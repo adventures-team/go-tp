@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"os"
 	"os/signal"
 	"syscall"
@@ -16,6 +17,10 @@ func (*Service) Handle(ctx context.Context, events []SimpleEvent) error {
 	for _, ev := range events {
 		zerolog.Ctx(ctx).Info().Uint32("user_id", ev.UserID).Str("user_name", ev.UserName).Msg("SimpleEvent received")
 		ev.Done()
+
+		if !ev.Queue().Client().IsOnline() {
+			return errors.New("queued is offline")
+		}
 	}
 
 	return nil

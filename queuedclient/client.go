@@ -125,3 +125,16 @@ func Dial(ctx context.Context, conf *queueconfig.Config) (*QueuedClient, error) 
 func (qc *QueuedClient) ShardNum() uint {
 	return uint(len(qc.shards))
 }
+
+// IsOnline проверяет наличие соединения со всеми шардами.
+func (qc *QueuedClient) IsOnline() bool {
+	online := 0
+
+	for _, shard := range qc.shards {
+		if shard.Stats().Online > 0 {
+			online++
+		}
+	}
+
+	return online == len(qc.shards)
+}
