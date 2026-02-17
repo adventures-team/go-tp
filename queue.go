@@ -103,6 +103,9 @@ type (
 
 		// MakeUnicastRequest посылает запрос req к указанному шарду.
 		MakeUnicastRequest(ctx context.Context, shard uint, req queuedproto.Request) (usedShard uint, respBytes []byte, err error)
+
+		// IsOnline проверяет наличие соединения со всеми шардами.
+		IsOnline() bool
 	}
 
 	// Builder - при поддержке этого интерфейса типом события, метод Build вызывается при добавлении события в очередь.

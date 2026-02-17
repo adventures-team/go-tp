@@ -778,6 +778,9 @@ type QueuedClient interface {
 
     // MakeUnicastRequest посылает запрос req к указанному шарду.
     MakeUnicastRequest(ctx context.Context, shard uint, req queuedproto.Request) (usedShard uint, respBytes []byte, err error)
+
+    // IsOnline проверяет наличие соединения со всеми шардами.
+    IsOnline() bool
 }
 ```
 
@@ -1682,6 +1685,7 @@ Multicast/broadcast методы отправляют запросы в указ
   - [func \(qc \*QueuedClient\) GetActive\(ctx context.Context, queueID uint16, count int\) \(queuedproto.ItemList, error\)](<#QueuedClient.GetActive>)
   - [func \(qc \*QueuedClient\) GetByIDs\(ctx context.Context, queueID uint16, eventIDs \[\]queuedproto.EventID\) \(queuedproto.ItemList, error\)](<#QueuedClient.GetByIDs>)
   - [func \(qc \*QueuedClient\) GetByIDsBroadcast\(ctx context.Context, queueID uint16, eventIDs \[\]uint64\) \(queuedproto.ItemList, error\)](<#QueuedClient.GetByIDsBroadcast>)
+  - [func \(qc \*QueuedClient\) IsOnline\(\) bool](<#QueuedClient.IsOnline>)
   - [func \(qc \*QueuedClient\) MakeBroadcastRequest\(ctx context.Context, req queuedproto.Request, resFunc ResultFunc\) error](<#QueuedClient.MakeBroadcastRequest>)
   - [func \(qc \*QueuedClient\) MakeMulticastRequest\(ctx context.Context, batchSize int, eventIDs \[\]queuedproto.EventID, reqFunc RequestFunc, resFunc ResultFunc\) error](<#QueuedClient.MakeMulticastRequest>)
   - [func \(qc \*QueuedClient\) MakeUnicastRequest\(ctx context.Context, shard uint, req queuedproto.Request\) \(usedShard uint, respBytes \[\]byte, err error\)](<#QueuedClient.MakeUnicastRequest>)
@@ -1941,6 +1945,15 @@ func (qc *QueuedClient) GetByIDsBroadcast(ctx context.Context, queueID uint16, e
 GetByIDsBroadcast запрашивает события из очереди queueID с указанными ID изо всех шардов одновременно. ID событий указываются без номера шарда, обычными uint64
 
 Ретраи в случае ошибок не производятся.
+
+<a name="QueuedClient.IsOnline"></a>
+### func \(\*QueuedClient\) IsOnline
+
+```go
+func (qc *QueuedClient) IsOnline() bool
+```
+
+IsOnline проверяет наличие соединения со всеми шардами.
 
 <a name="QueuedClient.MakeBroadcastRequest"></a>
 ### func \(\*QueuedClient\) MakeBroadcastRequest
