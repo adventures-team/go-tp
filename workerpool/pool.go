@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	advmetricsset "github.com/my-mail-ru/go-adv-metrics/set"
 	"github.com/rs/zerolog"
 )
 
@@ -50,7 +51,7 @@ type (
 
 	// Stopper - если poller поддерживает также этот интерфейс, при запросе остановки вызывается метод Stop.
 	//
-	// Внимание - именно при _запросе_ остановки методом WorkerPool.Stop! А не при выходе из Manage (после завершения обработки всех заданий)!
+	// Внимание - именно при _запросе_ остановки методом WorkerPool.Stop! А не при выходе из Run (после завершения обработки всех заданий)!
 	Stopper interface {
 		Stop()
 	}
@@ -69,7 +70,7 @@ type (
 	}
 
 	// jobType - информация о воркерах работы одного типа (одной очереди)
-	// локи/атомики не нужны - объект используется одной горутине (в функции Manage)
+	// локи/атомики не нужны - объект используется одной горутине (в функции Run)
 	jobType struct {
 		requested    int       // установлено методом SetWorkerCount
 		running      int       // в работе
@@ -91,8 +92,9 @@ type (
 
 	// WorkerPool - управляемый пул воркеров
 	WorkerPool struct {
-		Poller Poller // TODO зачем оно публичное? чтобы поменяли неатомарно снаружи?
-		logger *zerolog.Logger
+		Poller  Poller // TODO зачем оно публичное? чтобы поменяли неатомарно снаружи?
+		metrics advmetricsset.Set
+		logger  *zerolog.Logger
 
 		lock               sync.Mutex // под локом: goroutinesRunning и goroutinesRequired
 		goroutinesRunning  int        // общее кол-во горутин всех воркеров
@@ -108,8 +110,8 @@ type (
 		hasJobChan         chan hasJobInfo        // посылается после вызова Poller.Poll в зависимости от наличия задания
 		doneChan           chan JobTypeID         // при старте задаём какую-то ёмкость - просто для избежания блокировок воркеров. Если канал долгое время не слушался, скорее всего, всё уже зависло намертво )) (по какой-то другой причине)
 		checkExitChan      chan struct{}          // будит горутину из состояния ожидания задания для проверки условия выхода (goroutinesRunning > goroutinesRequired). само получение события к выходу приводить не должно (например, за время обработки события конфигурация изменилась, и выходить уже не надо)
-		stopChan           chan struct{}          // выход из Manage
-		setWorkerCountChan chan setWorkerCountReq // jobType хранятся внутри функции Manage, запросы на изменение кол-ва передаются через канал. Без буферизации - чтобы вызов SetWorkerCount блокировался хотя бы до времени получения этих данных.
+		stopChan           chan struct{}          // выход из Run
+		setWorkerCountChan chan setWorkerCountReq // jobType хранятся внутри функции Run, запросы на изменение кол-ва передаются через канал. Без буферизации - чтобы вызов SetWorkerCount блокировался хотя бы до времени получения этих данных.
 	}
 )
 
@@ -128,4 +130,8 @@ func New(poller Poller, logger *zerolog.Logger) *WorkerPool {
 		stopChan:           make(chan struct{}),
 		setWorkerCountChan: make(chan setWorkerCountReq, chanCapacity),
 	}
+}
+
+func (wp *WorkerPool) SetMetricsSet(ms advmetricsset.Set) {
+	wp.metrics = ms
 }

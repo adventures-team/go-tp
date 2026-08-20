@@ -34,7 +34,7 @@ func (wp *WorkerPool) SetIdleDelay(idleDelay time.Duration) {
 	myatomic.StoreDuration(&wp.idleDelay, idleDelay)
 }
 
-// Stop останавливает обработку. После выхода всех работающих обработчиков событий, метод Manage возвращается.
+// Stop останавливает обработку. После выхода всех работающих обработчиков событий, метод Run возвращается.
 // Можно вызывать этот метод более одного раза.
 func (wp *WorkerPool) Stop() {
 	select {

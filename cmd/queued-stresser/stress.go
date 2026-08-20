@@ -186,7 +186,7 @@ func (cp *ConnPool) makeRequest(ctx context.Context, conn *easygo.Pool) error {
 
 	start := time.Now()
 
-	respBytes, err := conn.Call(ctx, req.Cmd(), reqBytes)
+	respBytes, err := conn.Call(ctx, uint32(req.Cmd()), reqBytes)
 	if err != nil {
 		return err
 	}

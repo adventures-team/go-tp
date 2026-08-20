@@ -139,7 +139,7 @@ func getEventTypeAddons(event any) (supportedAddons *eventTypeAddons) {
 
 	val := reflect.ValueOf(event) // используется только для вызова метода AddonID(), по данным не лазим
 
-	if typ.Kind() == reflect.Ptr {
+	if typ.Kind() == reflect.Pointer {
 		typ = typ.Elem()
 		val = val.Elem()
 	}

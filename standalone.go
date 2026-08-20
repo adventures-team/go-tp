@@ -70,6 +70,8 @@ func (qm *StandaloneMaster) applyConfig(ctx context.Context) error {
 		zerolog.SetGlobalLevel(newLogLevel)
 	}
 
+	qm.logger.Info().Msg("reloading config")
+
 	scale, err := qm.applyMemLimits(ctx)
 	if err != nil {
 		return err
@@ -146,6 +148,7 @@ func (qm *StandaloneMaster) applyConfig(ctx context.Context) error {
 		}
 	}
 
+	qm.logger.Info().Int("workers_total", workersTotal).Send()
 	qm.startStop(queueWorkers)
 
 	return nil
@@ -214,7 +217,7 @@ func (qm *StandaloneMaster) startStop(queueWorkers []queueIDWorkers) {
 		qm.pool.SetWorkerCount(qw.queueID, qw.workers)
 
 		if _, ok := qm.queuesRunning[qw.queueID]; !ok {
-			qm.logger.Info().Uint16("queue_id", qw.queueID).Msg("queue started")
+			qm.logger.Info().Uint16("queue_id", qw.queueID).Int("worker_count", qw.workers).Msg("queue started")
 		}
 
 		qm.queuesRunning[qw.queueID] = flipFlop

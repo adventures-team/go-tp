@@ -7,7 +7,7 @@ package tptest
 import (
 	"encoding/binary"
 	"fmt"
-	time "time"
+	"time"
 
 	iproto "github.com/my-mail-ru/go-iproto"
 )

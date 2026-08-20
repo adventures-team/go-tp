@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	advmetricsset "github.com/my-mail-ru/go-adv-metrics/set"
+
 	easygo "gitlab.cebc.tools/go/easygo.git/iproto"
 	"gitlab.cebc.tools/go/tp.git/queueconfig"
 	"gitlab.cebc.tools/go/utils.git/mylog"
@@ -63,6 +65,7 @@ var reqID uint32 // per process! не per-QueuedClient. в случае ранд
 type QueuedClient struct {
 	Config     *queueconfig.Config
 	shards     []*easygo.Pool
+	metrics    advmetricsset.Set
 	roundRobin uint32
 	pid        uint32
 }
@@ -124,6 +127,14 @@ func Dial(ctx context.Context, conf *queueconfig.Config) (*QueuedClient, error) 
 // ShardNum возвращает количество шардов, указанных в /queueds/multi.
 func (qc *QueuedClient) ShardNum() uint {
 	return uint(len(qc.shards))
+}
+
+func (qc *QueuedClient) MetricsSet() advmetricsset.Set {
+	return qc.metrics
+}
+
+func (qc *QueuedClient) SetMetricsSet(ms advmetricsset.Set) {
+	qc.metrics = ms
 }
 
 // IsOnline проверяет наличие соединения со всеми шардами.

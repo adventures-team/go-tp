@@ -45,6 +45,7 @@ Package tp \- высокоуровневая библиотека для раб�
 - [type InitOption](<#InitOption>)
   - [func WithInstanceName\(instanceName string\) InitOption](<#WithInstanceName>)
   - [func WithLogger\(logger \*zerolog.Logger\) InitOption](<#WithLogger>)
+  - [func WithMetrics\(ms advmetricsset.Set\) InitOption](<#WithMetrics>)
 - [type InitOptions](<#InitOptions>)
 - [type MarshalerDisabled](<#MarshalerDisabled>)
 - [type Middleware](<#Middleware>)
@@ -598,6 +599,15 @@ WithLogger устанавливает логгер.
 
 По умолчанию, вызывается \[mylog.InitZerolog\].
 
+<a name="WithMetrics"></a>
+### func WithMetrics
+
+```go
+func WithMetrics(ms advmetricsset.Set) InitOption
+```
+
+WithMetrics подключает сбор метрик.
+
 <a name="InitOptions"></a>
 ## type InitOptions
 
@@ -665,6 +675,9 @@ type Queue interface {
     // Replace заменяет существующее событие в очереди. ID события должно быть обязательно задано.
     // Если время срабатывания не установлено через опции, оно не изменяется.
     Replace(ctx context.Context, event Event, opts ...queuedclient.PublishOption) error
+
+    MetricsSet() advmetricsset.Set
+    SetMetricsSet(advmetricsset.Set)
 }
 ```
 
@@ -778,6 +791,9 @@ type QueuedClient interface {
 
     // MakeUnicastRequest посылает запрос req к указанному шарду.
     MakeUnicastRequest(ctx context.Context, shard uint, req queuedproto.Request) (usedShard uint, respBytes []byte, err error)
+
+    MetricsSet() advmetricsset.Set
+    SetMetricsSet(advmetricsset.Set)
 
     // IsOnline проверяет наличие соединения со всеми шардами.
     IsOnline() bool
@@ -959,7 +975,7 @@ Stop \- враппер для WorkerPool.Stop. Останавливает обр
 <a name="Stat"></a>
 ## type Stat
 
-
+Stat is used by managed master. Not an application metrics.
 
 ```go
 type Stat struct {
@@ -1689,9 +1705,11 @@ Multicast/broadcast методы отправляют запросы в указ
   - [func \(qc \*QueuedClient\) MakeBroadcastRequest\(ctx context.Context, req queuedproto.Request, resFunc ResultFunc\) error](<#QueuedClient.MakeBroadcastRequest>)
   - [func \(qc \*QueuedClient\) MakeMulticastRequest\(ctx context.Context, batchSize int, eventIDs \[\]queuedproto.EventID, reqFunc RequestFunc, resFunc ResultFunc\) error](<#QueuedClient.MakeMulticastRequest>)
   - [func \(qc \*QueuedClient\) MakeUnicastRequest\(ctx context.Context, shard uint, req queuedproto.Request\) \(usedShard uint, respBytes \[\]byte, err error\)](<#QueuedClient.MakeUnicastRequest>)
+  - [func \(qc \*QueuedClient\) MetricsSet\(\) advmetricsset.Set](<#QueuedClient.MetricsSet>)
   - [func \(qc \*QueuedClient\) Publish\(ctx context.Context, queueID uint16, eventID queuedproto.EventID, flags uint32, eventData \[\]byte, opts ...PublishOption\) \(queuedproto.EventID, error\)](<#QueuedClient.Publish>)
   - [func \(qc \*QueuedClient\) Replace\(ctx context.Context, queueID uint16, eventID queuedproto.EventID, eventData \[\]byte, opts ...PublishOption\) \(bool, error\)](<#QueuedClient.Replace>)
   - [func \(qc \*QueuedClient\) SetActivationTime\(ctx context.Context, queueID uint16, atime time.Time, eventIDs \[\]queuedproto.EventID\) error](<#QueuedClient.SetActivationTime>)
+  - [func \(qc \*QueuedClient\) SetMetricsSet\(ms advmetricsset.Set\)](<#QueuedClient.SetMetricsSet>)
   - [func \(qc \*QueuedClient\) ShardNum\(\) uint](<#QueuedClient.ShardNum>)
 - [type RequestFunc](<#RequestFunc>)
 - [type ResultFunc](<#ResultFunc>)
@@ -2002,6 +2020,15 @@ MakeUnicastRequest посылает запрос req к указанному ш�
 
 Если задан shard == [BalanceShard](<#ConfServers>), шард выбирается по round robin. В этом случае, каждый ретрай посылается в следующий шард.
 
+<a name="QueuedClient.MetricsSet"></a>
+### func \(\*QueuedClient\) MetricsSet
+
+```go
+func (qc *QueuedClient) MetricsSet() advmetricsset.Set
+```
+
+
+
 <a name="QueuedClient.Publish"></a>
 ### func \(\*QueuedClient\) Publish
 
@@ -2042,6 +2069,15 @@ func (qc *QueuedClient) SetActivationTime(ctx context.Context, queueID uint16, a
 ```
 
 SetActivationTime устанавливает время активации для указанных событий. Обновления производятся пачками по update\_batch\_size событий.
+
+<a name="QueuedClient.SetMetricsSet"></a>
+### func \(\*QueuedClient\) SetMetricsSet
+
+```go
+func (qc *QueuedClient) SetMetricsSet(ms advmetricsset.Set)
+```
+
+
 
 <a name="QueuedClient.ShardNum"></a>
 ### func \(\*QueuedClient\) ShardNum
@@ -2230,6 +2266,7 @@ Package workerpool \- абстрактный пул воркеров.
   - [func \(wp \*WorkerPool\) SetDryPollDelay\(dryPollDelay time.Duration\)](<#WorkerPool.SetDryPollDelay>)
   - [func \(wp \*WorkerPool\) SetIdleDelay\(idleDelay time.Duration\)](<#WorkerPool.SetIdleDelay>)
   - [func \(wp \*WorkerPool\) SetMaxDryPolls\(maxDryPolls int\)](<#WorkerPool.SetMaxDryPolls>)
+  - [func \(wp \*WorkerPool\) SetMetricsSet\(ms advmetricsset.Set\)](<#WorkerPool.SetMetricsSet>)
   - [func \(wp \*WorkerPool\) SetWorkerCount\(jobID JobTypeID, count int\)](<#WorkerPool.SetWorkerCount>)
   - [func \(wp \*WorkerPool\) Stop\(\)](<#WorkerPool.Stop>)
 - [type WorkerStat](<#WorkerStat>)
@@ -2286,7 +2323,7 @@ type Poller interface {
 
 Stopper \- если poller поддерживает также этот интерфейс, при запросе остановки вызывается метод Stop.
 
-Внимание \- именно при \_запросе\_ остановки методом WorkerPool.Stop\! А не при выходе из Manage \(после завершения обработки всех заданий\)\!
+Внимание \- именно при \_запросе\_ остановки методом WorkerPool.Stop\! А не при выходе из Run \(после завершения обработки всех заданий\)\!
 
 ```go
 type Stopper interface {
@@ -2336,7 +2373,7 @@ New создаёт новый пул воркеров
 func (wp *WorkerPool) Run()
 ```
 
-Run управляет запуском заданий. Метод не возвращается, в случае паники об этом пишется в лог, и обработка возобновляется.
+Run управляет запуском заданий. В случае паники об этом пишется в лог, и обработка возобновляется. Возврат из метода происходит при вызове Stop.
 
 <a name="WorkerPool.SetDryPollDelay"></a>
 ### func \(\*WorkerPool\) SetDryPollDelay
@@ -2365,6 +2402,15 @@ func (wp *WorkerPool) SetMaxDryPolls(maxDryPolls int)
 
 SetMaxDryPolls \- устанавливает максимальное кол\-во пустых опросов очереди, после которых будет осуществлена задержка опроса этой очереди на dryPollDelay \(default: 20 раз\)
 
+<a name="WorkerPool.SetMetricsSet"></a>
+### func \(\*WorkerPool\) SetMetricsSet
+
+```go
+func (wp *WorkerPool) SetMetricsSet(ms advmetricsset.Set)
+```
+
+
+
 <a name="WorkerPool.SetWorkerCount"></a>
 ### func \(\*WorkerPool\) SetWorkerCount
 
@@ -2381,7 +2427,7 @@ SetWorkerCount устанавливает кол\-во воркеров count д
 func (wp *WorkerPool) Stop()
 ```
 
-Stop останавливает обработку. После выхода всех работающих обработчиков событий, метод Manage возвращается. Можно вызывать этот метод более одного раза.
+Stop останавливает обработку. После выхода всех работающих обработчиков событий, метод Run возвращается. Можно вызывать этот метод более одного раза.
 
 <a name="WorkerStat"></a>
 ## type WorkerStat

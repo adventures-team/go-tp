@@ -26,6 +26,8 @@ linters:
   settings:
     dupl:
       threshold: 100
+    gocognit:
+      min-complexity: 50
     goconst:
       min-len: 2
       min-occurrences: 2
@@ -119,6 +121,7 @@ linters:
           - dupl
           - gocognit
           - gocyclo
+          - goconst
           - gosec
           - prealloc
           - wsl_v5

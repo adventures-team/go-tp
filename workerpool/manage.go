@@ -4,12 +4,13 @@ import (
 	"sync/atomic"
 	"time"
 
+	advmetricsset "github.com/my-mail-ru/go-adv-metrics/set"
 	zlog "github.com/rs/zerolog/log"
 
 	"gitlab.cebc.tools/go/utils.git/myatomic"
 )
 
-// Run управляет запуском заданий. Метод не возвращается, в случае паники об этом пишется в лог, и обработка возобновляется.
+// Run управляет запуском заданий. В случае паники об этом пишется в лог, и обработка возобновляется. Возврат из метода происходит при вызове Stop.
 func (wp *WorkerPool) Run() {
 	if !atomic.CompareAndSwapInt32(&wp.isManaged, 0, 1) {
 		return
@@ -101,6 +102,11 @@ func (wp *WorkerPool) scheduleJobs(jobs jobMap) time.Duration {
 
 		job.running++
 
+		if (wp.metrics != advmetricsset.Set{}) {
+			wp.metrics.Name("tp_pool_workers").Int("queue_id", int(jobID)).Str("state", "busy").GetOrCreateGauge(nil).Inc()
+			wp.metrics.Name("tp_pool_workers").Int("queue_id", int(jobID)).Str("state", "idle").GetOrCreateGauge(nil).Dec()
+		}
+
 		if job.dryCount > atomic.LoadInt32(&wp.maxDryPolls) {
 			// если мы запустили работу - но сейчас dryCount больше порога - устанавливаем задержку.
 			// т.е. поллим по 1 заданию, даже если есть свободные воркеры.
@@ -163,6 +169,12 @@ func (wp *WorkerPool) onJobDone(jobs jobMap, jobID JobTypeID) {
 	}
 
 	job.running--
+
+	if (wp.metrics != advmetricsset.Set{}) {
+		wp.metrics.Name("tp_pool_workers").Int("queue_id", int(jobID)).Str("state", "idle").GetOrCreateGauge(nil).Inc()
+		wp.metrics.Name("tp_pool_workers").Int("queue_id", int(jobID)).Str("state", "busy").GetOrCreateGauge(nil).Dec()
+	}
+
 	if job.running <= 0 && job.requested <= 0 {
 		delete(jobs, jobID) // см.коммент в handleSetWorkerCount, + удалением записи страхуемся от ухода в отрицательные значения при паниках в странных местах
 		return
@@ -208,9 +220,19 @@ func (wp *WorkerPool) handleSetWorkerCount(jobs jobMap, swc setWorkerCountReq) {
 			requested: swc.count,
 			running:   0,
 		}
+
+		if (wp.metrics != advmetricsset.Set{}) {
+			wp.metrics.Name("tp_pool_workers").Int("queue_id", int(swc.jobID)).Str("state", "idle").GetOrCreateGauge(nil).Set(float64(swc.count))
+			wp.metrics.Name("tp_pool_workers").Int("queue_id", int(swc.jobID)).Str("state", "busy").GetOrCreateGauge(nil).Set(0)
+		}
 	} else { // jobID известен
 		if swc.count == 0 && job.running == 0 {
 			delete(jobs, swc.jobID) // если запущенные воркеры есть - запись удаляем в onJobDone, когда последний воркер завершит работу
+
+			if (wp.metrics != advmetricsset.Set{}) {
+				wp.metrics.Name("tp_pool_workers").Int("queue_id", int(swc.jobID)).Str("state", "idle").GetOrCreateGauge(nil).Set(0)
+				wp.metrics.Name("tp_pool_workers").Int("queue_id", int(swc.jobID)).Str("state", "busy").GetOrCreateGauge(nil).Set(0)
+			}
 		} else {
 			if job.requested == swc.count {
 				return
@@ -218,6 +240,15 @@ func (wp *WorkerPool) handleSetWorkerCount(jobs jobMap, swc setWorkerCountReq) {
 
 			job.requested = swc.count
 			jobs[swc.jobID] = job
+
+			idle := job.requested - job.running
+			if idle < 0 {
+				idle = 0 // reducing the pool size
+			}
+
+			if (wp.metrics != advmetricsset.Set{}) {
+				wp.metrics.Name("tp_pool_workers").Int("queue_id", int(swc.jobID)).Str("state", "idle").GetOrCreateGauge(nil).Set(float64(idle))
+			}
 		}
 	}
 
@@ -229,6 +260,10 @@ func (wp *WorkerPool) growOrShrink(jobs jobMap) {
 
 	for _, v := range jobs {
 		newCount += v.requested
+	}
+
+	if (wp.metrics != advmetricsset.Set{}) {
+		wp.metrics.Name("tp_pool_goroutines").GetOrCreateGauge(nil).Set(float64(newCount))
 	}
 
 	wp.lock.Lock()

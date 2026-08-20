@@ -8,6 +8,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	advmetricsset "github.com/my-mail-ru/go-adv-metrics/set"
 	"github.com/my-mail-ru/go-iproto"
 	"github.com/my-mail-ru/go-queuedproto"
 )
@@ -220,11 +221,11 @@ type eventList struct {
 func (evl *eventList) commit(ctx context.Context, stat *Stat) error {
 	deleteEventIDs := make([]queuedproto.EventID, 0, len(evl.baseEvents))
 	deferEventIDs := make([]queuedproto.EventID, 0, len(evl.baseEvents))
-	deferred := uint32(0)
+	totalDeferred := uint32(0)
 
 	for _, ev := range evl.baseEvents {
 		if ev.flags == nil {
-			return fmt.Errorf("event %v was not received from the queue", ev.EventID)
+			return fmt.Errorf("internal error: event %v was not received from the queue", ev.EventID)
 		}
 
 		flags := ev.flags.Load()
@@ -235,12 +236,18 @@ func (evl *eventList) commit(ctx context.Context, stat *Stat) error {
 				deferEventIDs = append(deferEventIDs, ev.EventID)
 			}
 
-			deferred++
+			totalDeferred++
 		}
 	}
 
 	stat.processed.Add(uint32(len(evl.baseEvents)))
-	stat.errors.Add(deferred) // TODO в новой стате это должно идти как deferred
+	stat.errors.Add(totalDeferred) // суммарное кол-во отложенных событий (явно+неявно)
+
+	if ms := evl.queue.MetricsSet(); (ms != advmetricsset.Set{}) {
+		ms.Name("tp_events_done").Int("queue_id", int(evl.queueID)).GetOrCreateCounter().Add(len(deleteEventIDs))
+		ms.Name("tp_events_deferred").Int("queue_id", int(evl.queueID)).GetOrCreateCounter().Add(len(deferEventIDs))
+		ms.Name("tp_events_explicitly_deferred").Int("queue_id", int(evl.queueID)).GetOrCreateCounter().Add(int(totalDeferred) - len(deferEventIDs))
+	}
 
 	if err := evl.queue.Client().Delete(ctx, evl.queueID, deleteEventIDs); err != nil {
 		return err

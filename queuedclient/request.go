@@ -7,8 +7,10 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/VictoriaMetrics/metrics"
 	"github.com/rs/zerolog"
 
+	advmetricsset "github.com/my-mail-ru/go-adv-metrics/set"
 	"github.com/my-mail-ru/go-queuedproto"
 
 	easygo "gitlab.cebc.tools/go/easygo.git/iproto"
@@ -25,6 +27,10 @@ type (
 	//
 	// Эта функция вызывается из разных горутин и должна быть thread-safe (не использовать прямой append/обычный map без лока! использовать каналы, [sync.Map] и т.д.)
 	ResultFunc func(shard uint, result []byte) error
+
+	withQueueID interface {
+		QueueID() uint16
+	}
 )
 
 func (qc *QueuedClient) balanceShard(shard uint) uint {
@@ -53,12 +59,36 @@ func (qc *QueuedClient) MakeUnicastRequest(ctx context.Context, shard uint, req 
 
 	cmd := req.Cmd()
 	retry := 0
+	queueID := 0
+
+	if qID, ok := req.(withQueueID); ok {
+		queueID = int(qID.QueueID())
+	}
 
 	for {
 		usedShard = qc.balanceShard(shard)
 		endpoint := qc.shards[usedShard]
 
-		respBytes, err = endpoint.Call(ctx, cmd, reqBytes)
+		var (
+			reqStarted time.Time
+			inProgress *metrics.Gauge
+		)
+
+		if (qc.metrics != advmetricsset.Set{}) {
+			reqStarted = time.Now()
+			inProgress = qc.metrics.Name("tp_queued_in_progress").Str("queued", endpoint.RemoteAddr().String()).Str("cmd", cmd.String()).Int("queue_id", queueID).GetOrCreateGauge(nil)
+
+			qc.metrics.Name("tp_queued_total").Str("queued", endpoint.RemoteAddr().String()).Str("cmd", cmd.String()).Int("queue_id", queueID).GetOrCreateCounter().Inc()
+			inProgress.Inc()
+		}
+
+		respBytes, err = endpoint.Call(ctx, uint32(cmd), reqBytes)
+
+		if inProgress != nil {
+			inProgress.Dec()
+			qc.metrics.Name("tp_queued_duration_seconds").Str("queued", endpoint.RemoteAddr().String()).Str("cmd", cmd.String()).Int("queue_id", queueID).GetOrCreateHistogram().UpdateDuration(reqStarted)
+		}
+
 		if err == nil {
 			if len(respBytes) == 0 {
 				return usedShard, nil, ErrEmptyResponse
@@ -67,6 +97,13 @@ func (qc *QueuedClient) MakeUnicastRequest(ctx context.Context, shard uint, req 
 			if err = queuedproto.ErrorByRetCode(respBytes[0]); err == nil || queuedproto.IsSoftError(err) {
 				return usedShard, respBytes[1:], err
 			}
+
+			if inProgress != nil {
+				// err is low-cardinality
+				qc.metrics.Name("tp_queued_errors").Str("queued", endpoint.RemoteAddr().String()).Str("cmd", cmd.String()).Int("queue_id", queueID).Str("err", err.Error()).GetOrCreateCounter().Inc()
+			}
+		} else if inProgress != nil {
+			qc.metrics.Name("tp_queued_errors").Str("queued", endpoint.RemoteAddr().String()).Str("cmd", cmd.String()).Int("queue_id", queueID).Str("err", "network").GetOrCreateCounter().Inc()
 		}
 
 		retry++
@@ -78,7 +115,7 @@ func (qc *QueuedClient) MakeUnicastRequest(ctx context.Context, shard uint, req 
 			Stringer("queued", endpoint.RemoteAddr()).
 			Int("retry", retry).
 			Int("retry_count", retryCount).
-			Uint32("cmd", cmd).
+			Stringer("cmd", cmd).
 			Interface("req", req)
 
 		if retry >= retryCount {
@@ -112,35 +149,68 @@ func (qc *QueuedClient) MakeBroadcastRequest(ctx context.Context, req queuedprot
 	}
 
 	cmd := req.Cmd()
+	queueID := 0
 	errChan := make(chan error)
 	errs := make(ErrMulti, 0, len(qc.shards))
 
+	if qID, ok := req.(withQueueID); ok {
+		queueID = int(qID.QueueID())
+	}
+
 	for shard, endpoint := range qc.shards {
 		go func(shard uint, endpoint *easygo.Pool) {
-			var err error
+			var (
+				err           error
+				errMetricSent bool
+				reqStarted    time.Time
+				inProgress    *metrics.Gauge
+			)
 
 			defer func() {
 				if reason := recover(); reason != nil {
 					mylog.LogPanic(zerolog.Ctx(ctx).Error(), reason).Uint("shard", shard).Stringer("queued", endpoint.RemoteAddr()).Msg("panic in MakeBroadcastRequest")
 
+					if inProgress != nil {
+						qc.metrics.Name("tp_queued_errors").Str("queued", endpoint.RemoteAddr().String()).Str("cmd", cmd.String()).Int("queue_id", queueID).Str("err", "panic").GetOrCreateCounter().Inc()
+					}
+
 					err = ErrPanic
+					errMetricSent = true
 				}
 
 				if err == nil {
 					errChan <- nil
 				} else {
-					errChan <- fmt.Errorf("shard #%d (%s): %w", shard, endpoint.RemoteAddr(), err)
+					if !errMetricSent && inProgress != nil {
+						qc.metrics.Name("tp_queued_errors").Str("queued", endpoint.RemoteAddr().String()).Str("cmd", cmd.String()).Int("queue_id", queueID).Str("err", "network").GetOrCreateCounter().Inc()
+					}
+
+					errChan <- fmt.Errorf("shard #%d (%s): %w", shard, endpoint.RemoteAddr().String(), err)
 				}
 			}()
 
-			zerolog.Ctx(ctx).Trace().Uint("shard", shard).Uint32("cmd", cmd).Interface("req", req).Msg("iproto.Call")
+			zerolog.Ctx(ctx).Trace().Uint("shard", shard).Stringer("cmd", cmd).Interface("req", req).Msg("iproto.Call")
 
-			respBytes, err := endpoint.Call(ctx, cmd, reqBytes)
+			if (qc.metrics != advmetricsset.Set{}) {
+				reqStarted = time.Now()
+				inProgress = qc.metrics.Name("tp_queued_in_progress").Str("queued", endpoint.RemoteAddr().String()).Str("cmd", cmd.String()).Int("queue_id", queueID).GetOrCreateGauge(nil)
+
+				qc.metrics.Name("tp_queued_total").Str("queued", endpoint.RemoteAddr().String()).Str("cmd", cmd.String()).Int("queue_id", queueID).GetOrCreateCounter().Inc()
+				inProgress.Inc()
+			}
+
+			respBytes, err := endpoint.Call(ctx, uint32(cmd), reqBytes)
+
+			if inProgress != nil {
+				inProgress.Dec()
+				qc.metrics.Name("tp_queued_duration_seconds").Str("queued", endpoint.RemoteAddr().String()).Str("cmd", cmd.String()).Int("queue_id", queueID).GetOrCreateHistogram().UpdateDuration(reqStarted)
+			}
+
 			if err != nil {
 				return
 			}
 
-			zerolog.Ctx(ctx).Trace().Uint("shard", shard).Uint32("cmd", cmd).Bytes("resp", respBytes).Msg("iproto.Call")
+			zerolog.Ctx(ctx).Trace().Uint("shard", shard).Stringer("cmd", cmd).Bytes("resp", respBytes).Msg("iproto.Call")
 
 			if len(respBytes) == 0 {
 				err = ErrEmptyResponse
@@ -148,6 +218,13 @@ func (qc *QueuedClient) MakeBroadcastRequest(ctx context.Context, req queuedprot
 			}
 
 			if err = queuedproto.ErrorByRetCode(respBytes[0]); err != nil {
+				if inProgress != nil {
+					// err is low-cardinality
+					qc.metrics.Name("tp_queued_errors").Str("queued", endpoint.RemoteAddr().String()).Str("cmd", cmd.String()).Int("queue_id", queueID).Str("err", err.Error()).GetOrCreateCounter().Inc()
+
+					errMetricSent = true
+				}
+
 				return
 			}
 
@@ -226,9 +303,10 @@ func (qc *QueuedClient) reqMultiProcessShard(ctx context.Context, batchSize int,
 
 	defer func() {
 		if reason := recover(); reason != nil {
+			// XXX can't implement panic metrics without introducing unnecessary complexity, and this code is already excessively complex. don't hesitate to remove the panic metrics in MakeBroadcastRequest if they appear to be asymmetrical.
 			mylog.LogPanic(zerolog.Ctx(ctx).Error(), reason).Uint("shard", shard).Stringer("queued", endpoint.RemoteAddr()).Msg("panic in MakeMulticastRequest")
 
-			errChan <- fmt.Errorf("shard #%d (%s): %w", shard, endpoint.RemoteAddr(), ErrPanic)
+			errChan <- fmt.Errorf("shard #%d (%s): %w", shard, endpoint.RemoteAddr().String(), ErrPanic)
 		}
 
 		wg.Done()
@@ -246,7 +324,7 @@ func (qc *QueuedClient) reqMultiProcessShard(ctx context.Context, batchSize int,
 		respBytes, op, err := qc.reqMultiRetryLoop(ctx, shard, endpoint, req)
 		if err != nil {
 			// TODO логгировать номера ивентов в том же формате, как и везде - будет ли админам польза от этого?
-			errChan <- fmt.Errorf("shard #%d (%s), event_ids=%v: %s%w", shard, endpoint.RemoteAddr(), batch, op, err)
+			errChan <- fmt.Errorf("shard #%d (%s), event_ids=%v: %s%w", shard, endpoint.RemoteAddr().String(), batch, op, err)
 			continue
 		}
 
@@ -255,7 +333,7 @@ func (qc *QueuedClient) reqMultiProcessShard(ctx context.Context, batchSize int,
 		}
 
 		if err = resFunc(shard, respBytes); err != nil {
-			errChan <- fmt.Errorf("shard #%d (%s), event_ids=%v: ResultFunc: %w", shard, endpoint.RemoteAddr(), batch, err)
+			errChan <- fmt.Errorf("shard #%d (%s), event_ids=%v: ResultFunc: %w", shard, endpoint.RemoteAddr().String(), batch, err)
 		}
 	}
 }
@@ -268,23 +346,47 @@ func (qc *QueuedClient) reqMultiRetryLoop(ctx context.Context, shard uint, endpo
 
 	zLog := zerolog.Ctx(ctx)
 	cmd := req.Cmd()
+	queueID := 0
 	retry := 0
 	retryCount := qc.Config.GetInt(ConfRetryCount, DefaultRetryCount)
+
+	if qID, ok := req.(withQueueID); ok {
+		queueID = int(qID.QueueID())
+	}
 
 	for {
 		zLog.Trace().
 			Uint("shard", shard). // перфекционистам - ip шарда не логгирую, т.к. это не для админов, а для разработчиков
 			Int("retry", retry).
 			Int("retry_count", retryCount).
-			Uint32("cmd", cmd).
+			Stringer("cmd", cmd).
 			Interface("req", req).
 			Msg("iproto.Call")
 
-		respBytes, err = endpoint.Call(ctx, req.Cmd(), reqBytes)
+		var (
+			reqStarted time.Time
+			inProgress *metrics.Gauge
+		)
+
+		if (qc.metrics != advmetricsset.Set{}) {
+			reqStarted = time.Now()
+			inProgress = qc.metrics.Name("tp_queued_in_progress").Str("queued", endpoint.RemoteAddr().String()).Str("cmd", cmd.String()).Int("queue_id", queueID).GetOrCreateGauge(nil)
+
+			qc.metrics.Name("tp_queued_total").Str("queued", endpoint.RemoteAddr().String()).Str("cmd", cmd.String()).Int("queue_id", queueID).GetOrCreateCounter().Inc()
+			inProgress.Inc()
+		}
+
+		respBytes, err = endpoint.Call(ctx, uint32(cmd), reqBytes)
+
+		if inProgress != nil {
+			inProgress.Dec()
+			qc.metrics.Name("tp_queued_duration_seconds").Str("queued", endpoint.RemoteAddr().String()).Str("cmd", cmd.String()).Int("queue_id", queueID).GetOrCreateHistogram().UpdateDuration(reqStarted)
+		}
+
 		if err == nil {
 			op = ""
 
-			zLog.Trace().Uint("shard", shard).Uint32("cmd", cmd).Bytes("resp", respBytes).Msg("iproto.Call")
+			zLog.Trace().Uint("shard", shard).Stringer("cmd", cmd).Bytes("resp", respBytes).Msg("iproto.Call")
 
 			if len(respBytes) == 0 {
 				return nil, "", ErrEmptyResponse
@@ -293,7 +395,14 @@ func (qc *QueuedClient) reqMultiRetryLoop(ctx context.Context, shard uint, endpo
 			if err = queuedproto.ErrorByRetCode(respBytes[0]); err == nil || queuedproto.IsSoftError(err) {
 				return respBytes[1:], "", err
 			}
-		} else {
+
+			if inProgress != nil {
+				// err is low-cardinality
+				qc.metrics.Name("tp_queued_errors").Str("queued", endpoint.RemoteAddr().String()).Str("cmd", cmd.String()).Int("queue_id", queueID).Str("err", err.Error()).GetOrCreateCounter().Inc()
+			}
+		} else if inProgress != nil {
+			qc.metrics.Name("tp_queued_errors").Str("queued", endpoint.RemoteAddr().String()).Str("cmd", cmd.String()).Int("queue_id", queueID).Str("err", "network").GetOrCreateCounter().Inc()
+
 			op = "Call: "
 		}
 
@@ -304,7 +413,7 @@ func (qc *QueuedClient) reqMultiRetryLoop(ctx context.Context, shard uint, endpo
 			Stringer("queued", endpoint.RemoteAddr()).
 			Int("retry", retry).
 			Int("retry_count", retryCount).
-			Uint32("cmd", cmd).
+			Stringer("cmd", cmd).
 			Interface("req", req)
 
 		if retry >= retryCount {

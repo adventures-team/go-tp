@@ -4,9 +4,12 @@ import (
 	"context"
 	"errors"
 	"sync/atomic"
+	"time"
 
+	"github.com/VictoriaMetrics/metrics"
 	"github.com/rs/zerolog"
 
+	advmetricsset "github.com/my-mail-ru/go-adv-metrics/set"
 	"github.com/my-mail-ru/go-queuedproto"
 
 	"gitlab.cebc.tools/go/tp.git/queuedclient"
@@ -20,6 +23,7 @@ type (
 		isStopped int32
 	}
 
+	// Stat is used by managed master. Not an application metrics.
 	Stat struct {
 		processed atomic.Uint32
 		errors    atomic.Uint32
@@ -27,11 +31,13 @@ type (
 
 	queueWorker struct {
 		*queueImpl
-		queueID   QueueIDType
-		events    *eventList
-		ctx       context.Context
-		isStopped *int32
-		stat      *Stat
+		queueID    QueueIDType
+		events     *eventList
+		ctx        context.Context
+		isStopped  *int32
+		stat       *Stat
+		inProgress *metrics.Gauge
+		started    time.Time
 	}
 )
 
@@ -101,7 +107,7 @@ func (qp *queuePoller) Poll(queueID QueueIDType) workerpool.Worker {
 		return nil
 	}
 
-	return &queueWorker{
+	ret := &queueWorker{
 		queueImpl: qp.queueImpl,
 		queueID:   queueID,
 		events:    events,
@@ -109,6 +115,17 @@ func (qp *queuePoller) Poll(queueID QueueIDType) workerpool.Worker {
 		isStopped: &qp.isStopped,
 		stat:      &Stat{},
 	}
+
+	if (qp.metrics != advmetricsset.Set{}) {
+		qp.metrics.Name("tp_events_total").Int("queue_id", int(queueID)).GetOrCreateCounter().Add(len(events.baseEvents))
+
+		ret.started = time.Now()
+		ret.inProgress = qp.metrics.Name("tp_events_in_progress").Int("queue_id", int(queueID)).GetOrCreateGauge(nil)
+
+		ret.inProgress.Add(float64(len(events.baseEvents)))
+	}
+
+	return ret
 }
 
 func (qp *queuePoller) Stop() {
@@ -121,6 +138,11 @@ func (qw *queueWorker) Work() {
 	defer func() { // TODO даже без обработки паник, хотя бы страхуемся обновлением всех обработанных событий и деферим необработанные
 		if err := qw.events.commit(qw.ctx, qw.stat); err != nil {
 			logger.Err(err).Msg("failed to apply events processing status")
+		}
+
+		if qw.inProgress != nil {
+			qw.inProgress.Add(float64(-len(qw.events.baseEvents)))
+			qw.MetricsSet().Name("tp_event_duration_seconds").Int("queue_id", int(qw.queueID)).GetOrCreateHistogram().UpdateDuration(qw.started)
 		}
 	}()
 

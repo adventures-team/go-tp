@@ -13,6 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
+	advmetricsset "github.com/my-mail-ru/go-adv-metrics/set"
 	queuedproto "github.com/my-mail-ru/go-queuedproto"
 	zerolog "github.com/rs/zerolog"
 	gomock "go.uber.org/mock/gomock"
@@ -161,6 +162,44 @@ func (c *MockQueueIsRegisteredCall) DoAndReturn(f func(uint16) bool) *MockQueueI
 	return c
 }
 
+// MetricsSet mocks base method.
+func (m *MockQueue) MetricsSet() advmetricsset.Set {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MetricsSet")
+	ret0, _ := ret[0].(advmetricsset.Set)
+	return ret0
+}
+
+// MetricsSet indicates an expected call of MetricsSet.
+func (mr *MockQueueMockRecorder) MetricsSet() *MockQueueMetricsSetCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MetricsSet", reflect.TypeOf((*MockQueue)(nil).MetricsSet))
+	return &MockQueueMetricsSetCall{Call: call}
+}
+
+// MockQueueMetricsSetCall wrap *gomock.Call
+type MockQueueMetricsSetCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockQueueMetricsSetCall) Return(arg0 advmetricsset.Set) *MockQueueMetricsSetCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockQueueMetricsSetCall) Do(f func() advmetricsset.Set) *MockQueueMetricsSetCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockQueueMetricsSetCall) DoAndReturn(f func() advmetricsset.Set) *MockQueueMetricsSetCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // NewPoller mocks base method.
 func (m *MockQueue) NewPoller(logger *zerolog.Logger) workerpool.Poller {
 	m.ctrl.T.Helper()
@@ -282,6 +321,42 @@ func (c *MockQueueReplaceCall) Do(f func(context.Context, tp.Event, ...queuedcli
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockQueueReplaceCall) DoAndReturn(f func(context.Context, tp.Event, ...queuedclient.PublishOption) error) *MockQueueReplaceCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// SetMetricsSet mocks base method.
+func (m *MockQueue) SetMetricsSet(arg0 advmetricsset.Set) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetMetricsSet", arg0)
+}
+
+// SetMetricsSet indicates an expected call of SetMetricsSet.
+func (mr *MockQueueMockRecorder) SetMetricsSet(arg0 any) *MockQueueSetMetricsSetCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetMetricsSet", reflect.TypeOf((*MockQueue)(nil).SetMetricsSet), arg0)
+	return &MockQueueSetMetricsSetCall{Call: call}
+}
+
+// MockQueueSetMetricsSetCall wrap *gomock.Call
+type MockQueueSetMetricsSetCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockQueueSetMetricsSetCall) Return() *MockQueueSetMetricsSetCall {
+	c.Call = c.Call.Return()
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockQueueSetMetricsSetCall) Do(f func(advmetricsset.Set)) *MockQueueSetMetricsSetCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockQueueSetMetricsSetCall) DoAndReturn(f func(advmetricsset.Set)) *MockQueueSetMetricsSetCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

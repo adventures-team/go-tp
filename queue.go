@@ -9,6 +9,7 @@ import (
 
 	"github.com/rs/zerolog"
 
+	advmetricsset "github.com/my-mail-ru/go-adv-metrics/set"
 	"github.com/my-mail-ru/go-iproto"
 
 	"github.com/my-mail-ru/go-queuedproto"
@@ -62,6 +63,9 @@ type (
 		// Replace заменяет существующее событие в очереди. ID события должно быть обязательно задано.
 		// Если время срабатывания не установлено через опции, оно не изменяется.
 		Replace(ctx context.Context, event Event, opts ...queuedclient.PublishOption) error
+
+		MetricsSet() advmetricsset.Set
+		SetMetricsSet(advmetricsset.Set)
 	}
 
 	// QueuedClient - интерфейс низкоуровневого API очередей (клиента queued).
@@ -103,6 +107,9 @@ type (
 
 		// MakeUnicastRequest посылает запрос req к указанному шарду.
 		MakeUnicastRequest(ctx context.Context, shard uint, req queuedproto.Request) (usedShard uint, respBytes []byte, err error)
+
+		MetricsSet() advmetricsset.Set
+		SetMetricsSet(advmetricsset.Set)
 
 		// IsOnline проверяет наличие соединения со всеми шардами.
 		IsOnline() bool
@@ -162,6 +169,7 @@ type (
 		mu         sync.RWMutex
 		handlerMap handlerMap
 		client     QueuedClient
+		metrics    advmetricsset.Set
 		config     *queueconfig.Config
 	}
 )
@@ -492,6 +500,14 @@ func (qi *queueImpl) IsRegistered(queueID uint16) bool {
 	_, ok := qi.handlerMap[queueID]
 
 	return ok
+}
+
+func (qi *queueImpl) MetricsSet() advmetricsset.Set {
+	return qi.client.MetricsSet()
+}
+
+func (qi *queueImpl) SetMetricsSet(ms advmetricsset.Set) {
+	qi.client.SetMetricsSet(ms)
 }
 
 // EncodeEvent кодирует событие.

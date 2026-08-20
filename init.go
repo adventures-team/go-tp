@@ -6,6 +6,8 @@ import (
 
 	"github.com/rs/zerolog"
 
+	advmetricsset "github.com/my-mail-ru/go-adv-metrics/set"
+
 	"gitlab.cebc.tools/go/tp.git/queueconfig"
 	"gitlab.cebc.tools/go/tp.git/workerpool"
 	"gitlab.cebc.tools/go/utils.git/mylog"
@@ -18,6 +20,7 @@ const DefaultProducerInstance = "producer"
 type InitOptions struct {
 	instanceName string
 	logger       *zerolog.Logger
+	metrics      advmetricsset.Set
 }
 
 // InitOption - [WithInstanceName], [WithLogger]
@@ -38,6 +41,13 @@ func WithInstanceName(instanceName string) InitOption {
 func WithLogger(logger *zerolog.Logger) InitOption {
 	return func(opt *InitOptions) {
 		opt.logger = logger
+	}
+}
+
+// WithMetrics подключает сбор метрик.
+func WithMetrics(ms advmetricsset.Set) InitOption {
+	return func(opt *InitOptions) {
+		opt.metrics = ms
 	}
 }
 
@@ -93,13 +103,13 @@ func InitProcessor[T queueconfig.OnlineConf](conf queueconfig.OnlineConfWithSubt
 		instanceLogger.Fatal().Err(err).Msg("error initializing queue processor")
 	}
 
+	pool := workerpool.New(queue.NewPoller(&instanceLogger), &instanceLogger)
+
+	queue.SetMetricsSet(opt.metrics)
+	pool.SetMetricsSet(opt.metrics)
 	instanceLogger.Info().Msg("queue processor started")
 
-	return NewStandaloneManager(
-		queue,
-		workerpool.New(queue.NewPoller(&instanceLogger), &instanceLogger),
-		&instanceLogger,
-	)
+	return NewStandaloneManager(queue, pool, &instanceLogger)
 }
 
 // InitProducer - инициализация типового продюсера (веб-сервис, и т.д.):
@@ -159,6 +169,8 @@ func InitProducer[T queueconfig.OnlineConf](conf queueconfig.OnlineConfWithSubtr
 	if err != nil {
 		opt.logger.Fatal().Err(err).Msg("error initializing queue processor")
 	}
+
+	queue.SetMetricsSet(opt.metrics)
 
 	return queue
 }

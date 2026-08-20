@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	advmetricsset "github.com/my-mail-ru/go-adv-metrics/set"
 	"github.com/my-mail-ru/go-queuedproto/addons"
 
 	"gitlab.cebc.tools/go/tp.git/queueconfig"
@@ -51,6 +52,10 @@ func WithMaxAge[EvType EventWithCreationTime, EvSlice ~[]EvType](handler Handler
 		for _, event := range in {
 			if uint32(event.GetCreationTime()) < minTime {
 				event.Done()
+
+				if ms := event.Queue().MetricsSet(); (ms != advmetricsset.Set{}) {
+					ms.Name("tp_events_expired").Int("queue_id", int(event.QueueID())).GetOrCreateCounter().Inc()
+				}
 			} else {
 				events = append(events, event)
 			}
@@ -187,11 +192,13 @@ func WithRetry[EvType RetryableEvent, EvSlice ~[]EvType](handler Handler[EvType,
 				}
 
 				event.Done()
+				incMetric(event, "tp_events_retry_exhausted")
 
 				continue
 			}
 
 			event.IncRetryCount()
+			incMetric(event, "tp_events_retried")
 
 			if opt.onRetry != nil {
 				opt.onRetry(event)
@@ -211,6 +218,12 @@ func WithRetry[EvType RetryableEvent, EvSlice ~[]EvType](handler Handler[EvType,
 		}
 
 		return errors.Join(errs...)
+	}
+}
+
+func incMetric(ev Event, name string) {
+	if ms := ev.Queue().MetricsSet(); (ms != advmetricsset.Set{}) {
+		ms.Name(name).Int("queue_id", int(ev.QueueID())).GetOrCreateCounter().Inc()
 	}
 }
 
@@ -409,11 +422,13 @@ func WithRetry2[EvType RetryableEvent2, EvSlice ~[]EvType](handler Handler[EvTyp
 					}
 
 					event.Done()
+					incMetric(event, "tp_events_retry_exhausted")
 
 					continue
 				}
 
 				event.IncRetry1Count()
+				incMetric(event, "tp_events_retried")
 
 				delay = delay1
 			}
@@ -432,11 +447,13 @@ func WithRetry2[EvType RetryableEvent2, EvSlice ~[]EvType](handler Handler[EvTyp
 					}
 
 					event.Done()
+					incMetric(event, "tp_events_retry_exhausted")
 
 					continue
 				}
 
 				event.IncRetry2Count()
+				incMetric(event, "tp_events_retried")
 
 				if delay < delay2 {
 					delay = delay2

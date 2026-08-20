@@ -11,6 +11,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
+	advmetricsset "github.com/my-mail-ru/go-adv-metrics/set"
+
 	"gitlab.cebc.tools/go/tp.git"
 	"gitlab.cebc.tools/go/tp.git/queueconfig"
 	"gitlab.cebc.tools/go/tp.git/queuedclient"
@@ -49,6 +51,7 @@ func TestWithRetry(t *testing.T) {
 		ev.EXPECT().HasCustomDefer().Return(false)
 
 		q.EXPECT().Config().Return(newTestWithRetryConf(ctrl))
+		q.EXPECT().MetricsSet().AnyTimes().Return(advmetricsset.Set{})
 		q.EXPECT().Replace(gomock.Any(), ev, gomock.Any()).DoAndReturn(func(_ context.Context, _ tp.Event, opts ...queuedclient.PublishOption) error {
 			var gotOpt, wantOpt queuedclient.PublishOptions
 
@@ -88,6 +91,7 @@ func TestWithRetry(t *testing.T) {
 		ev.EXPECT().HasCustomDefer().Return(true)
 
 		q.EXPECT().Config().Return(newTestWithRetryConf(ctrl))
+		q.EXPECT().MetricsSet().AnyTimes().Return(advmetricsset.Set{})
 		q.EXPECT().Replace(gomock.Any(), ev).Return(nil)
 
 		onRetry := 0
@@ -112,6 +116,7 @@ func TestWithRetry(t *testing.T) {
 		ev.EXPECT().Done()
 
 		q.EXPECT().Config().Return(newTestWithRetryConf(ctrl))
+		q.EXPECT().MetricsSet().AnyTimes().Return(advmetricsset.Set{})
 
 		exhausted := 0
 
