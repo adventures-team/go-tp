@@ -18,19 +18,16 @@ help:
 	@echo "\nTARGETS:\n"
 	@sed -En 's/^([a-z][a-z0-9/._-]*):.*/\1/pi' Makefile
 
-# Устанавливает зависимости проекта
 .PHONY: deps
 deps:
 	$(GO) mod tidy -v && $(GO) mod verify
 
-# Линт на отличия от мастера
 .PHONY: lint
 lint:
 	$(info #Running lint...)
 	golangci-lint run --timeout=$(LINT_TIMEOUT) --build-tags=golangci --new-from-rev=origin/$(shell (grep -s DEFAULT_BRANCH: .gitlab-ci.yml | cut -d: -f2 | sed 's/^\s*$$/master/' | tr -d ' \t'; echo master) | head -n1) ./...
 	golangci-lint run --timeout=$(LINT_TIMEOUT) --build-tags=golangci,integration --new-from-rev=origin/$(shell (grep -s DEFAULT_BRANCH: .gitlab-ci.yml | cut -d: -f2 | sed 's/^\s*$$/master/' | tr -d ' \t'; echo master) | head -n1) ./...
 
-# Линт на весь код
 .PHONY: full-lint
 full-lint:
 	$(info #Running full lint...)
@@ -91,13 +88,10 @@ generate-cdb:
 	$(GO) tool yaml2cdb -in dev-env/qm/conf/config.yaml -out dev-env/qm/conf/TREE.cdb
 
 .PHONY: doc
-doc: API.md # doc/index.html
+doc: docs/DOCUMENTATION.md
 
-API.md: $(GOSRC)
+docs/DOCUMENTATION.md: $(GOSRC)
 	gomarkdoc --tags gomarkdoc --exclude-dirs ./test/... --output $@ ./...
-
-doc/index.html: $(GOSRC)
-	godoc-static -destination=doc .
 
 # Запуск докеров с шардами queued для интеграционных тестов
 .PHONY: dev_env_start
