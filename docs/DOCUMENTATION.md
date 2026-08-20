@@ -12,6 +12,7 @@ Package tp \- высокоуровневая библиотека для раб�
 
 - [Constants](<#constants>)
 - [Variables](<#variables>)
+- [func CalcShard\(eventID uint64, shardNum uint\) uint](<#CalcShard>)
 - [func EncodeEvent\(event Event\) \(eventData \[\]byte, err error\)](<#EncodeEvent>)
 - [func Register\[EvType Event, EvSlice \~\[\]EvType\]\(q Queue, handler func\(context.Context, EvSlice\) error\) error](<#Register>)
 - [type BaseEvent](<#BaseEvent>)
@@ -145,6 +146,15 @@ var (
 ```go
 var SignalsExit = [...]os.Signal{syscall.SIGTERM, syscall.SIGINT}
 ```
+
+<a name="CalcShard"></a>
+## func CalcShard
+
+```go
+func CalcShard(eventID uint64, shardNum uint) uint
+```
+
+
 
 <a name="EncodeEvent"></a>
 ## func EncodeEvent

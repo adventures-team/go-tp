@@ -234,7 +234,7 @@ func (qi *queueImpl) Publish(ctx context.Context, event Event, opts ...queuedcli
 		evID.Shard = queuedclient.BalanceShard
 	} else {
 		shardNum := qi.client.ShardNum()
-		evID.Shard = event.Shard(shardNum)
+		evID.Shard = CalcShard(evID.ID, shardNum)
 
 		if evID.Shard >= shardNum {
 			return queuedproto.EventID{}, fmt.Errorf("%T.Shard() returned %d, but it should be less than shard count %d", event, evID.Shard, shardNum)

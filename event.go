@@ -186,7 +186,11 @@ func (bev BaseEvent) Queue() Queue {
 // Совместимо с перлом (алгоритм хеширования - crc от строкового десятичного
 // представления eventID, распределение по шардам - остаток от деления).
 func (bev BaseEvent) Shard(shardNum uint) uint {
-	hash := uint64(crc32.ChecksumIEEE([]byte(strconv.FormatUint(bev.EventID.ID, 10))))
+	return CalcShard(bev.EventID.ID, shardNum)
+}
+
+func CalcShard(eventID uint64, shardNum uint) uint {
+	hash := uint64(crc32.ChecksumIEEE([]byte(strconv.FormatUint(eventID, 10))))
 	return uint(hash % uint64(shardNum))
 }
 
