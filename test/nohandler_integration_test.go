@@ -10,9 +10,9 @@ import (
 
 	"github.com/my-mail-ru/go-queuedproto"
 
-	"gitlab.cebc.tools/go/tp.git"
-	"gitlab.cebc.tools/go/tp.git/queueconfig"
-	"gitlab.cebc.tools/go/utils.git/mylog"
+	"gitlab.adv.team/go/tp.git"
+	"gitlab.adv.team/go/tp.git/queueconfig"
+	"gitlab.adv.team/go/utils.git/mylog"
 )
 
 func TestNoHandler(t *testing.T) {

@@ -5,7 +5,7 @@ import (
 	"encoding/binary"
 	"os"
 
-	"gitlab.cebc.tools/go/tp.git/queueconfig"
+	"gitlab.adv.team/go/tp.git/queueconfig"
 )
 
 // GetPID - хак для получения ID, обеспечивающего уникальность в протоколе при добавлении событий.

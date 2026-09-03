@@ -12,8 +12,8 @@ import (
 	advmetricsset "github.com/my-mail-ru/go-adv-metrics/set"
 	"github.com/my-mail-ru/go-queuedproto"
 
-	"gitlab.cebc.tools/go/tp.git/queuedclient"
-	"gitlab.cebc.tools/go/tp.git/workerpool"
+	"gitlab.adv.team/go/tp.git/queuedclient"
+	"gitlab.adv.team/go/tp.git/workerpool"
 )
 
 type (

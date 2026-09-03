@@ -14,10 +14,10 @@ import (
 
 	"github.com/my-mail-ru/go-queuedproto"
 
-	"gitlab.cebc.tools/go/tp.git/encodings"
-	"gitlab.cebc.tools/go/tp.git/queueconfig"
-	"gitlab.cebc.tools/go/tp.git/queuedclient"
-	"gitlab.cebc.tools/go/tp.git/workerpool"
+	"gitlab.adv.team/go/tp.git/encodings"
+	"gitlab.adv.team/go/tp.git/queueconfig"
+	"gitlab.adv.team/go/tp.git/queuedclient"
+	"gitlab.adv.team/go/tp.git/workerpool"
 )
 
 //go:generate go tool iprotogen -r -tests -tags integration

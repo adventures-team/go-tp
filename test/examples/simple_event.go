@@ -1,7 +1,7 @@
 package main
 
 import (
-	"gitlab.cebc.tools/go/tp.git"
+	"gitlab.adv.team/go/tp.git"
 )
 
 const SimpleQueueID = 1122

@@ -5,7 +5,7 @@ import (
 
 	zlog "github.com/rs/zerolog/log"
 
-	"gitlab.cebc.tools/go/tp.git"
+	"gitlab.adv.team/go/tp.git"
 )
 
 func sendData(id uint32, name string) {

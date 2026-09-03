@@ -3,7 +3,7 @@ package workerpool
 import (
 	"time"
 
-	"gitlab.cebc.tools/go/utils.git/mylog"
+	"gitlab.adv.team/go/utils.git/mylog"
 )
 
 func (wp *WorkerPool) needShrink() bool {

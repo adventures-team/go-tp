@@ -7,9 +7,9 @@ import (
 
 	advmetricsset "github.com/my-mail-ru/go-adv-metrics/set"
 
-	easygo "gitlab.cebc.tools/go/easygo.git/iproto"
-	"gitlab.cebc.tools/go/tp.git/queueconfig"
-	"gitlab.cebc.tools/go/utils.git/mylog"
+	easygo "gitlab.adv.team/go/easygo.git/iproto"
+	"gitlab.adv.team/go/tp.git/queueconfig"
+	"gitlab.adv.team/go/utils.git/mylog"
 )
 
 const (

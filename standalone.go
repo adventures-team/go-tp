@@ -12,8 +12,8 @@ import (
 
 	"github.com/rs/zerolog"
 
-	"gitlab.cebc.tools/go/tp.git/workerpool"
-	"gitlab.cebc.tools/go/utils.git/mylog"
+	"gitlab.adv.team/go/tp.git/workerpool"
+	"gitlab.adv.team/go/utils.git/mylog"
 )
 
 // SignalReload - перечитывается конфиг (как и при изменении онлайнконфа)

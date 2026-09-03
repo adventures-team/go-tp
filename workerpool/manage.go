@@ -7,7 +7,7 @@ import (
 	advmetricsset "github.com/my-mail-ru/go-adv-metrics/set"
 	zlog "github.com/rs/zerolog/log"
 
-	"gitlab.cebc.tools/go/utils.git/myatomic"
+	"gitlab.adv.team/go/utils.git/myatomic"
 )
 
 // Run управляет запуском заданий. В случае паники об этом пишется в лог, и обработка возобновляется. Возврат из метода происходит при вызове Stop.

@@ -14,7 +14,7 @@ import (
 
 	"github.com/my-mail-ru/go-queuedproto"
 
-	"gitlab.cebc.tools/go/tp.git/queuedclient"
+	"gitlab.adv.team/go/tp.git/queuedclient"
 )
 
 // Тест только для queuedclient, безо всей высокоуровневой логики. Копипастить/изучать этот файл не надо (если не пишите какую-нибудь низкоуровневую тулзу для фиксов).

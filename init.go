@@ -8,9 +8,9 @@ import (
 
 	advmetricsset "github.com/my-mail-ru/go-adv-metrics/set"
 
-	"gitlab.cebc.tools/go/tp.git/queueconfig"
-	"gitlab.cebc.tools/go/tp.git/workerpool"
-	"gitlab.cebc.tools/go/utils.git/mylog"
+	"gitlab.adv.team/go/tp.git/queueconfig"
+	"gitlab.adv.team/go/tp.git/workerpool"
+	"gitlab.adv.team/go/utils.git/mylog"
 )
 
 // DefaultProducerInstance - имя инстанса в онлайнконфе по умолчанию для продюсеров (веб-сервисы, и т.д.)

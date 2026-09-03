@@ -11,10 +11,10 @@ import (
 	zlog "github.com/rs/zerolog/log"
 	"go.uber.org/mock/gomock"
 
-	"gitlab.cebc.tools/go/tp.git"
-	"gitlab.cebc.tools/go/tp.git/queueconfig"
-	"gitlab.cebc.tools/go/tp.git/queuedclient"
-	mockonlineconf "gitlab.cebc.tools/go/tp.git/test/mock/onlineconf"
+	"gitlab.adv.team/go/tp.git"
+	"gitlab.adv.team/go/tp.git/queueconfig"
+	"gitlab.adv.team/go/tp.git/queuedclient"
+	mockonlineconf "gitlab.adv.team/go/tp.git/test/mock/onlineconf"
 )
 
 var (

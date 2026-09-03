@@ -13,9 +13,9 @@ import (
 
 	"github.com/my-mail-ru/go-queuedproto/addons"
 
-	"gitlab.cebc.tools/go/tp.git"
-	"gitlab.cebc.tools/go/tp.git/queuedclient"
-	"gitlab.cebc.tools/go/utils.git/mylog"
+	"gitlab.adv.team/go/tp.git"
+	"gitlab.adv.team/go/tp.git/queuedclient"
+	"gitlab.adv.team/go/utils.git/mylog"
 )
 
 //adv:iproto:

@@ -9,7 +9,7 @@ import (
 
 	"github.com/my-mail-ru/go-queuedproto/addons"
 
-	"gitlab.cebc.tools/go/tp.git"
+	"gitlab.adv.team/go/tp.git"
 )
 
 type (

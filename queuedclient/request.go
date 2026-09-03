@@ -13,9 +13,9 @@ import (
 	advmetricsset "github.com/my-mail-ru/go-adv-metrics/set"
 	"github.com/my-mail-ru/go-queuedproto"
 
-	easygo "gitlab.cebc.tools/go/easygo.git/iproto"
-	"gitlab.cebc.tools/go/tp.git/internal"
-	"gitlab.cebc.tools/go/utils.git/mylog"
+	easygo "gitlab.adv.team/go/easygo.git/iproto"
+	"gitlab.adv.team/go/tp.git/internal"
+	"gitlab.adv.team/go/utils.git/mylog"
 )
 
 type (

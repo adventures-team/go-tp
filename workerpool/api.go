@@ -4,7 +4,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"gitlab.cebc.tools/go/utils.git/myatomic"
+	"gitlab.adv.team/go/utils.git/myatomic"
 )
 
 // SetWorkerCount устанавливает кол-во воркеров count для работы jobID.

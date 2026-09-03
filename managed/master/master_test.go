@@ -10,14 +10,14 @@ import (
 	"github.com/rs/zerolog"
 	"go.uber.org/mock/gomock"
 
-	"gitlab.cebc.tools/go/tp.git"
-	"gitlab.cebc.tools/go/tp.git/managed/qmclient"
-	"gitlab.cebc.tools/go/tp.git/managed/stats"
-	"gitlab.cebc.tools/go/tp.git/slotpool"
-	mockpoller "gitlab.cebc.tools/go/tp.git/test/mock/poller"
-	mockqueue "gitlab.cebc.tools/go/tp.git/test/mock/queue"
-	mockslotpool "gitlab.cebc.tools/go/tp.git/test/mock/slotpool"
-	mockstat "gitlab.cebc.tools/go/tp.git/test/mock/stats"
+	"gitlab.adv.team/go/tp.git"
+	"gitlab.adv.team/go/tp.git/managed/qmclient"
+	"gitlab.adv.team/go/tp.git/managed/stats"
+	"gitlab.adv.team/go/tp.git/slotpool"
+	mockpoller "gitlab.adv.team/go/tp.git/test/mock/poller"
+	mockqueue "gitlab.adv.team/go/tp.git/test/mock/queue"
+	mockslotpool "gitlab.adv.team/go/tp.git/test/mock/slotpool"
+	mockstat "gitlab.adv.team/go/tp.git/test/mock/stats"
 )
 
 func TestAssignSlot(t *testing.T) {
