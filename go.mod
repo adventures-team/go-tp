@@ -1,4 +1,4 @@
-module gitlab.cebc.tools/go/tp.git
+module gitlab.adv.team/go/tp.git
 
 go 1.25.0
 
@@ -19,8 +19,8 @@ require (
 	github.com/onlineconf/onlineconf-go/v2 v2.0.1
 	github.com/rs/zerolog v1.35.1
 	github.com/stretchr/testify v1.11.1
-	gitlab.cebc.tools/go/easygo.git v0.0.7
-	gitlab.cebc.tools/go/utils.git v0.1.1
+	gitlab.adv.team/go/easygo.git v0.0.8
+	gitlab.adv.team/go/utils.git v0.1.2
 	go.uber.org/mock v0.6.0
 	google.golang.org/protobuf v1.36.11
 	gopkg.in/yaml.v3 v3.0.1

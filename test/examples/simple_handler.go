@@ -10,7 +10,7 @@ import (
 	"github.com/rs/zerolog"
 	zlog "github.com/rs/zerolog/log"
 
-	"gitlab.cebc.tools/go/tp.git"
+	"gitlab.adv.team/go/tp.git"
 )
 
 func (*Service) Handle(ctx context.Context, events []SimpleEvent) error {

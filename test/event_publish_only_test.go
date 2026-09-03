@@ -7,7 +7,7 @@ import (
 
 	"github.com/gofrs/uuid"
 
-	"gitlab.cebc.tools/go/tp.git"
+	"gitlab.adv.team/go/tp.git"
 )
 
 // UUID - uuid.UUID iproto wrapper

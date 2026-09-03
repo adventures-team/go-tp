@@ -11,8 +11,8 @@ import (
 
 	"github.com/my-mail-ru/go-queuedproto"
 
-	easygo "gitlab.cebc.tools/go/easygo.git/iproto"
-	"gitlab.cebc.tools/go/tp.git/internal"
+	easygo "gitlab.adv.team/go/easygo.git/iproto"
+	"gitlab.adv.team/go/tp.git/internal"
 )
 
 // ConnPool represents stress test connection pool state.

@@ -6,11 +6,11 @@ import (
 
 	"github.com/rs/zerolog"
 
-	"gitlab.cebc.tools/go/tp.git"
-	"gitlab.cebc.tools/go/tp.git/managed/qmclient"
-	"gitlab.cebc.tools/go/tp.git/managed/stats"
-	"gitlab.cebc.tools/go/tp.git/slotpool"
-	"gitlab.cebc.tools/go/tp.git/workerpool"
+	"gitlab.adv.team/go/tp.git"
+	"gitlab.adv.team/go/tp.git/managed/qmclient"
+	"gitlab.adv.team/go/tp.git/managed/stats"
+	"gitlab.adv.team/go/tp.git/slotpool"
+	"gitlab.adv.team/go/tp.git/workerpool"
 )
 
 const (

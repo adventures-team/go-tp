@@ -9,10 +9,10 @@ import (
 
 	"github.com/onlineconf/onlineconf-go/v2"
 
-	"gitlab.cebc.tools/go/tp.git"
-	"gitlab.cebc.tools/go/tp.git/queueconfig"
-	"gitlab.cebc.tools/go/tp.git/workerpool"
-	"gitlab.cebc.tools/go/utils.git/mylog"
+	"gitlab.adv.team/go/tp.git"
+	"gitlab.adv.team/go/tp.git/queueconfig"
+	"gitlab.adv.team/go/tp.git/workerpool"
+	"gitlab.adv.team/go/utils.git/mylog"
 )
 
 func TestQueueWorker(t *testing.T) {

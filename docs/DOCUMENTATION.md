@@ -3,7 +3,7 @@
 # tp
 
 ```go
-import "gitlab.cebc.tools/go/tp.git"
+import "gitlab.adv.team/go/tp.git"
 ```
 
 Package tp \- высокоуровневая библиотека для работы с очередями на базе queued.
@@ -1034,7 +1034,7 @@ type VersionType = uint8 // из-за флагов в номере версии 
 # encodings
 
 ```go
-import "gitlab.cebc.tools/go/tp.git/encodings"
+import "gitlab.adv.team/go/tp.git/encodings"
 ```
 
 Package encodings \- поддержка сериализации событий.
@@ -1192,7 +1192,7 @@ Detect определяет формат структуры данных по с
 # internal
 
 ```go
-import "gitlab.cebc.tools/go/tp.git/internal"
+import "gitlab.adv.team/go/tp.git/internal"
 ```
 
 ## Index
@@ -1221,7 +1221,7 @@ AllocBytes выделяет буфер с capacity AllocSize
 # queueconfig
 
 ```go
-import "gitlab.cebc.tools/go/tp.git/queueconfig"
+import "gitlab.adv.team/go/tp.git/queueconfig"
 ```
 
 Package queueconfig \- доступ к конфигу с возможностью переопределения значений для очереди и инстанса.
@@ -1673,7 +1673,7 @@ type OnlineConfWithSubtree[T OnlineConf] interface {
 # queuedclient
 
 ```go
-import "gitlab.cebc.tools/go/tp.git/queuedclient"
+import "gitlab.adv.team/go/tp.git/queuedclient"
 ```
 
 Package queuedclient \- низкоуровневый клиент queued.
@@ -2121,7 +2121,7 @@ type ResultFunc func(shard uint, result []byte) error
 # slotpool
 
 ```go
-import "gitlab.cebc.tools/go/tp.git/slotpool"
+import "gitlab.adv.team/go/tp.git/slotpool"
 ```
 
 ## Index
@@ -2254,7 +2254,7 @@ type Work struct {
 # workerpool
 
 ```go
-import "gitlab.cebc.tools/go/tp.git/workerpool"
+import "gitlab.adv.team/go/tp.git/workerpool"
 ```
 
 Package workerpool \- абстрактный пул воркеров.
@@ -2454,7 +2454,7 @@ type WorkerStat interface {
 # queued\-stresser
 
 ```go
-import "gitlab.cebc.tools/go/tp.git/cmd/queued-stresser"
+import "gitlab.adv.team/go/tp.git/cmd/queued-stresser"
 ```
 
 queued\-stresser \- parallel and asynchronous queued stress test.
@@ -2631,7 +2631,7 @@ type Options struct {
 # managedmaster
 
 ```go
-import "gitlab.cebc.tools/go/tp.git/managed/master"
+import "gitlab.adv.team/go/tp.git/managed/master"
 ```
 
 ## Index
@@ -2732,7 +2732,7 @@ type SlotStat interface {
 # qmclient
 
 ```go
-import "gitlab.cebc.tools/go/tp.git/managed/qmclient"
+import "gitlab.adv.team/go/tp.git/managed/qmclient"
 ```
 
 ## Index
@@ -2999,7 +2999,7 @@ func (recv_StatsResponse *StatsResponse) UnmarshalIProto(buf []byte) ([]byte, er
 # stats
 
 ```go
-import "gitlab.cebc.tools/go/tp.git/managed/stats"
+import "gitlab.adv.team/go/tp.git/managed/stats"
 ```
 
 Package stats provides functionality for tracking and managing statistical data related to queues and slots.

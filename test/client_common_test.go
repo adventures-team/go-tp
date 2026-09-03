@@ -11,9 +11,9 @@ import (
 
 	"github.com/onlineconf/onlineconf-go/v2"
 
-	"gitlab.cebc.tools/go/tp.git/queueconfig"
-	"gitlab.cebc.tools/go/tp.git/queuedclient"
-	"gitlab.cebc.tools/go/utils.git/mylog"
+	"gitlab.adv.team/go/tp.git/queueconfig"
+	"gitlab.adv.team/go/tp.git/queuedclient"
+	"gitlab.adv.team/go/utils.git/mylog"
 )
 
 func getTestClient(t *testing.T) (context.Context, *queuedclient.QueuedClient) {

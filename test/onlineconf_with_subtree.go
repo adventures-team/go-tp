@@ -1,7 +1,7 @@
 package tptest
 
 import (
-	"gitlab.cebc.tools/go/tp.git/queueconfig"
+	"gitlab.adv.team/go/tp.git/queueconfig"
 )
 
 // OnlineConfWithSubtree is for test use only.

@@ -7,9 +7,9 @@ import (
 	"github.com/go-faker/faker/v4"
 	"go.uber.org/mock/gomock"
 
-	easygo "gitlab.cebc.tools/go/easygo.git/iproto"
-	"gitlab.cebc.tools/go/tp.git/internal"
-	mockiproto "gitlab.cebc.tools/go/tp.git/test/mock/iproto"
+	easygo "gitlab.adv.team/go/easygo.git/iproto"
+	"gitlab.adv.team/go/tp.git/internal"
+	mockiproto "gitlab.adv.team/go/tp.git/test/mock/iproto"
 )
 
 func TestServeIProto_cmdStat(t *testing.T) {

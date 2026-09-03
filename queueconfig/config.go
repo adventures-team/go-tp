@@ -12,7 +12,7 @@ import (
 	"github.com/onlineconf/onlineconf-go/v2"
 	"kythe.io/kythe/go/util/datasize"
 
-	"gitlab.cebc.tools/go/utils.git/mytime"
+	"gitlab.adv.team/go/utils.git/mytime"
 )
 
 const globalPath = "/tp/go"

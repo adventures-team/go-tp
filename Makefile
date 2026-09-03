@@ -36,7 +36,7 @@ full-lint:
 
 .PHONY: format
 format:
-	find . -name '*.go' | grep -v /vendor/ | xargs $(GO) tool goimports -local gitlab.cebc.tools/ -l -w
+	find . -name '*.go' | grep -v /vendor/ | xargs $(GO) tool goimports -local gitlab.adv.team/ -l -w
 
 .PHONY: test
 test:
@@ -73,14 +73,14 @@ generate-go:
 
 .PHONY: generate-mocks
 generate-mocks:
-	$(GO) tool mockgen -destination test/mock/queue/mock_queue.go -typed -package mockqueue gitlab.cebc.tools/go/tp.git Queue
-	$(GO) tool mockgen -destination test/mock/event/mock_retryable_event.go -typed -package mockevent gitlab.cebc.tools/go/tp.git RetryableEvent
-	$(GO) tool mockgen -destination test/mock/slotpool/mock_slotpool.go -typed -package mockslotpool gitlab.cebc.tools/go/tp.git/managed/master Pool
-	$(GO) tool mockgen -destination test/mock/stats/mock_stat.go -typed -package mockstat gitlab.cebc.tools/go/tp.git/managed/master SlotStat
-	$(GO) tool mockgen -destination test/mock/poller/mock_poller.go -typed -package mockpoller gitlab.cebc.tools/go/tp.git/workerpool Poller,Worker,WorkerStat
-	$(GO) tool mockgen -destination test/mock/iproto/mock_iproto.go -typed -package mockiproto gitlab.cebc.tools/go/tp.git/managed/qmclient Connection
-	$(GO) tool mockgen -destination test/mock/onlineconf/mock_onlineconf.go -typed -package mockonlineconf gitlab.cebc.tools/go/tp.git/queueconfig OnlineConf
-	$(GO) tool mockgen -destination test/mock/onlineconf/mock_onlineconf_subtree.go -typed -package mockonlineconf gitlab.cebc.tools/go/tp.git/test OnlineConfWithSubtree
+	$(GO) tool mockgen -destination test/mock/queue/mock_queue.go -typed -package mockqueue gitlab.adv.team/go/tp.git Queue
+	$(GO) tool mockgen -destination test/mock/event/mock_retryable_event.go -typed -package mockevent gitlab.adv.team/go/tp.git RetryableEvent
+	$(GO) tool mockgen -destination test/mock/slotpool/mock_slotpool.go -typed -package mockslotpool gitlab.adv.team/go/tp.git/managed/master Pool
+	$(GO) tool mockgen -destination test/mock/stats/mock_stat.go -typed -package mockstat gitlab.adv.team/go/tp.git/managed/master SlotStat
+	$(GO) tool mockgen -destination test/mock/poller/mock_poller.go -typed -package mockpoller gitlab.adv.team/go/tp.git/workerpool Poller,Worker,WorkerStat
+	$(GO) tool mockgen -destination test/mock/iproto/mock_iproto.go -typed -package mockiproto gitlab.adv.team/go/tp.git/managed/qmclient Connection
+	$(GO) tool mockgen -destination test/mock/onlineconf/mock_onlineconf.go -typed -package mockonlineconf gitlab.adv.team/go/tp.git/queueconfig OnlineConf
+	$(GO) tool mockgen -destination test/mock/onlineconf/mock_onlineconf_subtree.go -typed -package mockonlineconf gitlab.adv.team/go/tp.git/test OnlineConfWithSubtree
 
 .PHONY: generate-cdb
 generate-cdb:
