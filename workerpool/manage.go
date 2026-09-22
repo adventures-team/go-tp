@@ -15,6 +15,7 @@ func (wp *WorkerPool) Run() {
 
 	jobs := make(jobMap)
 	needStop := false
+	stopChan := wp.stopChan // после получения сигнала - nil, чтобы закрытый канал не превращал цикл в busy loop
 
 	for {
 		delay := time.Duration(wp.idleDelay.Load())
@@ -43,8 +44,9 @@ func (wp *WorkerPool) Run() {
 			case jobID := <-wp.doneChan:
 				wp.onJobDone(jobs, jobID)
 
-			case <-wp.stopChan:
+			case <-stopChan:
 				needStop = wp.onStop(jobs)
+				stopChan = nil
 
 			default:
 			}
@@ -61,8 +63,9 @@ func (wp *WorkerPool) Run() {
 			case jobID := <-wp.doneChan:
 				wp.onJobDone(jobs, jobID)
 
-			case <-wp.stopChan:
+			case <-stopChan:
 				needStop = wp.onStop(jobs)
+				stopChan = nil
 
 			case <-timer.C:
 			}
