@@ -3,6 +3,7 @@ package tp
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"os"
 	"os/signal"
 	"runtime"
@@ -10,10 +11,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/rs/zerolog"
+	advslog "github.com/adventures-team/go-adv-slog"
 
 	"gitlab.adv.team/go/tp.git/workerpool"
-	"gitlab.adv.team/go/utils.git/mylog"
 )
 
 // SignalReload - перечитывается конфиг (как и при изменении онлайнконфа)
@@ -35,7 +35,7 @@ type (
 	StandaloneMaster struct {
 		Queue
 		pool          *workerpool.WorkerPool
-		logger        *zerolog.Logger
+		logger        *slog.Logger
 		queuesRunning map[QueueIDType]bool
 		oldScale      float64
 	}
@@ -44,7 +44,7 @@ type (
 // NewStandaloneManager создаёт новый объект для управления пулом.
 //
 // Это - низкоуровневый интерфейс. Для типового кейса следует юзать обёртку [InitProcessor].
-func NewStandaloneManager(queue Queue, pool *workerpool.WorkerPool, logger *zerolog.Logger) *StandaloneMaster {
+func NewStandaloneManager(queue Queue, pool *workerpool.WorkerPool, logger *slog.Logger) *StandaloneMaster {
 	return &StandaloneMaster{
 		Queue:         queue,
 		pool:          pool,
@@ -66,11 +66,11 @@ func (qm *StandaloneMaster) forceReload() {
 // Параллельно вызывать applyConfig не надо (особенно с одним и тем же queuesRunning).
 func (qm *StandaloneMaster) applyConfig(ctx context.Context) error {
 	newLogLevel := qm.Config().LogLevel(ctx)
-	if zerolog.GlobalLevel() != newLogLevel {
-		zerolog.SetGlobalLevel(newLogLevel)
+	if advslog.Level.Level() != newLogLevel {
+		advslog.Level.Set(newLogLevel)
 	}
 
-	qm.logger.Info().Msg("reloading config")
+	qm.logger.Info("reloading config")
 
 	scale, err := qm.applyMemLimits(ctx)
 	if err != nil {
@@ -93,7 +93,7 @@ func (qm *StandaloneMaster) applyConfig(ctx context.Context) error {
 
 	for _, queueID := range confQueueIDs {
 		if !qm.IsRegistered(queueID) {
-			qm.logger.Err(ErrUnknownQueue).Uint16("queue_id", queueID).Send()
+			qm.logger.Error("skipping unregistered queue", advslog.Err(ErrUnknownQueue), "queue_id", queueID)
 			continue
 		}
 
@@ -123,14 +123,14 @@ func (qm *StandaloneMaster) applyConfig(ctx context.Context) error {
 	if hasWorkersMax {
 		if workersMax == 0 {
 			if len(qm.queuesRunning) != 0 {
-				qm.logger.Info().Msg("workers_max=0, stopping everything")
+				qm.logger.Info("workers_max=0, stopping everything")
 			} else {
-				qm.logger.Info().Msg("workers_max=0, doing nothing")
+				qm.logger.Info("workers_max=0, doing nothing")
 			}
 
 			for queueID := range qm.queuesRunning {
 				qm.pool.SetWorkerCount(queueID, 0)
-				qm.logger.Info().Uint16("queue_id", queueID).Msg("queue stopped")
+				qm.logger.Info("queue stopped", "queue_id", queueID)
 				delete(qm.queuesRunning, queueID)
 			}
 
@@ -138,17 +138,17 @@ func (qm *StandaloneMaster) applyConfig(ctx context.Context) error {
 		}
 
 		if workersMax < len(queueWorkers) {
-			qm.logger.Error().Int("workers_max", workersMax).Int("queue_count", len(queueWorkers)).Msg("please increase workers_max")
+			qm.logger.Error("please increase workers_max", "workers_max", workersMax, "queue_count", len(queueWorkers))
 			workersMax = len(queueWorkers)
 		}
 
 		if excess := workersTotal - workersMax; excess > 0 {
-			qm.logger.Warn().Int("workers_max", workersMax).Int("workers_total", workersTotal).Msgf("requested workers count exceed workers_max, sacrificing %d workers", excess)
+			qm.logger.Warn("requested workers count exceed workers_max, sacrificing workers", "workers_max", workersMax, "workers_total", workersTotal, "sacrificed", excess)
 			limitWorkers(queueWorkers, excess)
 		}
 	}
 
-	qm.logger.Info().Int("workers_total", workersTotal).Send()
+	qm.logger.Info("queue workers configured", "workers_total", workersTotal)
 	qm.startStop(queueWorkers)
 
 	return nil
@@ -162,7 +162,7 @@ func (qm *StandaloneMaster) applyMemLimits(ctx context.Context) (float64, error)
 
 	if softLimit != 0 && hardLimit != 0 {
 		if softLimit > hardLimit {
-			qm.logger.Warn().Uint64("oom_soft_limit", softLimit).Uint64("oom_hard_limit", hardLimit).Msg("oom_soft_limit > oom_hard_limit, please check config")
+			qm.logger.Warn("oom_soft_limit > oom_hard_limit, please check config", "oom_soft_limit", softLimit, "oom_hard_limit", hardLimit)
 		}
 
 		var memstats runtime.MemStats
@@ -170,14 +170,14 @@ func (qm *StandaloneMaster) applyMemLimits(ctx context.Context) (float64, error)
 		runtime.ReadMemStats(&memstats)
 
 		if hardLimit != 0 && memstats.Sys > hardLimit {
-			qm.logger.Err(ErrHardMemoryLimit).Uint64("mem_usage", memstats.Sys).Uint64("oom_hard_limit", hardLimit).Send()
+			qm.logger.Error("hard memory limit reached", advslog.Err(ErrHardMemoryLimit), "mem_usage", memstats.Sys, "oom_hard_limit", hardLimit)
 			return 0, ErrHardMemoryLimit
 		}
 
 		if softLimit != 0 && memstats.Sys > softLimit {
 			scale = qm.Config().OOMSoftDownscaleRate(ctx)
 			if qm.oldScale != scale {
-				qm.logger.Warn().Uint64("mem_usage", memstats.Sys).Uint64("oom_soft_limit", softLimit).Float64("scale", scale).Msg("memory usage is over the soft limit, downscaling worker count")
+				qm.logger.Warn("memory usage is over the soft limit, downscaling worker count", "mem_usage", memstats.Sys, "oom_soft_limit", softLimit, "scale", scale)
 			}
 		}
 	}
@@ -217,7 +217,7 @@ func (qm *StandaloneMaster) startStop(queueWorkers []queueIDWorkers) {
 		qm.pool.SetWorkerCount(qw.queueID, qw.workers)
 
 		if _, ok := qm.queuesRunning[qw.queueID]; !ok {
-			qm.logger.Info().Uint16("queue_id", qw.queueID).Int("worker_count", qw.workers).Msg("queue started")
+			qm.logger.Info("queue started", "queue_id", qw.queueID, "worker_count", qw.workers)
 		}
 
 		qm.queuesRunning[qw.queueID] = flipFlop
@@ -226,7 +226,7 @@ func (qm *StandaloneMaster) startStop(queueWorkers []queueIDWorkers) {
 	for queueID, old := range qm.queuesRunning {
 		if old != flipFlop {
 			qm.pool.SetWorkerCount(queueID, 0)
-			qm.logger.Info().Uint16("queue_id", queueID).Msg("queue stopped")
+			qm.logger.Info("queue stopped", "queue_id", queueID)
 			delete(qm.queuesRunning, queueID)
 		}
 	}
@@ -243,7 +243,7 @@ func (qm *StandaloneMaster) startStop(queueWorkers []queueIDWorkers) {
 // Run дожидается её выхода (иначе она продолжала бы жить и логгировать после Stop -
 // в тестах это приводило к панике "Log in goroutine after test has completed").
 func (qm *StandaloneMaster) Run() {
-	ctx, cancel := context.WithCancel(qm.logger.WithContext(context.Background()))
+	ctx, cancel := context.WithCancel(advslog.NewContext(context.Background(), qm.logger))
 	done := make(chan struct{})
 
 	go func() { // менеджер конфига запускается асинхронно, т.к. просто посылает команды пулу
@@ -278,14 +278,14 @@ func (qm *StandaloneMaster) runGoro(ctx context.Context) {
 func (qm *StandaloneMaster) manage(ctx context.Context) (exit bool) {
 	defer func() {
 		if reason := recover(); reason != nil {
-			mylog.LogPanic(qm.logger.Error(), reason).Msg("panic in QueueManager.manage")
+			advslog.LogPanic(ctx, "panic in QueueManager.manage", reason)
 		}
 	}()
 
 	err := qm.applyConfig(ctx)
 	if err != nil {
 		qm.pool.Stop() // Stop умеет работать асинхронно (т.е. Stop, вызванный до запуска пула, приведёт к его мгновенному выходу при запуске)
-		qm.logger.Err(err).Msg("config error, exiting")
+		qm.logger.Error("config error, exiting", advslog.Err(err))
 
 		return true
 	}
@@ -298,7 +298,7 @@ func (qm *StandaloneMaster) manage(ctx context.Context) (exit bool) {
 
 	updateChan, err := qm.Config().Subscribe()
 	if err != nil {
-		qm.logger.Fatal().Err(err).Msg("onlineconf.Subscribe")
+		advslog.FatalContext(ctx, "onlineconf.Subscribe", advslog.Err(err))
 	}
 
 	for _, sig := range SignalsExit {
@@ -316,15 +316,15 @@ func (qm *StandaloneMaster) manage(ctx context.Context) (exit bool) {
 			return true
 
 		case <-updateChan:
-			qm.logger.Info().Msg("reloading config on onlineconf update")
+			qm.logger.Info("reloading config on onlineconf update")
 			qm.forceReload()
 
 		case sig := <-reloadSigChan:
-			qm.logger.Info().Msgf("reloading config on signal '%s'", sig)
+			qm.logger.Info("reloading config on signal", "signal", sig.String())
 			qm.forceReload()
 
 		case sig := <-exitSigChan:
-			qm.logger.Info().Msgf("graceful exit on signal '%s'", sig)
+			qm.logger.Info("graceful exit on signal", "signal", sig.String())
 			qm.pool.Stop()
 
 			return true
@@ -341,7 +341,7 @@ func (qm *StandaloneMaster) manage(ctx context.Context) (exit bool) {
 				return true
 			}
 
-			qm.logger.Err(err).Msg("ignoring config changes on error")
+			qm.logger.Error("ignoring config changes on error", advslog.Err(err))
 		}
 	}
 }

@@ -4,18 +4,16 @@ package tptest
 
 import (
 	"context"
+	"log/slog"
 	"os"
 	"testing"
 	"time"
 
-	"github.com/rs/zerolog"
-	zlog "github.com/rs/zerolog/log"
-
+	advslog "github.com/adventures-team/go-adv-slog"
 	"github.com/adventures-team/go-queuedproto/addons"
 
 	"gitlab.adv.team/go/tp.git"
 	"gitlab.adv.team/go/tp.git/queuedclient"
-	"gitlab.adv.team/go/utils.git/mylog"
 )
 
 //adv:iproto:
@@ -40,10 +38,10 @@ func TestAddonsRetry(t *testing.T) {
 	qm := tp.InitProcessor(
 		newMockConf(t, testRetryEventQueueID),
 		tp.WithInstanceName(testInstanceName),
-		tp.WithLogger(mylog.InitTestZerolog(t)),
+		tp.WithLogger(advslog.InitTest(t)),
 	)
 
-	zlog.Info().Int("pid", os.Getpid()).Send()
+	slog.Info("test starting", "pid", os.Getpid())
 
 	handler := retryEventHandler{
 		stopper: qm,
@@ -51,24 +49,25 @@ func TestAddonsRetry(t *testing.T) {
 
 	err := tp.Register(qm.Queue, tp.WithRetry(handler.handle))
 	if err != nil {
-		zlog.Fatal().Err(err).Msg("Queue.Register")
+		advslog.Fatal("Queue.Register", advslog.Err(err))
 	}
 
 	ctx := context.Background()
 
 	eventID, err := qm.Publish(ctx, &retryEvent{}, queuedclient.PublishActivationTime(time.Now().Add(time.Second)))
 	if err != nil {
-		zlog.Panic().Err(err).Msg("Publish")
+		slog.Error("Publish", advslog.Err(err))
+		panic(err)
 	}
 
-	zlog.Info().Stringer("event_id", eventID).Msg("published")
+	slog.Info("published", "event_id", eventID)
 
 	/*
 		go func() { // keep queued busy
 			for {
 				eventID, err := qm.Publish(ctx, &retryEvent{}) //, queuedclient.PublishInitialDelay(time.Hour))
 				if err != nil {
-					zlog.Err(err).Msg("qm.Publish")
+					slog.Error("qm.Publish", advslog.Err(err))
 				}
 
 				qm.Client().Delete(ctx, testRetryEventQueueID, []queuedproto.EventID{eventID})
@@ -89,7 +88,7 @@ func (h retryEventHandler) handle(ctx context.Context, events []retryEvent) erro
 
 	for _, event := range events {
 		count := event.GetRetryCount()
-		zerolog.Ctx(ctx).Info().Stringer("event_id", event.EventID).Uint32("retry_count", count).Send()
+		advslog.Ctx(ctx).Info("retrying", "event_id", event.EventID, "retry_count", count)
 
 		if count < 5 {
 			event.Retry()

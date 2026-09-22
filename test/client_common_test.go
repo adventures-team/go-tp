@@ -4,24 +4,22 @@ package tptest
 
 import (
 	"context"
-	"path"
-	"path/filepath"
-	"runtime"
 	"testing"
+
+	advslog "github.com/adventures-team/go-adv-slog"
 
 	"github.com/onlineconf/onlineconf-go/v2"
 
 	"gitlab.adv.team/go/tp.git/queueconfig"
 	"gitlab.adv.team/go/tp.git/queuedclient"
-	"gitlab.adv.team/go/utils.git/mylog"
 )
 
 func getTestClient(t *testing.T) (context.Context, *queuedclient.QueuedClient) {
-	ctx := mylog.InitTestZerolog(t).WithContext(context.Background())
+	ctx := advslog.NewContext(context.Background(), advslog.InitTest(t))
 
-	// zerolog.SetGlobalLevel(zerolog.DebugLevel)
+	// advslog.Level.Set(slog.LevelDebug)
 
-	conf, err := onlineconf.OpenSubtree(filepath.Join(ConfigDir(), "TREE.cdb"), testConfPrefix)
+	conf, err := onlineconf.OpenSubtree(testCDB(t), testConfPrefix)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -34,12 +32,4 @@ func getTestClient(t *testing.T) (context.Context, *queuedclient.QueuedClient) {
 	}
 
 	return ctx, client
-}
-
-// ConfigDir returns path to directory with TREE.cdb file.
-func ConfigDir() string {
-	_, b, _, _ := runtime.Caller(0)
-	root := filepath.Dir(filepath.Dir(b))
-
-	return path.Join(root, "build", "local")
 }

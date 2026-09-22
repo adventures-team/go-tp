@@ -2,8 +2,9 @@ package main
 
 import (
 	"context"
+	"log/slog"
 
-	zlog "github.com/rs/zerolog/log"
+	advslog "github.com/adventures-team/go-adv-slog"
 
 	"gitlab.adv.team/go/tp.git"
 )
@@ -13,8 +14,8 @@ func sendData(id uint32, name string) {
 
 	eventID, err := queue.Publish(context.Background(), &SimpleEvent{UserID: id, UserName: name})
 	if err != nil {
-		zlog.Fatal().Err(err).Msg("error publishing an event")
+		advslog.Fatal("error publishing an event", advslog.Err(err))
 	}
 
-	zlog.Info().Stringer("event_id", eventID).Msg("event published")
+	slog.Info("event published", "event_id", eventID)
 }

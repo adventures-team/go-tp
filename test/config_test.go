@@ -3,12 +3,12 @@
 package tptest
 
 import (
+	"log/slog"
 	"strconv"
 	"sync/atomic"
 	"testing"
 	"time"
 
-	zlog "github.com/rs/zerolog/log"
 	"go.uber.org/mock/gomock"
 
 	"gitlab.adv.team/go/tp.git"
@@ -41,7 +41,7 @@ func resetConfig() {
 }
 
 func setConfInt32(name string, conf *int32, val int32, delay time.Duration) {
-	zlog.Warn().Msgf("setting %s=%d", name, val)
+	slog.Warn("setting config limit", "name", name, "value", val)
 	atomic.StoreInt32(conf, val)
 	reloadConfig()
 	time.Sleep(delay)

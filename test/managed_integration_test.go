@@ -4,6 +4,8 @@ package tptest
 
 import (
 	"context"
+	"fmt"
+	"log/slog"
 	"os"
 	"strings"
 	"sync"
@@ -11,14 +13,12 @@ import (
 	"testing"
 	"time"
 
-	zlog "github.com/rs/zerolog/log"
-
+	advslog "github.com/adventures-team/go-adv-slog"
 	"github.com/adventures-team/go-queuedproto"
 
 	"gitlab.adv.team/go/tp.git"
 	"gitlab.adv.team/go/tp.git/queueconfig"
 	"gitlab.adv.team/go/tp.git/queuedclient"
-	"gitlab.adv.team/go/utils.git/mylog"
 )
 
 // тесты на управление пулом при помощи онлайнконфа (проще говоря - тест системы целиком)
@@ -35,24 +35,24 @@ func testManaged(t *testing.T, doTest func(*tp.StandaloneMaster, *counter, <-cha
 	qm := tp.InitProcessor(
 		newMockConf(t, testSleeperQueueID),
 		tp.WithInstanceName(testInstanceName),
-		tp.WithLogger(mylog.InitTestZerolog(t)),
+		tp.WithLogger(advslog.InitTest(t)),
 	)
 
-	zlog.Info().Int("pid", os.Getpid()).Send()
+	slog.Info("test starting", "pid", os.Getpid())
 
 	cnt := newCounter(0)
 	svc := testService{Counter: cnt}
 
 	err := tp.Register(qm.Queue, svc.HandleSleeper)
 	if err != nil {
-		zlog.Fatal().Err(err).Msg("Queue.Register")
+		advslog.Fatal("Queue.Register", advslog.Err(err))
 	}
 
 	go func() {
 		timer := time.NewTimer(time.Second)
 
 		for {
-			zlog.Info().Int32("*** workers_count ***", cnt.Get()).Send()
+			slog.Info("workers", "*** workers_count ***", cnt.Get())
 
 			select {
 			case <-doneChan:
@@ -68,7 +68,7 @@ func testManaged(t *testing.T, doTest func(*tp.StandaloneMaster, *counter, <-cha
 	qm.Run()
 
 	if workersLeft := cnt.Get(); workersLeft != 0 {
-		zlog.Fatal().Msgf("%d workers are still working", workersLeft)
+		advslog.Fatal("workers are still working", "count", workersLeft)
 	}
 
 	for range 10 {
@@ -101,10 +101,11 @@ func TestDeferred(t *testing.T) {
 				Percentage:  40, // ускорять тест тут )) поставить больше вероятность успешного окончания
 			})
 			if err != nil {
-				zlog.Panic().Err(err).Msg("Publish")
+				slog.Error("Publish", advslog.Err(err))
+				panic(err)
 			}
 
-			zlog.Info().Stringer("event_id", eventID).Msg("published")
+			slog.Info("published", "event_id", eventID)
 			time.Sleep(publishDelayLong)
 		}
 
@@ -121,17 +122,18 @@ func TestInitialDelay(t *testing.T) {
 
 		eventID, err := qm.Publish(ctx, &eventSleeper{}, queuedclient.PublishInitialDelay(testInitialDelay))
 		if err != nil {
-			zlog.Panic().Err(err).Msg("Publish")
+			slog.Error("Publish", advslog.Err(err))
+			panic(err)
 		}
 
-		zlog.Info().Stringer("event_id", eventID).Msg("published")
+		slog.Info("published", "event_id", eventID)
 		cnt.Wait()
 		qm.Stop()
 	})
 }
 
 func doPreTestDelay() {
-	zlog.Warn().Msgf("waiting %v", preTestDelay)
+	slog.Warn("waiting", "delay", preTestDelay)
 	time.Sleep(preTestDelay)
 }
 
@@ -153,10 +155,11 @@ func TestOOM(t *testing.T) {
 				Percentage:  5, // чтобы события успешно завершались (удалялись) с низкой вероятностью, и их осталось достаточно для теста на кол-во воркеров
 			})
 			if err != nil {
-				zlog.Panic().Err(err).Msg("Publish")
+				slog.Error("Publish", advslog.Err(err))
+				panic(err)
 			}
 
-			zlog.Info().Stringer("event_id", eventID).Msg("event published")
+			slog.Info("event published", "event_id", eventID)
 
 			eventIDs = append(eventIDs, eventID)
 
@@ -166,7 +169,7 @@ func TestOOM(t *testing.T) {
 
 		doPreTestDelay()
 
-		zlog.Warn().Msg("dropping the soft limit")
+		slog.Warn("dropping the soft limit")
 		confOOMSoftLimit.Store("10Kb")
 
 		time.Sleep(workerPoolSustainDelay)
@@ -175,12 +178,12 @@ func TestOOM(t *testing.T) {
 		workersExpected := int32(float64(atomic.LoadInt32(&confWorkers)) * queueconfig.DefaultDownscaleRate)
 
 		if workersGot > workersExpected {
-			zlog.Panic().Msgf("too many workers when the soft memory limit is reached: got %d, expected: no more than %d", workersGot, workersExpected)
+			panic(fmt.Sprintf("too many workers when the soft memory limit is reached: got %d, expected: no more than %d", workersGot, workersExpected))
 		}
 
 		time.Sleep(preTestDelay)
 
-		zlog.Warn().Msg("dropping the hard limit")
+		slog.Warn("dropping the hard limit")
 		confOOMHardLimit.Store("10Kb")
 
 		select {
@@ -192,7 +195,7 @@ func TestOOM(t *testing.T) {
 	})
 
 	newEvents.Lock() // стопим цикл отправки новых сообщений
-	zlog.Info().Interface("event_ids", eventIDs).Msg("deleting events")
+	slog.Info("deleting events", "event_ids", eventIDs)
 	cleanupEvents(ctx, qm, testSleeperQueueID, eventIDs)
 }
 
@@ -215,10 +218,10 @@ func TestResize(t *testing.T) {
 				Percentage:  5,
 			})
 			if err != nil {
-				zlog.Err(err).Msg("Publish")
+				slog.Error("Publish", advslog.Err(err))
 			}
 
-			zlog.Info().Stringer("event_id", eventID).Msg("event published")
+			slog.Info("event published", "event_id", eventID)
 
 			eventIDs = append(eventIDs, eventID)
 		}
@@ -228,28 +231,28 @@ func TestResize(t *testing.T) {
 		setWorkersMax(workersMaxLimit, workerPoolSustainDelay)
 
 		if workersGot := cnt.Get(); workersGot > workersMaxLimit {
-			zlog.Panic().Msgf("got %d workers when workers_max=%d is set", workersGot, workersMaxLimit)
+			panic(fmt.Sprintf("got %d workers when workers_max=%d is set", workersGot, workersMaxLimit))
 		}
 
 		setWorkersMax(workersMaxDefault, preTestDelay)
 		setWorkersMaxPerQueue(workersMaxLimit, workerPoolSustainDelay)
 
 		if workersGot := cnt.Get(); workersGot > workersMaxLimit {
-			zlog.Panic().Msgf("got %d workers when workers_max_per_queue=%d is set", workersGot, workersMaxLimit)
+			panic(fmt.Sprintf("got %d workers when workers_max_per_queue=%d is set", workersGot, workersMaxLimit))
 		}
 
 		setWorkersMaxPerQueue(wokersMaxPerQueueDefault, time.Duration(0))
 		setWorkersMax(0, workerPoolSustainDelay)
 
 		if workersGot := cnt.Get(); workersGot > 0 {
-			zlog.Panic().Msgf("got %d workers, expected 0", workersGot)
+			panic(fmt.Sprintf("got %d workers, expected 0", workersGot))
 		}
 
 		setWorkersMax(workersMaxDefault, preTestDelay)
 		setWorkersMaxPerQueue(0, workerPoolSustainDelay)
 
 		if workersGot := cnt.Get(); workersGot > 0 {
-			zlog.Panic().Msgf("got %d workers, expected 0", workersGot)
+			panic(fmt.Sprintf("got %d workers, expected 0", workersGot))
 		}
 
 		qm.Stop()
@@ -263,7 +266,7 @@ func TestResize(t *testing.T) {
 	})
 
 	newEvents.Lock() // стопим цикл отправки новых сообщений
-	zlog.Info().Interface("event_ids", eventIDs).Msg("deleting events")
+	slog.Info("deleting events", "event_ids", eventIDs)
 	cleanupEvents(ctx, qm, testSleeperQueueID, eventIDs)
 }
 
@@ -287,10 +290,11 @@ func TestUpdateDelete(t *testing.T) {
 				Percentage:  0,
 			})
 			if err != nil {
-				zlog.Panic().Err(err).Msg("Publish")
+				slog.Error("Publish", advslog.Err(err))
+				panic(err)
 			}
 
-			zlog.Info().Stringer("event_id", eventID).Msg("event published")
+			slog.Info("event published", "event_id", eventID)
 
 			eventIDs = append(eventIDs, eventID)
 		}
@@ -302,16 +306,16 @@ func TestUpdateDelete(t *testing.T) {
 	})
 
 	newEvents.Lock() // стопим цикл отправки новых сообщений
-	zlog.Info().Interface("event_ids", eventIDs).Msg("deleting events")
+	slog.Info("deleting events", "event_ids", eventIDs)
 	cleanupEvents(ctx, qm, testSleeperQueueID, eventIDs)
 }
 
 func cleanupEvents(ctx context.Context, qm *tp.StandaloneMaster, queueID uint16, eventIDs []queuedproto.EventID) {
 	if err := qm.Client().Delete(ctx, queueID, eventIDs); err != nil {
 		if strings.Contains(err.Error(), "queued error: item locked") {
-			zlog.Error().Err(err).Msg("Delete (queued bug ignored)")
+			slog.Error("Delete (queued bug ignored)", advslog.Err(err))
 		} else {
-			zlog.Fatal().Err(err).Msg("Delete")
+			advslog.Fatal("Delete", advslog.Err(err))
 		}
 	}
 }
@@ -325,5 +329,5 @@ func TestUpdateDeleteLoop(t *testing.T) {
 }
 
 func setTestLogTime() {
-	mylog.TestTimeFormat = "15:04:05.000"
+	advslog.TestTimeFormat = "15:04:05.000"
 }

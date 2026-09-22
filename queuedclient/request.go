@@ -3,19 +3,19 @@ package queuedclient
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/VictoriaMetrics/metrics"
-	"github.com/rs/zerolog"
 
 	advmetricsset "github.com/adventures-team/go-adv-metrics/set"
+	advslog "github.com/adventures-team/go-adv-slog"
 	"github.com/adventures-team/go-queuedproto"
 
 	easygo "gitlab.adv.team/go/easygo.git/iproto"
 	"gitlab.adv.team/go/tp.git/internal"
-	"gitlab.adv.team/go/utils.git/mylog"
 )
 
 type (
@@ -110,22 +110,25 @@ func (qc *QueuedClient) MakeUnicastRequest(ctx context.Context, shard uint, req 
 
 		retryCount := qc.Config.GetInt(ConfRetryCount, DefaultRetryCount)
 
-		zlEv := zerolog.Ctx(ctx).Err(err).
-			Uint("shard", usedShard).
-			Stringer("queued", endpoint.RemoteAddr()).
-			Int("retry", retry).
-			Int("retry_count", retryCount).
-			Stringer("cmd", cmd).
-			Interface("req", req)
+		logAttrs := make([]slog.Attr, 0, 8) // +1 под retry_delay ниже
+		logAttrs = append(logAttrs,
+			advslog.Err(err),
+			slog.Uint64("shard", uint64(usedShard)),
+			slog.Any("queued", endpoint.RemoteAddr()),
+			slog.Int("retry", retry),
+			slog.Int("retry_count", retryCount),
+			slog.Any("cmd", cmd),
+			slog.Any("req", req),
+		)
 
 		if retry >= retryCount {
-			zlEv.Msg("retry count exceeded")
+			advslog.Ctx(ctx).LogAttrs(ctx, slog.LevelError, "retry count exceeded", logAttrs...)
 			return usedShard, nil, err
 		}
 
 		retryDelay := qc.Config.GetDuration(ctx, ConfRetryDelay, DefaultRetryDelay)
 
-		zlEv.Dur("retry_delay", retryDelay).Msg("retry on error")
+		advslog.Ctx(ctx).LogAttrs(ctx, slog.LevelError, "retry on error", append(logAttrs, slog.Duration("retry_delay", retryDelay))...)
 		time.Sleep(retryDelay)
 	}
 }
@@ -168,7 +171,8 @@ func (qc *QueuedClient) MakeBroadcastRequest(ctx context.Context, req queuedprot
 
 			defer func() {
 				if reason := recover(); reason != nil {
-					mylog.LogPanic(zerolog.Ctx(ctx).Error(), reason).Uint("shard", shard).Stringer("queued", endpoint.RemoteAddr()).Msg("panic in MakeBroadcastRequest")
+					advslog.Ctx(ctx).LogAttrs(ctx, slog.LevelError, "panic in MakeBroadcastRequest",
+						append(advslog.PanicAttrs(reason), slog.Uint64("shard", uint64(shard)), slog.Any("queued", endpoint.RemoteAddr()))...)
 
 					if inProgress != nil {
 						qc.metrics.Name("tp_queued_errors").Str("queued", endpoint.RemoteAddr().String()).Str("cmd", cmd.String()).Int("queue_id", queueID).Str("err", "panic").GetOrCreateCounter().Inc()
@@ -189,7 +193,7 @@ func (qc *QueuedClient) MakeBroadcastRequest(ctx context.Context, req queuedprot
 				}
 			}()
 
-			zerolog.Ctx(ctx).Trace().Uint("shard", shard).Stringer("cmd", cmd).Interface("req", req).Msg("iproto.Call")
+			advslog.Ctx(ctx).Log(ctx, advslog.LevelTrace, "iproto.Call", "shard", shard, "cmd", cmd, "req", req)
 
 			if (qc.metrics != advmetricsset.Set{}) {
 				reqStarted = time.Now()
@@ -210,7 +214,7 @@ func (qc *QueuedClient) MakeBroadcastRequest(ctx context.Context, req queuedprot
 				return
 			}
 
-			zerolog.Ctx(ctx).Trace().Uint("shard", shard).Stringer("cmd", cmd).Bytes("resp", respBytes).Msg("iproto.Call")
+			advslog.Ctx(ctx).Log(ctx, advslog.LevelTrace, "iproto.Call", "shard", shard, "cmd", cmd, "resp", string(respBytes))
 
 			if len(respBytes) == 0 {
 				err = ErrEmptyResponse
@@ -304,7 +308,8 @@ func (qc *QueuedClient) reqMultiProcessShard(ctx context.Context, batchSize int,
 	defer func() {
 		if reason := recover(); reason != nil {
 			// XXX can't implement panic metrics without introducing unnecessary complexity, and this code is already excessively complex. don't hesitate to remove the panic metrics in MakeBroadcastRequest if they appear to be asymmetrical.
-			mylog.LogPanic(zerolog.Ctx(ctx).Error(), reason).Uint("shard", shard).Stringer("queued", endpoint.RemoteAddr()).Msg("panic in MakeMulticastRequest")
+			advslog.Ctx(ctx).LogAttrs(ctx, slog.LevelError, "panic in MakeMulticastRequest",
+				append(advslog.PanicAttrs(reason), slog.Uint64("shard", uint64(shard)), slog.Any("queued", endpoint.RemoteAddr()))...)
 
 			errChan <- fmt.Errorf("shard #%d (%s): %w", shard, endpoint.RemoteAddr().String(), ErrPanic)
 		}
@@ -344,7 +349,7 @@ func (qc *QueuedClient) reqMultiRetryLoop(ctx context.Context, shard uint, endpo
 		return nil, "Pack: ", err
 	}
 
-	zLog := zerolog.Ctx(ctx)
+	zLog := advslog.Ctx(ctx)
 	cmd := req.Cmd()
 	queueID := 0
 	retry := 0
@@ -355,13 +360,8 @@ func (qc *QueuedClient) reqMultiRetryLoop(ctx context.Context, shard uint, endpo
 	}
 
 	for {
-		zLog.Trace().
-			Uint("shard", shard). // перфекционистам - ip шарда не логгирую, т.к. это не для админов, а для разработчиков
-			Int("retry", retry).
-			Int("retry_count", retryCount).
-			Stringer("cmd", cmd).
-			Interface("req", req).
-			Msg("iproto.Call")
+		// перфекционистам - ip шарда не логгирую, т.к. это не для админов, а для разработчиков
+		zLog.Log(ctx, advslog.LevelTrace, "iproto.Call", "shard", shard, "retry", retry, "retry_count", retryCount, "cmd", cmd, "req", req)
 
 		var (
 			reqStarted time.Time
@@ -386,7 +386,7 @@ func (qc *QueuedClient) reqMultiRetryLoop(ctx context.Context, shard uint, endpo
 		if err == nil {
 			op = ""
 
-			zLog.Trace().Uint("shard", shard).Stringer("cmd", cmd).Bytes("resp", respBytes).Msg("iproto.Call")
+			zLog.Log(ctx, advslog.LevelTrace, "iproto.Call", "shard", shard, "cmd", cmd, "resp", string(respBytes))
 
 			if len(respBytes) == 0 {
 				return nil, "", ErrEmptyResponse
@@ -408,22 +408,25 @@ func (qc *QueuedClient) reqMultiRetryLoop(ctx context.Context, shard uint, endpo
 
 		retry++
 
-		zlEv := zLog.Err(err).
-			Uint("shard", shard).
-			Stringer("queued", endpoint.RemoteAddr()).
-			Int("retry", retry).
-			Int("retry_count", retryCount).
-			Stringer("cmd", cmd).
-			Interface("req", req)
+		logAttrs := make([]slog.Attr, 0, 8) // +1 под retry_delay ниже
+		logAttrs = append(logAttrs,
+			advslog.Err(err),
+			slog.Uint64("shard", uint64(shard)),
+			slog.Any("queued", endpoint.RemoteAddr()),
+			slog.Int("retry", retry),
+			slog.Int("retry_count", retryCount),
+			slog.Any("cmd", cmd),
+			slog.Any("req", req),
+		)
 
 		if retry >= retryCount {
-			zlEv.Msg("retry count exceeded")
+			zLog.LogAttrs(ctx, slog.LevelError, "retry count exceeded", logAttrs...)
 			return nil, op, err
 		}
 
 		retryDelay := qc.Config.GetDuration(ctx, ConfRetryDelay, DefaultRetryDelay)
 
-		zlEv.Dur("retry_delay", retryDelay).Msg("retry on error")
+		zLog.LogAttrs(ctx, slog.LevelError, "retry on error", append(logAttrs, slog.Duration("retry_delay", retryDelay))...)
 		time.Sleep(retryDelay)
 	}
 }

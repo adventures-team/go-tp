@@ -1,9 +1,11 @@
 package workerpool
 
 import (
+	"context"
+	"log/slog"
 	"time"
 
-	"gitlab.adv.team/go/utils.git/mylog"
+	advslog "github.com/adventures-team/go-adv-slog"
 )
 
 func (wp *WorkerPool) needShrink() bool {
@@ -23,7 +25,7 @@ func (wp *WorkerPool) workerGoroutine() {
 	defer func() {
 		// тут перехватываем только паники в коде WorkerPool - в "прикладном" коде ("работы"/очереди) должна быть отдельная обработка, с учётом семантики (логгим контекст - id очередей/событий и т.д.)
 		if reason := recover(); reason != nil {
-			mylog.LogPanic(wp.logger.Error(), reason).Msg("panic in WorkerPool")
+			wp.logger.LogAttrs(context.Background(), slog.LevelError, "panic in WorkerPool", advslog.PanicAttrs(reason)...)
 			time.Sleep(InternalPanicDelay)
 
 			go wp.workerGoroutine()

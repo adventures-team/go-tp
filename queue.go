@@ -3,13 +3,13 @@ package tp
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	"github.com/rs/zerolog"
-
 	advmetricsset "github.com/adventures-team/go-adv-metrics/set"
+	advslog "github.com/adventures-team/go-adv-slog"
 	"github.com/adventures-team/go-iproto"
 
 	"github.com/adventures-team/go-queuedproto"
@@ -46,7 +46,7 @@ type (
 		// NewPoller возвращает интерфейс для опроса событий из очереди.
 		// Вынесен для возможности внешней реализации разных стратегий опроса очереди
 		// (например, managed master).
-		NewPoller(logger *zerolog.Logger) workerpool.Poller
+		NewPoller(logger *slog.Logger) workerpool.Poller
 
 		// IsRegistered проверяет, зарегистрирована ли указанная очередь вызовом Register.
 		IsRegistered(queueID uint16) bool
@@ -338,7 +338,7 @@ func (qi *queueImpl) eventListFromItems(ctx context.Context, queueID QueueIDType
 
 	for _, item := range items.Items {
 		if len(item.Data) == 0 {
-			zerolog.Ctx(ctx).Error().Uint16("queue_id", queueID).Stringer("event_id", item.EventID).Msg("empty event received")
+			advslog.Ctx(ctx).Error("empty event received", "queue_id", queueID, "event_id", item.EventID)
 			unsupported = append(unsupported, item.EventID)
 
 			continue
@@ -348,7 +348,7 @@ func (qi *queueImpl) eventListFromItems(ctx context.Context, queueID QueueIDType
 		hInfo, ok := byVersion[version]
 
 		if !ok {
-			zerolog.Ctx(ctx).Error().Uint16("queue_id", queueID).Stringer("event_id", item.EventID).Uint8("version", version).Msg("unsupported version")
+			advslog.Ctx(ctx).Error("unsupported version", "queue_id", queueID, "event_id", item.EventID, "version", version)
 			unsupported = append(unsupported, item.EventID)
 
 			continue
@@ -365,7 +365,7 @@ func (qi *queueImpl) eventListFromItems(ctx context.Context, queueID QueueIDType
 		// [Register] ensures that the event (or a pointer to it) implements [iproto.Unmarshaler]
 		decodeTo, ok := evPtr.(iproto.Unmarshaler)
 		if !ok {
-			zerolog.Ctx(ctx).Error().Msgf("type %T doesn't implement iproto.Unmarshaler (pointer receiver is required)", evPtr)
+			advslog.Ctx(ctx).Error("type doesn't implement iproto.Unmarshaler (pointer receiver is required)", "type", fmt.Sprintf("%T", evPtr))
 
 			unsupported = append(unsupported, item.EventID)
 
@@ -374,7 +374,7 @@ func (qi *queueImpl) eventListFromItems(ctx context.Context, queueID QueueIDType
 
 		getBaseEv, ok := evPtr.(baseEventGetter)
 		if !ok {
-			zerolog.Ctx(ctx).Error().Stringer("event_id", item.EventID).Msgf("internal error: boundPtr returned non-pointer: %T", evPtr)
+			advslog.Ctx(ctx).Error("internal error: boundPtr returned non-pointer", "type", fmt.Sprintf("%T", evPtr), "event_id", item.EventID)
 			unsupported = append(unsupported, item.EventID)
 
 			continue
@@ -383,7 +383,7 @@ func (qi *queueImpl) eventListFromItems(ctx context.Context, queueID QueueIDType
 		baseEvent := getBaseEv.getBaseEvent()
 
 		if err := encodings.Decode(hInfo.format, item.Data, decodeTo); err != nil {
-			zerolog.Ctx(ctx).Err(err).Uint16("queue_id", queueID).Stringer("event_id", item.EventID).Uint8("version", version).Send()
+			advslog.Ctx(ctx).Error("event decode error", advslog.Err(err), "queue_id", queueID, "event_id", item.EventID, "version", version)
 			unsupported = append(unsupported, item.EventID)
 
 			continue
@@ -395,7 +395,7 @@ func (qi *queueImpl) eventListFromItems(ctx context.Context, queueID QueueIDType
 
 		if unpacker, ok := evPtr.(Unpacker); ok {
 			if err := unpacker.Unpack(); err != nil {
-				zerolog.Ctx(ctx).Err(err).Uint16("queue_id", queueID).Stringer("event_id", item.EventID).Uint8("version", version).Msg("Unpack() error")
+				advslog.Ctx(ctx).Error("Unpack() error", advslog.Err(err), "queue_id", queueID, "event_id", item.EventID, "version", version)
 				unsupported = append(unsupported, item.EventID)
 
 				continue
@@ -408,7 +408,7 @@ func (qi *queueImpl) eventListFromItems(ctx context.Context, queueID QueueIDType
 
 	if len(unsupported) != 0 {
 		if err := qi.client.Defer(ctx, queueID, 0, unsupported); err != nil {
-			zerolog.Ctx(ctx).Err(err).Uint16("queue_id", queueID).Interface("event_ids", unsupported).Msg("failed to defer items")
+			advslog.Ctx(ctx).Error("failed to defer items", advslog.Err(err), "queue_id", queueID, "event_ids", unsupported)
 		}
 	}
 

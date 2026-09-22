@@ -3,19 +3,19 @@ package main
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
 
-	"github.com/rs/zerolog"
-	zlog "github.com/rs/zerolog/log"
+	advslog "github.com/adventures-team/go-adv-slog"
 
 	"gitlab.adv.team/go/tp.git"
 )
 
 func (*Service) Handle(ctx context.Context, events []SimpleEvent) error {
 	for _, ev := range events {
-		zerolog.Ctx(ctx).Info().Uint32("user_id", ev.UserID).Str("user_name", ev.UserName).Msg("SimpleEvent received")
+		advslog.Ctx(ctx).Info("SimpleEvent received", "user_id", ev.UserID, "user_name", ev.UserName)
 		ev.Done()
 
 		if !ev.Queue().Client().IsOnline() {
@@ -30,7 +30,7 @@ func startHandler(svc *Service) {
 	qm := tp.InitProcessor(getConfig(), tp.WithInstanceName("test-instance"))
 
 	if err := tp.Register(qm.Queue, svc.Handle); err != nil {
-		zlog.Fatal().Err(err).Msg("error registering queue")
+		advslog.Fatal("error registering queue", advslog.Err(err))
 	}
 
 	sigc := make(chan os.Signal, 1)
@@ -38,7 +38,7 @@ func startHandler(svc *Service) {
 
 	go func() {
 		sig := <-sigc
-		zlog.Info().Stringer("signal", sig).Msg("exiting on signal")
+		slog.Info("exiting on signal", "signal", sig.String())
 		qm.Stop()
 	}()
 

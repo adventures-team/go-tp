@@ -2,12 +2,12 @@ package managedmaster
 
 import (
 	"errors"
+	"log/slog"
 	"os"
 	"testing"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/rs/zerolog"
 	"go.uber.org/mock/gomock"
 
 	"gitlab.adv.team/go/tp.git"
@@ -35,7 +35,7 @@ func TestAssignSlot(t *testing.T) {
 			queue:     q,
 			pool:      p,
 			poller:    nil,
-			logger:    &zerolog.Logger{},
+			logger:    slog.New(slog.DiscardHandler),
 			slotStats: slotStats,
 		}
 
@@ -68,7 +68,7 @@ func TestAssignSlot(t *testing.T) {
 			queue:     q,
 			pool:      p,
 			poller:    nil,
-			logger:    &zerolog.Logger{},
+			logger:    slog.New(slog.DiscardHandler),
 			slotStats: slotStats,
 		}
 
@@ -96,7 +96,7 @@ func TestAssignSlot(t *testing.T) {
 			queue:     q,
 			pool:      p,
 			poller:    nil,
-			logger:    &zerolog.Logger{},
+			logger:    slog.New(slog.DiscardHandler),
 			slotStats: slotStats,
 		}
 
@@ -135,7 +135,7 @@ func TestAssignSlot(t *testing.T) {
 			queue:     q,
 			pool:      p,
 			poller:    nil,
-			logger:    &zerolog.Logger{},
+			logger:    slog.New(slog.DiscardHandler),
 			slotStats: slotStats,
 		}
 
@@ -163,7 +163,7 @@ func TestAssignSlot(t *testing.T) {
 			queue:     q,
 			pool:      p,
 			poller:    nil,
-			logger:    &zerolog.Logger{},
+			logger:    slog.New(slog.DiscardHandler),
 			slotStats: slotStats,
 		}
 
@@ -192,7 +192,7 @@ func TestWork(t *testing.T) {
 
 		pool.EXPECT().SlotStates().Return(nil)
 
-		mm := NewManagedMaster(q, pool, poller, &zerolog.Logger{})
+		mm := NewManagedMaster(q, pool, poller, slog.New(slog.DiscardHandler))
 
 		poller.EXPECT().Poll(uint16(queueID)).Return(worker)
 		worker.EXPECT().Work()
@@ -212,7 +212,7 @@ func TestWork(t *testing.T) {
 		slotID := uint32(0)
 
 		pool.EXPECT().SlotStates().Return(nil)
-		mm := NewManagedMaster(q, pool, poller, &zerolog.Logger{})
+		mm := NewManagedMaster(q, pool, poller, slog.New(slog.DiscardHandler))
 
 		poller.EXPECT().Poll(uint16(queueID)).Return(nil)
 
@@ -298,7 +298,7 @@ func TestStats(t *testing.T) {
 		pool := mockslotpool.NewMockPool(ctrl)
 
 		pool.EXPECT().SlotStates().MaxTimes(2).Return(nil)
-		mm := NewManagedMaster(nil, pool, nil, &zerolog.Logger{})
+		mm := NewManagedMaster(nil, pool, nil, slog.New(slog.DiscardHandler))
 
 		now := uint32(time.Now().Unix())
 		want := qmclient.StatsData{
@@ -329,7 +329,7 @@ func TestStats(t *testing.T) {
 		}
 
 		pool.EXPECT().SlotStates().MaxTimes(2).Return([]slotpool.SlotState{slot})
-		mm := NewManagedMaster(nil, pool, nil, &zerolog.Logger{})
+		mm := NewManagedMaster(nil, pool, nil, slog.New(slog.DiscardHandler))
 
 		now := uint32(time.Now().Unix())
 		want := qmclient.StatsData{
@@ -392,7 +392,7 @@ func TestStats(t *testing.T) {
 
 		mm := ManagedMaster{
 			pool:      pool,
-			logger:    &zerolog.Logger{},
+			logger:    slog.New(slog.DiscardHandler),
 			startedAt: uint32(time.Now().Unix()),
 			pid:       uint32(os.Getpid()),
 			slotStats: slotStats,
@@ -482,7 +482,7 @@ func TestStats(t *testing.T) {
 
 		mm := ManagedMaster{
 			pool:      pool,
-			logger:    &zerolog.Logger{},
+			logger:    slog.New(slog.DiscardHandler),
 			startedAt: now,
 			pid:       pid,
 			slotStats: slotStats,
@@ -546,7 +546,7 @@ func TestStats(t *testing.T) {
 		}
 
 		pool.EXPECT().SlotStates().MaxTimes(2).Return([]slotpool.SlotState{slot})
-		mm := NewManagedMaster(nil, pool, nil, &zerolog.Logger{})
+		mm := NewManagedMaster(nil, pool, nil, slog.New(slog.DiscardHandler))
 		mm.statSentAt = now - 1000
 
 		stat := mm.Stats()
@@ -605,7 +605,7 @@ func TestStats(t *testing.T) {
 
 		mm := ManagedMaster{
 			pool:      pool,
-			logger:    &zerolog.Logger{},
+			logger:    slog.New(slog.DiscardHandler),
 			startedAt: now,
 			pid:       pid,
 			slotStats: slotStats,

@@ -6,3 +6,20 @@ tp:
     workers: 5
     queue_ids: 1122,1123
     initial_delay: 5s
+    # пер-пакетные уровни логгирования (advslog.WithLevelConfig, см. tp.WithLogLevelConfig).
+    # Ключи "": [...] - это child lists ("<path>/" со списком детей): без них advslog
+    # не найдёт оверрайды и не подпишется на изменения поддерева.
+    # NB: ключа log/level нет намеренно: глобальным уровнем владеет параметр log_level (applyConfig),
+    # а это поддерево задаёт только пер-пакетные оверрайды - при наличии log/level за глобальный
+    # уровень конкурировали бы два писателя.
+    log:
+      "": ["gitlab.adv.team"]
+      gitlab.adv.team:
+        "": ["go"]
+        go:
+          "": ["tp.git"]
+          tp.git:
+            "": ["test"]
+            test:
+              "": ["level"]
+              level: error

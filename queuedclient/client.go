@@ -8,8 +8,8 @@ import (
 	advmetricsset "github.com/adventures-team/go-adv-metrics/set"
 
 	easygo "gitlab.adv.team/go/easygo.git/iproto"
+	"gitlab.adv.team/go/tp.git/internal/iprotolog"
 	"gitlab.adv.team/go/tp.git/queueconfig"
-	"gitlab.adv.team/go/utils.git/mylog"
 )
 
 const (
@@ -89,7 +89,7 @@ func Dial(ctx context.Context, conf *queueconfig.Config) (*QueuedClient, error) 
 			continue
 		}
 
-		logAdapter := mylog.IprotoLogger{}
+		logAdapter := iprotolog.Logger{}
 
 		endpoint, err := easygo.Dial(ctx, "tcp", server, &easygo.PoolConfig{
 			Size:              1,

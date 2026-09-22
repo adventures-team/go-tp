@@ -3,7 +3,7 @@ package queueconfig
 import (
 	"context"
 
-	"gitlab.adv.team/go/utils.git/mylog"
+	advslog "github.com/adventures-team/go-adv-slog"
 )
 
 // ClearErrCache очищает кеш ошибочных путей. Вызывать при перезагрузке конфига.
@@ -30,5 +30,5 @@ func (c *Config) logError(ctx context.Context, err error, dfl any, msg string) {
 		}
 	}
 
-	mylog.Ctx(ctx).Err(err).Msg(msg)
+	advslog.Ctx(ctx).Error(msg, advslog.Err(err))
 }

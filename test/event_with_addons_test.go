@@ -5,8 +5,7 @@ package tptest
 import (
 	"context"
 
-	"github.com/rs/zerolog"
-
+	advslog "github.com/adventures-team/go-adv-slog"
 	"github.com/adventures-team/go-queuedproto/addons"
 
 	"gitlab.adv.team/go/tp.git"
@@ -90,10 +89,10 @@ func (*eventWithAddonsV2) IgnoreDuplicateItems() bool {
 }
 
 func (svc testService) HandleEventWithAddons(ctx context.Context, events []eventWithAddons) error {
-	zerolog.Ctx(ctx).Info().Int("batch_len", len(events)).Msg("[]eventWithAddons")
+	advslog.Ctx(ctx).Info("[]eventWithAddons", "batch_len", len(events))
 
 	for _, ev := range events {
-		zerolog.Ctx(ctx).Info().Interface("event", ev).Send()
+		advslog.Ctx(ctx).Info("event", "event", ev)
 		ev.Done()
 		svc.Counter.Done()
 	}
@@ -103,10 +102,10 @@ func (svc testService) HandleEventWithAddons(ctx context.Context, events []event
 
 // не выпиливать ) тест на перемешанные события разных версий
 func (svc testService) HandleEventWithAddonsV2(ctx context.Context, events []eventWithAddonsV2) error {
-	zerolog.Ctx(ctx).Info().Int("batch_len", len(events)).Msg("[]eventWithAddonsV2")
+	advslog.Ctx(ctx).Info("[]eventWithAddonsV2", "batch_len", len(events))
 
 	for _, ev := range events {
-		zerolog.Ctx(ctx).Info().Interface("event", ev).Send()
+		advslog.Ctx(ctx).Info("event", "event", ev)
 		ev.Done()
 		svc.Counter.Done()
 	}

@@ -19,7 +19,8 @@ soft OOM, при превышении которого происходит ум
 * **$ProjectRoot/queueds/main/timeout** - таймаут соединения в секундах (default: 2)
 
 `$ProjectRoot/tp/go` - глобальные настройки, могут быть переопределены per instance.
-* **log_level**: уровень логгирования (zerolog.ParseLevel)
+* **log_level**: уровень логгирования (advslog.ParseLevel; поддерживаются имена уровней zerolog)
+* **log**: (опционально) поддерево пер-пакетных уровней логгирования, подключается опцией `tp.WithLogLevelConfig(module.Subtree("/tp/go/log"))`. Оверрайд для пакета - ключ `log/<import-path>/level`, например `log/github.com/adventures-team/go-iprotoconn/level = debug` задаёт уровень логгирования iproto-транспорта отдельно от прикладных уровней. Поддерево должно раздаваться с child lists (ключи `<path>/` со списками детей - пример в build/local/config.yaml); ключ `log/level` создавать **нельзя** - глобальным уровнем владеет **log_level**. Опция действует только без `tp.WithLogger` и должна попасть в первый вызов advslog.Init процесса.
 * **oom_soft_limit**: размер инстанса в памяти (runtime.MemStats.Sys), по достижении которого начинается уменьшение кол-ва обработчиков (размер парзится при помощи https://pkg.go.dev/kythe.io/kythe/go/util/datasize#Parse)
 * **oom_soft_downscale_rate**: коэффициент уменьшения кол-ва обработчиков всех очередей при достижении размера **soft_oom**, минимальное кол-во обработчиков - 1 (default: 0.5)
 * **oom_hard_limit**: размер инстанса в памяти, при достижении которого прекращается обработка новых событий, и процесс выходит.

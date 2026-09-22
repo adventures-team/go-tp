@@ -6,6 +6,8 @@ import (
 	"context"
 	"testing"
 
+	advslog "github.com/adventures-team/go-adv-slog"
+
 	// TODO: switch to the standard library uuid package once Go 1.27 reaches
 	// a stable patch release (1.27.1/1.27.2), then drop github.com/gofrs/uuid.
 	"github.com/gofrs/uuid"
@@ -14,13 +16,12 @@ import (
 
 	"gitlab.adv.team/go/tp.git"
 	"gitlab.adv.team/go/tp.git/queueconfig"
-	"gitlab.adv.team/go/utils.git/mylog"
 )
 
 func TestNoHandler(t *testing.T) {
 	// по сути, тест просто на то, что Register/Publish нормально переваривают NoHandler. логика не тестируется ввиду её отсутствия :))
-	logger := mylog.InitTestZerolog(t)
-	ctx := logger.WithContext(context.Background())
+	logger := advslog.InitTest(t)
+	ctx := advslog.NewContext(context.Background(), logger)
 
 	conf := newMockConf(t, testNoHandlerQueueID)
 	queueConf := queueconfig.New(conf, testInstanceName)
@@ -40,7 +41,7 @@ func TestNoHandler(t *testing.T) {
 		t.Fatal("Publish:", err)
 	}
 
-	logger.Info().Stringer("event_id", eventID).Msg("Publish OK, deleting event")
+	logger.Info("Publish OK, deleting event", "event_id", eventID)
 
 	if err = queue.Client().Delete(ctx, testNoHandlerQueueID, []queuedproto.EventID{eventID}); err != nil {
 		t.Fatal("Delete:", err)

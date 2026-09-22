@@ -10,12 +10,12 @@ Package workerpool - абстрактный пул воркеров.
 package workerpool
 
 import (
+	"log/slog"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	advmetricsset "github.com/adventures-team/go-adv-metrics/set"
-	"github.com/rs/zerolog"
 )
 
 const (
@@ -95,7 +95,7 @@ type (
 	WorkerPool struct {
 		Poller  Poller // TODO зачем оно публичное? чтобы поменяли неатомарно снаружи?
 		metrics advmetricsset.Set
-		logger  *zerolog.Logger
+		logger  *slog.Logger
 
 		lock               sync.Mutex // под локом: goroutinesRunning и goroutinesRequired
 		goroutinesRunning  int        // общее кол-во горутин всех воркеров
@@ -117,7 +117,7 @@ type (
 )
 
 // New создаёт новый пул воркеров
-func New(poller Poller, logger *zerolog.Logger) *WorkerPool {
+func New(poller Poller, logger *slog.Logger) *WorkerPool {
 	wp := &WorkerPool{
 		Poller:             poller,
 		logger:             logger,
