@@ -5,11 +5,11 @@ import (
 	"net"
 	"time"
 
-	"github.com/rs/zerolog/log"
+	advslog "github.com/adventures-team/go-adv-slog"
 
 	easygo "gitlab.adv.team/go/easygo.git/iproto"
 	"gitlab.adv.team/go/tp.git/internal"
-	"gitlab.adv.team/go/utils.git/mylog"
+	"gitlab.adv.team/go/tp.git/internal/iprotolog"
 )
 
 const (
@@ -126,7 +126,7 @@ func NewClient(endpoint string, assignSlot func(slotID, queueID uint32) error, s
 }
 
 func (c *Client) Run(ctx context.Context) {
-	logAdapter := mylog.IprotoLogger{}
+	logAdapter := iprotolog.Logger{}
 
 	pool, err := easygo.Dial(ctx, "tcp", c.endpoint, &easygo.PoolConfig{
 		Size:              1,
@@ -144,7 +144,7 @@ func (c *Client) Run(ctx context.Context) {
 		},
 	})
 	if err != nil {
-		log.Fatal().Err(err).Send()
+		advslog.FatalContext(ctx, "qmclient: iproto dial", advslog.Err(err))
 	}
 
 	<-ctx.Done()
@@ -152,7 +152,7 @@ func (c *Client) Run(ctx context.Context) {
 }
 
 func (c *Client) ServeIProto(ctx context.Context, conn easygo.Conn, packet easygo.Packet) {
-	log.Debug().Uint32("msg", packet.Header.Msg).Msg("command received")
+	advslog.Ctx(ctx).Debug("command received", "msg", packet.Header.Msg)
 
 	switch packet.Header.Msg {
 	case cmdStat:
@@ -164,7 +164,7 @@ func (c *Client) ServeIProto(ctx context.Context, conn easygo.Conn, packet easyg
 
 		data, err := response.MarshalIProto(internal.AllocBytes())
 		if err != nil {
-			log.Error().Err(err).Send()
+			advslog.Ctx(ctx).Error("marshal stats response", advslog.Err(err))
 			break
 		}
 
@@ -177,14 +177,14 @@ func (c *Client) ServeIProto(ctx context.Context, conn easygo.Conn, packet easyg
 			Data: data,
 		})
 		if err != nil {
-			log.Error().Err(err).Send()
+			advslog.Ctx(ctx).Error("send stats response", advslog.Err(err))
 		}
 	case cmdSetQueue:
 		var req SetQueueRequest
 
 		_, err := req.UnmarshalIProto(packet.Data)
 		if err != nil {
-			log.Error().Err(err).Send()
+			advslog.Ctx(ctx).Error("unmarshal set-queue request", advslog.Err(err))
 			break // TODO AnswerFail should be sent
 		}
 
@@ -208,7 +208,7 @@ func (c *Client) ServeIProto(ctx context.Context, conn easygo.Conn, packet easyg
 			},
 		}.MarshalIProto(internal.AllocBytes())
 		if err != nil {
-			log.Error().Err(err).Send()
+			advslog.Ctx(ctx).Error("marshal set-queue response", advslog.Err(err))
 			break
 		}
 
@@ -221,9 +221,9 @@ func (c *Client) ServeIProto(ctx context.Context, conn easygo.Conn, packet easyg
 			Data: data,
 		})
 		if err != nil {
-			log.Error().Err(err).Send()
+			advslog.Ctx(ctx).Error("send set-queue response", advslog.Err(err))
 		}
 	default:
-		log.Error().Msgf("unexpected msg: %d", packet.Header.Msg)
+		advslog.Ctx(ctx).Error("unexpected msg", "msg", packet.Header.Msg)
 	}
 }

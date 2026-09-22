@@ -3,8 +3,7 @@ package queueconfig
 import (
 	"errors"
 	"fmt"
-
-	"github.com/rs/zerolog"
+	"log/slog"
 )
 
 const separator = ": "
@@ -20,7 +19,8 @@ var (
 // ConfError - тип для ошибок, который можно как вернуть юзеру - так и эффективно записать в лог.
 // Преобразование в строку делается, только если это потребовано явно (вызовом метода Error), а не по факту возврата ошибки (как это обычно принято).
 //
-// При выводе в zerolog методом Err, поля будут напечатаны отдельно (без преобразование в одну строку методом Error).
+// При выводе в slog (например, через [advslog.Err]) поля будут напечатаны отдельной группой
+// (без преобразования в одну строку методом Error) - см. метод LogValue.
 type ConfError struct {
 	Path       string // Путь к неправильному значению
 	Value      string // Ошибочное значение. Если параметр не найден - пустое
@@ -43,8 +43,8 @@ func isNotFound(err error) bool {
 }
 
 var (
-	_ error                      = &ConfError{}
-	_ zerolog.LogObjectMarshaler = &ConfError{}
+	_ error          = &ConfError{}
+	_ slog.LogValuer = &ConfError{}
 )
 
 // Unwrap возвращает Err для работы с errors.Is и т.д.
@@ -67,8 +67,8 @@ func (ce *ConfError) Error() string {
 	return ce.Path + separator + val + ce.Err.Error()
 }
 
-// MarshalZerologObject печатает ошибку в лог.
-// Используется при печати ошибки методами zerolog.Event.Object и zerolog.Event.Err.
+// LogValue печатает ошибку в лог структурно (группой полей вместо одной строки).
+// Используется slog-хендлерами при выводе ошибки как значения атрибута (например, через [advslog.Err]).
 //
 // Поля:
 //
@@ -76,18 +76,21 @@ func (ce *ConfError) Error() string {
 //	err_value: если путь найден - ошибочное значение
 //	err:       ошибка ("path not found", если путь не найден, либо ошибка парзинга)
 //	default:   если есть значение по умолчанию
-func (ce *ConfError) MarshalZerologObject(ev *zerolog.Event) {
-	ev = ev.Str("conf_path", ce.Path)
+func (ce *ConfError) LogValue() slog.Value {
+	attrs := make([]slog.Attr, 0, 4)
+	attrs = append(attrs, slog.String("conf_path", ce.Path))
 
 	if !ce.isNotFound {
-		ev = ev.Str("err_value", ce.Value)
+		attrs = append(attrs, slog.String("err_value", ce.Value))
 	}
 
-	ev = ev.Err(ce.Err)
+	attrs = append(attrs, slog.String("err", ce.Err.Error()))
 
 	if ce.Default != nil {
-		ev.Interface("default", ce.Default)
+		attrs = append(attrs, slog.Any("default", ce.Default))
 	}
+
+	return slog.GroupValue(attrs...)
 }
 
 /* см. комменты в getStringPerQueue и getIntPerQueue, выпилить, если не пригодится.

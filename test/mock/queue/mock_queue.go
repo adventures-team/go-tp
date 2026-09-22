@@ -11,11 +11,11 @@ package mockqueue
 
 import (
 	context "context"
+	slog "log/slog"
 	reflect "reflect"
 
 	advmetricsset "github.com/adventures-team/go-adv-metrics/set"
 	queuedproto "github.com/adventures-team/go-queuedproto"
-	zerolog "github.com/rs/zerolog"
 	gomock "go.uber.org/mock/gomock"
 
 	tp "gitlab.adv.team/go/tp.git"
@@ -201,7 +201,7 @@ func (c *MockQueueMetricsSetCall) DoAndReturn(f func() advmetricsset.Set) *MockQ
 }
 
 // NewPoller mocks base method.
-func (m *MockQueue) NewPoller(logger *zerolog.Logger) workerpool.Poller {
+func (m *MockQueue) NewPoller(logger *slog.Logger) workerpool.Poller {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NewPoller", logger)
 	ret0, _ := ret[0].(workerpool.Poller)
@@ -227,13 +227,13 @@ func (c *MockQueueNewPollerCall) Return(arg0 workerpool.Poller) *MockQueueNewPol
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockQueueNewPollerCall) Do(f func(*zerolog.Logger) workerpool.Poller) *MockQueueNewPollerCall {
+func (c *MockQueueNewPollerCall) Do(f func(*slog.Logger) workerpool.Poller) *MockQueueNewPollerCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockQueueNewPollerCall) DoAndReturn(f func(*zerolog.Logger) workerpool.Poller) *MockQueueNewPollerCall {
+func (c *MockQueueNewPollerCall) DoAndReturn(f func(*slog.Logger) workerpool.Poller) *MockQueueNewPollerCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

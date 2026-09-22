@@ -4,22 +4,22 @@ package tptest
 
 import (
 	"context"
-	"path/filepath"
 	"testing"
+
+	advslog "github.com/adventures-team/go-adv-slog"
 
 	"github.com/onlineconf/onlineconf-go/v2"
 
 	"gitlab.adv.team/go/tp.git"
 	"gitlab.adv.team/go/tp.git/queueconfig"
 	"gitlab.adv.team/go/tp.git/workerpool"
-	"gitlab.adv.team/go/utils.git/mylog"
 )
 
 func TestQueueWorker(t *testing.T) {
-	logger := mylog.InitTestZerolog(t)
-	ctx := logger.WithContext(context.Background())
+	logger := advslog.InitTest(t)
+	ctx := advslog.NewContext(context.Background(), logger)
 
-	conf, err := onlineconf.OpenSubtree(filepath.Join(ConfigDir(), "TREE.cdb"), testConfPrefix)
+	conf, err := onlineconf.OpenSubtree(testCDB(t), testConfPrefix)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -63,14 +63,14 @@ func TestQueueWorker(t *testing.T) {
 		t.Fatalf("Publish(%v) failed: %v", ev, err)
 	}
 
-	logger.Info().Msgf("event_id=%v published", eventID)
+	logger.Info("event published", "event_id", eventID)
 
 	eventID, err = queue.Publish(ctx, ev)
 	if err != nil {
 		t.Fatalf("Publish(%v) failed with IgnoreDuplicateItems set: %v", ev, err)
 	}
 
-	logger.Info().Msgf("event_id=%v published (duplicate)", eventID)
+	logger.Info("event published (duplicate)", "event_id", eventID)
 
 	for i := 0; i < 7; i++ {
 		cnt.Add(2)
@@ -83,14 +83,14 @@ func TestQueueWorker(t *testing.T) {
 			t.Fatalf("Publish(%v) failed set: %v", ev, err)
 		}
 
-		logger.Info().Msgf("event_id=%v published", eventID)
+		logger.Info("event published", "event_id", eventID)
 
 		eventID, err = queue.Publish(ctx, evV2)
 		if err != nil {
 			t.Fatalf("Publish(%v) failed set: %v", ev, err)
 		}
 
-		logger.Info().Msgf("V2 event_id=%v published", eventID)
+		logger.Info("V2 event published", "event_id", eventID)
 
 		evV2.TrackID++
 		evV2.ExternalID++

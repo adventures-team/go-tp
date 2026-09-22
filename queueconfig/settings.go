@@ -3,11 +3,12 @@ package queueconfig
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"math/rand"
 	"strconv"
 	"time"
 
-	"github.com/rs/zerolog"
+	advslog "github.com/adventures-team/go-adv-slog"
 )
 
 // global/per instance
@@ -139,7 +140,7 @@ func (c *Config) QueueIDs() ([]uint16, error) {
 }
 
 // LogLevel получает log_level. По умолчанию: DefaultLogLevel.
-func (c *Config) LogLevel(ctx context.Context) zerolog.Level {
+func (c *Config) LogLevel(ctx context.Context) slog.Level {
 	str, err := c.getStringPerInstance("/log_level")
 	if err != nil {
 		c.logError(ctx, err, DefaultLogLevel, "using the default")
@@ -147,7 +148,7 @@ func (c *Config) LogLevel(ctx context.Context) zerolog.Level {
 		return DefaultLogLevel
 	}
 
-	level, err := zerolog.ParseLevel(str)
+	level, err := advslog.ParseLevel(str)
 	if err != nil {
 		level = DefaultLogLevel
 		err = &ConfError{

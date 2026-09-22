@@ -3,12 +3,12 @@ package queueconfig
 import (
 	"time"
 
-	"github.com/rs/zerolog"
+	advslog "github.com/adventures-team/go-adv-slog"
 )
 
 // Дефолты для некоторых значений. Используются, если значение не задано в конфиге нигде (ни для очереди, ни для инстанса, ни глобально).
 const (
-	DefaultLogLevel        = zerolog.TraceLevel // default for log_level
+	DefaultLogLevel        = advslog.LevelTrace // default for log_level
 	DefaultDownscaleRate   = 0.5                // default for oom_soft_downscale_rate
 	DefaultOOMCheckPeriod  = 1 * time.Minute    // default for oom_check_period
 	DefaultDeferTime       = 5 * time.Minute    // default for defer_time

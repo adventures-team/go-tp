@@ -3,14 +3,13 @@ package tp
 import (
 	"context"
 	"flag"
-
-	"github.com/rs/zerolog"
+	"log/slog"
 
 	advmetricsset "github.com/adventures-team/go-adv-metrics/set"
+	advslog "github.com/adventures-team/go-adv-slog"
 
 	"gitlab.adv.team/go/tp.git/queueconfig"
 	"gitlab.adv.team/go/tp.git/workerpool"
-	"gitlab.adv.team/go/utils.git/mylog"
 )
 
 // DefaultProducerInstance - имя инстанса в онлайнконфе по умолчанию для продюсеров (веб-сервисы, и т.д.)
@@ -18,12 +17,13 @@ const DefaultProducerInstance = "producer"
 
 // InitOptions - тип напрямую использовать не надо. Не сделан приватным для упрощения написания тестов.
 type InitOptions struct {
-	instanceName string
-	logger       *zerolog.Logger
-	metrics      advmetricsset.Set
+	instanceName   string
+	logger         *slog.Logger
+	metrics        advmetricsset.Set
+	logLevelConfig advslog.LevelConfig
 }
 
-// InitOption - [WithInstanceName], [WithLogger]
+// InitOption - [WithInstanceName], [WithLogger], [WithMetrics], [WithLogLevelConfig]
 type InitOption func(*InitOptions)
 
 // WithInstanceName устанавливает имя инстанса.
@@ -37,8 +37,8 @@ func WithInstanceName(instanceName string) InitOption {
 
 // WithLogger устанавливает логгер.
 //
-// По умолчанию, вызывается [mylog.InitZerolog].
-func WithLogger(logger *zerolog.Logger) InitOption {
+// По умолчанию, вызывается [advslog.Init].
+func WithLogger(logger *slog.Logger) InitOption {
 	return func(opt *InitOptions) {
 		opt.logger = logger
 	}
@@ -49,6 +49,38 @@ func WithMetrics(ms advmetricsset.Set) InitOption {
 	return func(opt *InitOptions) {
 		opt.metrics = ms
 	}
+}
+
+// WithLogLevelConfig включает пер-пакетные уровни логгирования из указанного
+// поддерева онлайнконфа ([advslog.WithLevelConfig]) - например,
+// module.Subtree("/tp/go/log"). Оверрайд для пакета задаётся ключом
+// "<root>/<import-path>/level", в частности "/tp/go/log/github.com/adventures-team/go-iprotoconn/level"
+// задаёт уровень логгирования iproto-транспорта независимо от прикладных уровней.
+//
+// Правила использования:
+//   - НЕ создавайте ключ "<root>/level": глобальным уровнем владеет параметр
+//     log_level (применяется из applyConfig) - иначе за глобальный уровень
+//     начнут конкурировать два писателя;
+//   - поддерево должно раздаваться с child lists (ключи "<path>/" со списками
+//     детей) - без них advslog не найдёт оверрайды и не подпишется на изменения;
+//   - опция действует, только когда tp сам строит логгер по умолчанию: вместе
+//     с [WithLogger] она игнорируется (владелец логгера сам решает, как его собрать);
+//   - [advslog.Init] выполняется один раз на процесс: если приложение уже
+//     вызывало его без опций, поднастройка не применится - опция должна попасть
+//     в самый первый Init.
+func WithLogLevelConfig(lc advslog.LevelConfig) InitOption {
+	return func(opt *InitOptions) {
+		opt.logLevelConfig = lc
+	}
+}
+
+// advslogOpts возвращает опции для [advslog.Init] согласно InitOptions.
+func (opt *InitOptions) advslogOpts() []advslog.Option {
+	if opt.logLevelConfig == nil {
+		return nil
+	}
+
+	return []advslog.Option{advslog.WithLevelConfig(opt.logLevelConfig)}
 }
 
 // InitProcessor - инициализация типового обработчика очередей. Простейший случай:
@@ -69,9 +101,9 @@ func WithMetrics(ms advmetricsset.Set) InitOption {
 //
 // Опции:
 //   - [WithInstanceName] - по умолчанию - читается параметр командной строки -instance (flag.Parse() из main() в этом случае вызывать до вызова InitProcessor не следует).
-//   - [WithLogger] - если не указано явно, инициализируется при помощи [mylog.InitZerolog].
+//   - [WithLogger] - если не указано явно, инициализируется при помощи [advslog.Init].
 //
-// В случае ошибки инициализации происходит выход ([zerolog.Logger.Fatal]). Предполагается вызов из функции main.
+// В случае ошибки инициализации происходит выход с логгированием на уровне FATAL. Предполагается вызов из функции main.
 func InitProcessor[T queueconfig.OnlineConf](conf queueconfig.OnlineConfWithSubtree[T], opts ...InitOption) *StandaloneMaster {
 	var opt InitOptions
 
@@ -80,7 +112,7 @@ func InitProcessor[T queueconfig.OnlineConf](conf queueconfig.OnlineConfWithSubt
 	}
 
 	if opt.logger == nil {
-		opt.logger = mylog.InitZerolog()
+		opt.logger = advslog.Init(opt.advslogOpts()...)
 	}
 
 	if opt.instanceName == "" {
@@ -89,27 +121,28 @@ func InitProcessor[T queueconfig.OnlineConf](conf queueconfig.OnlineConfWithSubt
 		flag.Parse() //nolint:revive
 
 		if *instanceParam == "" {
-			opt.logger.Fatal().Msg("-instance parameter is required when Config.InstanceName is not set")
+			advslog.FatalContext(advslog.NewContext(context.Background(), opt.logger),
+				"-instance parameter is required when Config.InstanceName is not set")
 		}
 
 		opt.instanceName = *instanceParam
 	}
 
-	instanceLogger := opt.logger.With().Str("instance", opt.instanceName).Logger()
-	ctx := instanceLogger.WithContext(context.Background())
+	instanceLogger := opt.logger.With("instance", opt.instanceName)
+	ctx := advslog.NewContext(context.Background(), instanceLogger)
 
 	queue, err := NewQueue(ctx, queueconfig.New(conf, opt.instanceName))
 	if err != nil {
-		instanceLogger.Fatal().Err(err).Msg("error initializing queue processor")
+		advslog.FatalContext(ctx, "error initializing queue processor", advslog.Err(err))
 	}
 
-	pool := workerpool.New(queue.NewPoller(&instanceLogger), &instanceLogger)
+	pool := workerpool.New(queue.NewPoller(instanceLogger), instanceLogger)
 
 	queue.SetMetricsSet(opt.metrics)
 	pool.SetMetricsSet(opt.metrics)
-	instanceLogger.Info().Msg("queue processor started")
+	instanceLogger.Info("queue processor started")
 
-	return NewStandaloneManager(queue, pool, &instanceLogger)
+	return NewStandaloneManager(queue, pool, instanceLogger)
 }
 
 // InitProducer - инициализация типового продюсера (веб-сервис, и т.д.):
@@ -147,9 +180,9 @@ func InitProcessor[T queueconfig.OnlineConf](conf queueconfig.OnlineConfWithSubt
 //
 // Опции:
 //   - [WithInstanceName] - по умолчанию, `producer`
-//   - [WithLogger] - если не указано явно, инициализируется при помощи [mylog.InitZerolog].
+//   - [WithLogger] - если не указано явно, инициализируется при помощи [advslog.Init].
 //
-// В случае ошибки инициализации происходит выход ([zerolog.Logger.Fatal]). Предполагается вызов из функции main.
+// В случае ошибки инициализации происходит выход с логгированием на уровне FATAL. Предполагается вызов из функции main.
 func InitProducer[T queueconfig.OnlineConf](conf queueconfig.OnlineConfWithSubtree[T], opts ...InitOption) Queue {
 	opt := InitOptions{
 		instanceName: DefaultProducerInstance,
@@ -160,14 +193,14 @@ func InitProducer[T queueconfig.OnlineConf](conf queueconfig.OnlineConfWithSubtr
 	}
 
 	if opt.logger == nil {
-		opt.logger = mylog.InitZerolog()
+		opt.logger = advslog.Init(opt.advslogOpts()...)
 	}
 
-	ctx := opt.logger.WithContext(context.Background())
+	ctx := advslog.NewContext(context.Background(), opt.logger)
 
 	queue, err := NewQueue(ctx, queueconfig.New(conf, opt.instanceName))
 	if err != nil {
-		opt.logger.Fatal().Err(err).Msg("error initializing queue processor")
+		advslog.FatalContext(ctx, "error initializing queue processor", advslog.Err(err))
 	}
 
 	queue.SetMetricsSet(opt.metrics)

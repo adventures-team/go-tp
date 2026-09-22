@@ -1,10 +1,11 @@
 package managedmaster
 
 import (
+	"log/slog"
 	"os"
 	"time"
 
-	"github.com/rs/zerolog"
+	advslog "github.com/adventures-team/go-adv-slog"
 
 	"gitlab.adv.team/go/tp.git"
 	"gitlab.adv.team/go/tp.git/managed/qmclient"
@@ -49,7 +50,7 @@ type ManagedMaster struct {
 	queue      Queue
 	pool       Pool
 	poller     workerpool.Poller
-	logger     *zerolog.Logger
+	logger     *slog.Logger
 	delays     chan map[uint32]float64
 	startedAt  uint32
 	pid        uint32
@@ -57,7 +58,7 @@ type ManagedMaster struct {
 	statSentAt uint32
 }
 
-func NewManagedMaster(queue Queue, pool Pool, poller workerpool.Poller, logger *zerolog.Logger) *ManagedMaster {
+func NewManagedMaster(queue Queue, pool Pool, poller workerpool.Poller, logger *slog.Logger) *ManagedMaster {
 	delays := make(chan map[uint32]float64, 1)
 	delays <- make(map[uint32]float64)
 
@@ -99,7 +100,7 @@ func (mm *ManagedMaster) AssignSlot(slotID, queueID uint32) error {
 
 	if !mm.queue.IsRegistered(uint16(queueID)) {
 		stat.IncrementSlotError()
-		mm.logger.Err(tp.ErrUnknownQueue).Uint32("queue_id", queueID).Send()
+		mm.logger.Error("skipping unregistered queue", advslog.Err(tp.ErrUnknownQueue), "queue_id", queueID)
 
 		return tp.ErrUnknownQueue
 	}

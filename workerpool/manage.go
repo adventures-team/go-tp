@@ -1,10 +1,11 @@
 package workerpool
 
 import (
+	"context"
 	"time"
 
 	advmetricsset "github.com/adventures-team/go-adv-metrics/set"
-	zlog "github.com/rs/zerolog/log"
+	advslog "github.com/adventures-team/go-adv-slog"
 )
 
 // Run управляет запуском заданий. В случае паники об этом пишется в лог, и обработка возобновляется. Возврат из метода происходит при вызове Stop.
@@ -139,7 +140,7 @@ func (wp *WorkerPool) onHasJob(jobs jobMap, hasJob hasJobInfo) {
 	job, ok := jobs[hasJob.jobID]
 
 	if !ok {
-		wp.logger.Error().Uint16(wp.Poller.EntityIDName(), hasJob.jobID).Msg("intenal error - unexpected job poll")
+		wp.logger.Error("internal error - unexpected job poll", wp.Poller.EntityIDName(), hasJob.jobID)
 		return
 	}
 
@@ -164,7 +165,7 @@ func (wp *WorkerPool) onJobDone(jobs jobMap, jobID JobTypeID) {
 	job, ok := jobs[jobID]
 
 	if !ok {
-		wp.logger.Error().Uint16(wp.Poller.EntityIDName(), jobID).Msg("intenal error - unexpected job completion")
+		wp.logger.Error("internal error - unexpected job completion", wp.Poller.EntityIDName(), jobID)
 		return
 	}
 
@@ -196,7 +197,7 @@ func (wp *WorkerPool) onStop(jobs jobMap) bool {
 			jobs[jobID] = job
 		}
 
-		zlog.Trace().Uint16("job_id", jobID).Int("jobs_running", job.running).Msg("jobs pending on stop request")
+		wp.logger.Log(context.Background(), advslog.LevelTrace, "jobs pending on stop request", "job_id", jobID, "jobs_running", job.running)
 	}
 
 	if stopper, ok := wp.Poller.(Stopper); ok {

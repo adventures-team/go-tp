@@ -3,13 +3,14 @@ package tp
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"sync/atomic"
 	"time"
 
 	"github.com/VictoriaMetrics/metrics"
-	"github.com/rs/zerolog"
 
 	advmetricsset "github.com/adventures-team/go-adv-metrics/set"
+	advslog "github.com/adventures-team/go-adv-slog"
 	"github.com/adventures-team/go-queuedproto"
 
 	"gitlab.adv.team/go/tp.git/queuedclient"
@@ -19,7 +20,7 @@ import (
 type (
 	queuePoller struct {
 		*queueImpl
-		logger    *zerolog.Logger
+		logger    *slog.Logger
 		isStopped int32
 	}
 
@@ -56,7 +57,7 @@ func (s *Stat) Errors() uint32 {
 }
 
 // NewPoller возвращает объект для опроса новых событий из WorkerPool
-func (qi *queueImpl) NewPoller(logger *zerolog.Logger) workerpool.Poller {
+func (qi *queueImpl) NewPoller(logger *slog.Logger) workerpool.Poller {
 	return &queuePoller{
 		queueImpl: qi,
 		logger:    logger,
@@ -70,14 +71,14 @@ func (*queuePoller) EntityIDName() string {
 
 // Poll - получение событий из указанной очереди из WorkerPool
 func (qp *queuePoller) Poll(queueID QueueIDType) workerpool.Worker {
-	logger := qp.logger.With().Uint16("queue_id", queueID).Logger()
+	logger := qp.logger.With("queue_id", queueID)
 
 	if atomic.LoadInt32(&qp.isStopped) != 0 {
-		logger.Debug().Msg("queuePoller.Poll skipped during shutdown")
+		logger.Debug("queuePoller.Poll skipped during shutdown")
 		return nil
 	}
 
-	ctx := withBaseLog(context.Background(), &logger)
+	ctx := advslog.NewContext(context.Background(), logger)
 
 	// TODO handle panics
 
@@ -90,11 +91,11 @@ func (qp *queuePoller) Poll(queueID QueueIDType) workerpool.Worker {
 		if errors.As(err, &errMulti) {
 			for _, errSingle := range errMulti {
 				if !errors.Is(errSingle, queuedproto.ErrUnknownQueueType) { // отсутствие очереди в queued - это не ошибка, просто ещё не было событий
-					logger.Err(errSingle).Msg("error getting active events")
+					logger.Error("error getting active events", advslog.Err(errSingle))
 				}
 			}
 		} else {
-			logger.Err(err).Msg("error getting active events")
+			logger.Error("error getting active events", advslog.Err(err))
 		}
 
 		if events == nil { // если есть ошибка, но события тоже есть - работаем дальше
@@ -103,7 +104,7 @@ func (qp *queuePoller) Poll(queueID QueueIDType) workerpool.Worker {
 	}
 
 	if len(events.baseEvents) == 0 {
-		logger.Trace().Msg("no events received")
+		logger.Log(ctx, advslog.LevelTrace, "no events received")
 		return nil
 	}
 
@@ -133,11 +134,11 @@ func (qp *queuePoller) Stop() {
 }
 
 func (qw *queueWorker) Work() {
-	logger := logFromCtx(qw.ctx)
+	logger := advslog.Ctx(qw.ctx)
 
 	defer func() { // TODO даже без обработки паник, хотя бы страхуемся обновлением всех обработанных событий и деферим необработанные
 		if err := qw.events.commit(qw.ctx, qw.stat); err != nil {
-			logger.Err(err).Msg("failed to apply events processing status")
+			logger.Error("failed to apply events processing status", advslog.Err(err))
 		}
 
 		if qw.inProgress != nil {
@@ -148,22 +149,22 @@ func (qw *queueWorker) Work() {
 
 	handlersByVersion, ok := qw.handlerMap[qw.queueID]
 	if !ok {
-		logger.Error().Uint16("queue_id", qw.queueID).Msg("queue_id isn't registered")
+		logger.Error("queue_id isn't registered", "queue_id", qw.queueID)
 		return
 	}
 
-	if logger.GetLevel() <= zerolog.DebugLevel {
+	if logger.Enabled(qw.ctx, slog.LevelDebug) {
 		eventIDs := make([]string, len(qw.events.baseEvents))
 		for i, ev := range qw.events.baseEvents {
 			eventIDs[i] = ev.EventID.String()
 		}
 
-		logger.Debug().Int("events_count", len(qw.events.baseEvents)).Strs("event_ids", eventIDs).Msg("queue poll status")
+		logger.Debug("queue poll status", "events_count", len(qw.events.baseEvents), "event_ids", eventIDs)
 	}
 
 	for version, events := range qw.events.eventsByVersion {
 		if atomic.LoadInt32(qw.isStopped) != 0 {
-			logger.Debug().Msg("stopping queueWorker.Work() loop")
+			logger.Debug("stopping queueWorker.Work() loop")
 			break
 		}
 
@@ -173,16 +174,16 @@ func (qw *queueWorker) Work() {
 
 		hInfo, ok := handlersByVersion[uint8(version)]
 		if !ok {
-			logger.Error().Int("version", version).Msg("version isn't registered")
+			logger.Error("version isn't registered", "version", version)
 			continue
 		}
 
-		logger.Debug().Interface("events", events).Msg("new events received")
+		logger.Debug("new events received", "events", events)
 
 		err := hInfo.handler(qw.ctx, events)
 		if err != nil {
 			// TODO cancel?
-			logger.Err(err).Send() // Msg тут не нужен - чтобы из логов нагрепывали реальную причину, а не эту строку
+			logger.Error("", advslog.Err(err)) // сообщение пустое намеренно - чтобы из логов нагрепывали реальную причину, а не эту строку
 		}
 	}
 }

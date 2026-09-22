@@ -4,14 +4,13 @@
 package tptest
 
 import (
+	"log/slog"
 	"math/rand"
 	"sync/atomic"
 	"testing"
 	"time"
 
-	"github.com/rs/zerolog"
-	zLog "github.com/rs/zerolog/log"
-
+	advslog "github.com/adventures-team/go-adv-slog"
 	"github.com/adventures-team/go-queuedproto"
 )
 
@@ -24,7 +23,7 @@ func TestIProtoStress(t *testing.T) {
 	var prev, current uint64
 	ctx, client := getTestClient(t)
 
-	zerolog.SetGlobalLevel(zerolog.DebugLevel)
+	advslog.Level.Set(slog.LevelDebug)
 
 	ids := make([]queuedproto.EventID, idsCount)
 	for i := uint(0); i < idsCount; i++ {
@@ -46,7 +45,7 @@ func TestIProtoStress(t *testing.T) {
 	for {
 		time.Sleep(time.Second)
 		cur := atomic.LoadUint64(&current)
-		zLog.Info().Uint64("rps", cur-prev).Send()
+		slog.Info("throughput", "rps", cur-prev)
 		prev = cur
 	}
 }

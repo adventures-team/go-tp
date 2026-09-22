@@ -8,8 +8,7 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/rs/zerolog"
-
+	advslog "github.com/adventures-team/go-adv-slog"
 	"github.com/adventures-team/go-queuedproto/addons"
 
 	"gitlab.adv.team/go/tp.git"
@@ -45,7 +44,7 @@ func (eventSleeper) QueueID() uint16 {
 }
 
 func (svc *testService) HandleSleeper(ctx context.Context, events []eventSleeper) error {
-	zLog := zerolog.Ctx(ctx)
+	zLog := advslog.Ctx(ctx)
 
 	svc.Counter.Inc()
 	defer svc.Counter.Dec()
@@ -58,10 +57,11 @@ func (svc *testService) HandleSleeper(ctx context.Context, events []eventSleeper
 			// just check CreationTime and return, don't sleep
 			delay := time.Since(time.Unix(int64(ev.CreationTime), 0))
 			if delay < testInitialDelay {
-				zLog.Panic().Dur("actual_delay", delay).Msg("initial delay is too short")
+				zLog.Error("initial delay is too short", "actual_delay", delay)
+				panic("initial delay is too short")
 			}
 
-			zLog.Info().Dur("actual_delay", delay).Send()
+			zLog.Info("initial delay", "actual_delay", delay)
 			svc.Counter.Done()
 
 			continue
@@ -71,11 +71,11 @@ func (svc *testService) HandleSleeper(ctx context.Context, events []eventSleeper
 			dur += time.Duration(rand.Intn(int(ev.DurationMax - ev.DurationMin)))
 		}
 
-		zLog.Info().Msgf("eventSleeper: sleeping %v...", dur)
+		zLog.Info("eventSleeper: sleeping...", "duration", dur)
 		time.Sleep(dur)
 
 		if uint8(rand.Intn(100)) < ev.Percentage {
-			zLog.Info().Msg("eventSleeper: OK")
+			zLog.Info("eventSleeper: OK")
 			ev.Done() // в случае паники в след. строке (специально устанавливаем низкое значение счётчика) событие всё равно должно удалиться
 			svc.Counter.Done()
 
@@ -83,7 +83,7 @@ func (svc *testService) HandleSleeper(ctx context.Context, events []eventSleeper
 				return errors.New("IsDone() returned false after calling Done()")
 			}
 		} else {
-			zLog.Info().Msg("eventSleeper: failed")
+			zLog.Info("eventSleeper: failed")
 		}
 	}
 
