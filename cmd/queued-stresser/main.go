@@ -6,17 +6,18 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"log/slog"
 	"math"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
+	advslog "github.com/adventures-team/go-adv-slog"
 	"gopkg.in/yaml.v3"
 )
 
 const (
-	redialInterval = 10 * time.Millisecond
 	pingInterval   = 5 * time.Second
 	defaultTimeout = time.Second
 )
@@ -47,7 +48,7 @@ func (opt *Options) bind() {
 	flag.DurationVar(&opt.Duration, "duration", time.Minute, "test duration (use 0s for infinite run)")
 	flag.DurationVar(&opt.Refresh, "refresh", time.Second, "stats refresh interval")
 	flag.Float64Var(&opt.RPS, "rps", 0, "simulate average load")
-	flag.BoolVar(&opt.Debug, "debug", false, "easygo/iproto debug")
+	flag.BoolVar(&opt.Debug, "debug", false, "iproto debug logging")
 }
 
 func main() {
@@ -55,6 +56,14 @@ func main() {
 
 	opt.bind()
 	flag.Parse()
+
+	advslog.Init()
+
+	if opt.Debug {
+		advslog.Level.Set(slog.LevelDebug)
+	} else {
+		advslog.Level.Set(slog.LevelInfo)
+	}
 
 	if opt.MasterPort == "" || opt.AdminPort == "" {
 		flag.Usage()

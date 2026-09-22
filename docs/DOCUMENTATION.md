@@ -45,14 +45,15 @@ Package tp \- высокоуровневая библиотека для раб�
 - [type IgnoreDuplicateItems](<#IgnoreDuplicateItems>)
 - [type InitOption](<#InitOption>)
   - [func WithInstanceName\(instanceName string\) InitOption](<#WithInstanceName>)
-  - [func WithLogger\(logger \*zerolog.Logger\) InitOption](<#WithLogger>)
+  - [func WithLogLevelConfig\(lc advslog.LevelConfig\) InitOption](<#WithLogLevelConfig>)
+  - [func WithLogger\(logger \*slog.Logger\) InitOption](<#WithLogger>)
   - [func WithMetrics\(ms advmetricsset.Set\) InitOption](<#WithMetrics>)
 - [type InitOptions](<#InitOptions>)
 - [type MarshalerDisabled](<#MarshalerDisabled>)
 - [type Middleware](<#Middleware>)
 - [type Queue](<#Queue>)
   - [func InitProducer\[T queueconfig.OnlineConf\]\(conf queueconfig.OnlineConfWithSubtree\[T\], opts ...InitOption\) Queue](<#InitProducer>)
-  - [func NewQueue\(ctx context.Context, conf \*queueconfig.Config\) \(Queue, error\)](<#NewQueue>)
+  - [func NewQueue\(ctx context.Context, conf \*queueconfig.Config, opts ...queuedclient.DialOption\) \(Queue, error\)](<#NewQueue>)
 - [type QueueIDType](<#QueueIDType>)
 - [type QueuedClient](<#QueuedClient>)
 - [type Retry2Option](<#Retry2Option>)
@@ -66,7 +67,7 @@ Package tp \- высокоуровневая библиотека для раб�
 - [type RetryableEvent2](<#RetryableEvent2>)
 - [type StandaloneMaster](<#StandaloneMaster>)
   - [func InitProcessor\[T queueconfig.OnlineConf\]\(conf queueconfig.OnlineConfWithSubtree\[T\], opts ...InitOption\) \*StandaloneMaster](<#InitProcessor>)
-  - [func NewStandaloneManager\(queue Queue, pool \*workerpool.WorkerPool, logger \*zerolog.Logger\) \*StandaloneMaster](<#NewStandaloneManager>)
+  - [func NewStandaloneManager\(queue Queue, pool \*workerpool.WorkerPool, logger \*slog.Logger\) \*StandaloneMaster](<#NewStandaloneManager>)
   - [func \(qm \*StandaloneMaster\) Run\(\)](<#StandaloneMaster.Run>)
   - [func \(qm \*StandaloneMaster\) Stop\(\)](<#StandaloneMaster.Stop>)
 - [type Stat](<#Stat>)
@@ -581,7 +582,7 @@ type IgnoreDuplicateItems interface {
 <a name="InitOption"></a>
 ## type InitOption
 
-InitOption \- [WithInstanceName](<#WithInstanceName>), [WithLogger](<#WithLogger>)
+InitOption \- [WithInstanceName](<#WithInstanceName>), [WithLogger](<#WithLogger>), [WithMetrics](<#WithMetrics>), [WithLogLevelConfig](<#WithLogLevelConfig>)
 
 ```go
 type InitOption func(*InitOptions)
@@ -598,16 +599,32 @@ WithInstanceName устанавливает имя инстанса.
 
 По умолчанию, для обработчиков читается из командной строки из флага \-instance, для продюсеров \- DefaultProducerInstance \("producer"\)
 
+<a name="WithLogLevelConfig"></a>
+### func WithLogLevelConfig
+
+```go
+func WithLogLevelConfig(lc advslog.LevelConfig) InitOption
+```
+
+WithLogLevelConfig включает пер\-пакетные уровни логгирования из указанного поддерева онлайнконфа \(\[advslog.WithLevelConfig\]\) \- например, module.Subtree\("/tp/go/log"\). Оверрайд для пакета задаётся ключом "\<root\>/\<import\-path\>/level", в частности "/tp/go/log/github.com/adventures\-team/go\-iprotoconn/level" задаёт уровень логгирования iproto\-транспорта независимо от прикладных уровней.
+
+Правила использования:
+
+- НЕ создавайте ключ "\<root\>/level": глобальным уровнем владеет параметр log\_level \(применяется из applyConfig\) \- иначе за глобальный уровень начнут конкурировать два писателя;
+- поддерево должно раздаваться с child lists \(ключи "\<path\>/" со списками детей\) \- без них advslog не найдёт оверрайды и не подпишется на изменения;
+- опция действует, только когда tp сам строит логгер по умолчанию: вместе с [WithLogger](<#WithLogger>) она игнорируется \(владелец логгера сам решает, как его собрать\);
+- \[advslog.Init\] выполняется один раз на процесс: если приложение уже вызывало его без опций, поднастройка не применится \- опция должна попасть в самый первый Init.
+
 <a name="WithLogger"></a>
 ### func WithLogger
 
 ```go
-func WithLogger(logger *zerolog.Logger) InitOption
+func WithLogger(logger *slog.Logger) InitOption
 ```
 
 WithLogger устанавливает логгер.
 
-По умолчанию, вызывается \[mylog.InitZerolog\].
+По умолчанию, вызывается \[advslog.Init\].
 
 <a name="WithMetrics"></a>
 ### func WithMetrics
@@ -668,7 +685,7 @@ type Queue interface {
     // NewPoller возвращает интерфейс для опроса событий из очереди.
     // Вынесен для возможности внешней реализации разных стратегий опроса очереди
     // (например, managed master).
-    NewPoller(logger *zerolog.Logger) workerpool.Poller
+    NewPoller(logger *slog.Logger) workerpool.Poller
 
     // IsRegistered проверяет, зарегистрирована ли указанная очередь вызовом Register.
     IsRegistered(queueID uint16) bool
@@ -736,18 +753,20 @@ func (svc *Service) PostUserDataHandler(...) {
 Опции:
 
 - [WithInstanceName](<#WithInstanceName>) \- по умолчанию, \`producer\`
-- [WithLogger](<#WithLogger>) \- если не указано явно, инициализируется при помощи \[mylog.InitZerolog\].
+- [WithLogger](<#WithLogger>) \- если не указано явно, инициализируется при помощи \[advslog.Init\].
 
-В случае ошибки инициализации происходит выход \(\[zerolog.Logger.Fatal\]\). Предполагается вызов из функции main.
+В случае ошибки инициализации происходит выход с логгированием на уровне FATAL. Предполагается вызов из функции main.
 
 <a name="NewQueue"></a>
 ### func NewQueue
 
 ```go
-func NewQueue(ctx context.Context, conf *queueconfig.Config) (Queue, error)
+func NewQueue(ctx context.Context, conf *queueconfig.Config, opts ...queuedclient.DialOption) (Queue, error)
 ```
 
 NewQueue создаёт объект для высокоуровневой работы с API очередей. Инициализирует клиент очередей \(\[queuedclient\]\) с указанным конфигом.
+
+Опции передаются в \[queuedclient.Dial\]; в частности, \[queuedclient.WithMetricsSet\] включает транспортные метрики iproto\_\* \(реестр подключается при создании клиента\).
 
 <a name="QueueIDType"></a>
 ## type QueueIDType
@@ -805,7 +824,15 @@ type QueuedClient interface {
     MetricsSet() advmetricsset.Set
     SetMetricsSet(advmetricsset.Set)
 
-    // IsOnline проверяет наличие соединения со всеми шардами.
+    // IsHealthy сообщает о работоспособности кластера queued: ни у одного шарда
+    // не открыт circuit breaker, и в каждом шарде есть пригодный сервер.
+    // Холодный старт (соединения ещё не установлены) считается здоровым состоянием.
+    IsHealthy() bool
+
+    // IsOnline проверяет доступность кластера queued.
+    //
+    // Deprecated: эквивалентен IsHealthy (живые TCP-соединения больше не проверяются,
+    // go-iprotoconn устанавливает их по требованию и в фоне) - используйте IsHealthy.
     IsOnline() bool
 }
 ```
@@ -949,15 +976,15 @@ func main() {
 Опции:
 
 - [WithInstanceName](<#WithInstanceName>) \- по умолчанию \- читается параметр командной строки \-instance \(flag.Parse\(\) из main\(\) в этом случае вызывать до вызова InitProcessor не следует\).
-- [WithLogger](<#WithLogger>) \- если не указано явно, инициализируется при помощи \[mylog.InitZerolog\].
+- [WithLogger](<#WithLogger>) \- если не указано явно, инициализируется при помощи \[advslog.Init\].
 
-В случае ошибки инициализации происходит выход \(\[zerolog.Logger.Fatal\]\). Предполагается вызов из функции main.
+В случае ошибки инициализации происходит выход с логгированием на уровне FATAL. Предполагается вызов из функции main.
 
 <a name="NewStandaloneManager"></a>
 ### func NewStandaloneManager
 
 ```go
-func NewStandaloneManager(queue Queue, pool *workerpool.WorkerPool, logger *zerolog.Logger) *StandaloneMaster
+func NewStandaloneManager(queue Queue, pool *workerpool.WorkerPool, logger *slog.Logger) *StandaloneMaster
 ```
 
 NewStandaloneManager создаёт новый объект для управления пулом.
@@ -1251,7 +1278,7 @@ oom_soft_downscale_rate OOMSoftDownscaleRate strconv.ParseFloat
 oom_check_period        OOMCheckPeriod       time.ParseDuration
 workers_max             WorkersMaxCount      strconv.ParseInt
 queue_ids               QueueIDs             comma-separated strconv.ParseUint
-log_level               LogLevel             zerolog.ParseLevel
+log_level               LogLevel             advslog.ParseLevel
 ```
 
 Per\-queue \(название параметра, метод и формат, методы принимают queueID uint16\):
@@ -1268,7 +1295,7 @@ update_batch_size              UpdateBatchSize strconv.ParseInt
 
 Также, объект [Config](<#Config>) поддерживает интерфейс [OnlineConf](<#OnlineConf>), и с его помощью можно обращаться и к произвольным значениям вне конфигурации очередей.
 
-Для параметров, у которых есть дефолтные значения, ошибка не возвращается. Для логгирования проблем с такими параметрами \(синтаксические ошибки, и т.д.\) соответствующим методом можно передать контекст. Если не требуется логгирование через контекст, вместо контекста можно передать nil \(используется \[mylog.Ctx\]\).
+Для параметров, у которых есть дефолтные значения, ошибка не возвращается. Для логгирования проблем с такими параметрами \(синтаксические ошибки, и т.д.\) соответствующим методом можно передать контекст. Если не требуется логгирование через контекст, вместо контекста можно передать nil \(используется \[advslog.Ctx\]\).
 
 Во избежание избыточного логгирования, про каждый ошибочный параметр в лог пишется только один раз. При обновлении конфига/мягком рестарте следует вызвать метод [Config.ClearErrCache](<#Config.ClearErrCache>) для очистки списка путей, про которые была запись в лог об ошибке.
 
@@ -1280,7 +1307,7 @@ update_batch_size              UpdateBatchSize strconv.ParseInt
 - [Variables](<#variables>)
 - [type ConfError](<#ConfError>)
   - [func \(ce \*ConfError\) Error\(\) string](<#ConfError.Error>)
-  - [func \(ce \*ConfError\) MarshalZerologObject\(ev \*zerolog.Event\)](<#ConfError.MarshalZerologObject>)
+  - [func \(ce \*ConfError\) LogValue\(\) slog.Value](<#ConfError.LogValue>)
   - [func \(ce \*ConfError\) Unwrap\(\) error](<#ConfError.Unwrap>)
 - [type Config](<#Config>)
   - [func New\[T OnlineConf\]\(conf OnlineConfWithSubtree\[T\], instanceName string\) \*Config](<#New>)
@@ -1289,7 +1316,7 @@ update_batch_size              UpdateBatchSize strconv.ParseInt
   - [func \(c \*Config\) FetchBatchSize\(ctx context.Context, queueID uint16\) int](<#Config.FetchBatchSize>)
   - [func \(c \*Config\) GetDuration\(ctx context.Context, confPath string, dfl time.Duration\) time.Duration](<#Config.GetDuration>)
   - [func \(c \*Config\) InitialDelay\(ctx context.Context, queueID uint16\) time.Duration](<#Config.InitialDelay>)
-  - [func \(c \*Config\) LogLevel\(ctx context.Context\) zerolog.Level](<#Config.LogLevel>)
+  - [func \(c \*Config\) LogLevel\(ctx context.Context\) slog.Level](<#Config.LogLevel>)
   - [func \(c \*Config\) MaxAge\(queueID uint16\) \(uint32, error\)](<#Config.MaxAge>)
   - [func \(c \*Config\) OOMCheckPeriod\(ctx context.Context\) time.Duration](<#Config.OOMCheckPeriod>)
   - [func \(c \*Config\) OOMHardLimit\(ctx context.Context\) uint64](<#Config.OOMHardLimit>)
@@ -1316,7 +1343,7 @@ update_batch_size              UpdateBatchSize strconv.ParseInt
 
 ```go
 const (
-    DefaultLogLevel        = zerolog.TraceLevel // default for log_level
+    DefaultLogLevel        = advslog.LevelTrace // default for log_level
     DefaultDownscaleRate   = 0.5                // default for oom_soft_downscale_rate
     DefaultOOMCheckPeriod  = 1 * time.Minute    // default for oom_check_period
     DefaultDeferTime       = 5 * time.Minute    // default for defer_time
@@ -1370,7 +1397,7 @@ var CSVRegex = regexp.MustCompile(`\s*,\s*`)
 
 ConfError \- тип для ошибок, который можно как вернуть юзеру \- так и эффективно записать в лог. Преобразование в строку делается, только если это потребовано явно \(вызовом метода Error\), а не по факту возврата ошибки \(как это обычно принято\).
 
-При выводе в zerolog методом Err, поля будут напечатаны отдельно \(без преобразование в одну строку методом Error\).
+При выводе в slog \(например, через \[advslog.Err\]\) поля будут напечатаны отдельной группой \(без преобразования в одну строку методом Error\) \- см. метод LogValue.
 
 ```go
 type ConfError struct {
@@ -1391,14 +1418,14 @@ func (ce *ConfError) Error() string
 
 Error преобразует ошибку в строку. Value пишется, если ошибка \- не ErrNotFound, даже если значение пустое \(чтобы сообщить о том, что пустое значение для данного параметра не является валидным\).
 
-<a name="ConfError.MarshalZerologObject"></a>
-### func \(\*ConfError\) MarshalZerologObject
+<a name="ConfError.LogValue"></a>
+### func \(\*ConfError\) LogValue
 
 ```go
-func (ce *ConfError) MarshalZerologObject(ev *zerolog.Event)
+func (ce *ConfError) LogValue() slog.Value
 ```
 
-MarshalZerologObject печатает ошибку в лог. Используется при печати ошибки методами zerolog.Event.Object и zerolog.Event.Err.
+LogValue печатает ошибку в лог структурно \(группой полей вместо одной строки\). Используется slog\-хендлерами при выводе ошибки как значения атрибута \(например, через \[advslog.Err\]\).
 
 Поля:
 
@@ -1488,7 +1515,7 @@ InitialDelay получает initial\_delay для указанной очер�
 ### func \(\*Config\) LogLevel
 
 ```go
-func (c *Config) LogLevel(ctx context.Context) zerolog.Level
+func (c *Config) LogLevel(ctx context.Context) slog.Level
 ```
 
 LogLevel получает log\_level. По умолчанию: DefaultLogLevel.
@@ -1698,6 +1725,8 @@ Multicast/broadcast методы отправляют запросы в указ
 - [Constants](<#constants>)
 - [Variables](<#variables>)
 - [func GetPID\(conf queueconfig.OnlineConf\) \(uint32, error\)](<#GetPID>)
+- [type DialOption](<#DialOption>)
+  - [func WithMetricsSet\(ms advmetricsset.Set\) DialOption](<#WithMetricsSet>)
 - [type ErrMulti](<#ErrMulti>)
   - [func \(em \*ErrMulti\) Append\(err error\)](<#ErrMulti.Append>)
   - [func \(em ErrMulti\) Error\(\) string](<#ErrMulti.Error>)
@@ -1707,12 +1736,13 @@ Multicast/broadcast методы отправляют запросы в указ
   - [func PublishInitialDelay\(d time.Duration\) PublishOption](<#PublishInitialDelay>)
 - [type PublishOptions](<#PublishOptions>)
 - [type QueuedClient](<#QueuedClient>)
-  - [func Dial\(ctx context.Context, conf \*queueconfig.Config\) \(\*QueuedClient, error\)](<#Dial>)
+  - [func Dial\(ctx context.Context, conf \*queueconfig.Config, opts ...DialOption\) \(\*QueuedClient, error\)](<#Dial>)
   - [func \(qc \*QueuedClient\) Defer\(ctx context.Context, queueID uint16, delay time.Duration, eventIDs \[\]queuedproto.EventID\) error](<#QueuedClient.Defer>)
   - [func \(qc \*QueuedClient\) Delete\(ctx context.Context, queueID uint16, eventIDs \[\]queuedproto.EventID\) error](<#QueuedClient.Delete>)
   - [func \(qc \*QueuedClient\) GetActive\(ctx context.Context, queueID uint16, count int\) \(queuedproto.ItemList, error\)](<#QueuedClient.GetActive>)
   - [func \(qc \*QueuedClient\) GetByIDs\(ctx context.Context, queueID uint16, eventIDs \[\]queuedproto.EventID\) \(queuedproto.ItemList, error\)](<#QueuedClient.GetByIDs>)
   - [func \(qc \*QueuedClient\) GetByIDsBroadcast\(ctx context.Context, queueID uint16, eventIDs \[\]uint64\) \(queuedproto.ItemList, error\)](<#QueuedClient.GetByIDsBroadcast>)
+  - [func \(qc \*QueuedClient\) IsHealthy\(\) bool](<#QueuedClient.IsHealthy>)
   - [func \(qc \*QueuedClient\) IsOnline\(\) bool](<#QueuedClient.IsOnline>)
   - [func \(qc \*QueuedClient\) MakeBroadcastRequest\(ctx context.Context, req queuedproto.Request, resFunc ResultFunc\) error](<#QueuedClient.MakeBroadcastRequest>)
   - [func \(qc \*QueuedClient\) MakeMulticastRequest\(ctx context.Context, batchSize int, eventIDs \[\]queuedproto.EventID, reqFunc RequestFunc, resFunc ResultFunc\) error](<#QueuedClient.MakeMulticastRequest>)
@@ -1738,6 +1768,9 @@ const (
 
     // ConfTimeout - таймаут в секундах. Поддерживается дробные значения, а также синтаксис time.ParseDuration, однако,
     // для совместимости с перлом (которым используются те же пути), этого делать не рекомендуется.
+    //
+    // Исторически значение ограничивает одну попытку запроса, поэтому в go-iprotoconn оно
+    // отображается в /attempt-timeout (см. iprotoSource).
     ConfTimeout = "/queueds/multi/timeout"
 
     // DefaultTimeout - таймаут по умолчанию.
@@ -1758,7 +1791,7 @@ const (
     // ConfRedialInterval - задержка при разрыве соединения.
     ConfRedialInterval = "/queueds/multi/redial_interval"
 
-    // DefaultRedialInterval - задержка при разрыве соединения по умолчанию. Это дефолтное значение в iproto - но лучше задать явно, на случай, если там поменяют
+    // DefaultRedialInterval - задержка при разрыве соединения по умолчанию. Это дефолтное значение в go-iprotoconn - но лучше задать явно, на случай, если там поменяют
     DefaultRedialInterval = 10 * time.Millisecond
 
     // ConfPingInterval - интервал пинга queued.
@@ -1815,6 +1848,24 @@ GetPID \- хак для получения ID, обеспечивающего у
 Поэтому для небольших pid будем генерить 32\-битный рандом \("честный" [crypt/random](<https://pkg.go.dev/crypt/random/>), честность зависит от ядра/рантайма контейнера\)
 
 Чтобы генерить рандомный "pid" всегда, можно задать в онлайнконфе /queueds/main/min\_pid больше максимально возможного pid для платформы \(32768 для linux, 99999 для \*bsd \- поэтому лучше вписывать "совсем много", если планируется тестировать на макбуках без докера\)
+
+<a name="DialOption"></a>
+## type DialOption
+
+DialOption \- опции [Dial](<#Dial>): [WithMetricsSet](<#WithMetricsSet>).
+
+```go
+type DialOption func(*dialOptions)
+```
+
+<a name="WithMetricsSet"></a>
+### func WithMetricsSet
+
+```go
+func WithMetricsSet(ms advmetricsset.Set) DialOption
+```
+
+WithMetricsSet включает сбор транспортных метрик iproto\_\* в указанный Set. Реестр метрик подключается при создании клиента, поэтому Set должен быть известен на момент вызова [Dial](<#Dial>) \(в отличие от [QueuedClient.SetMetricsSet](<#QueuedClient.SetMetricsSet>), который лишь сохраняет Set для прикладных метрик уровня очередей\).
 
 <a name="ErrMulti"></a>
 ## type ErrMulti
@@ -1899,7 +1950,9 @@ type PublishOptions struct {
 <a name="QueuedClient"></a>
 ## type QueuedClient
 
-QueuedClient \- низкоуровневый клиент queued
+QueuedClient \- низкоуровневый клиент queued.
+
+Транспорт \- go\-iprotoconn: шардированный кластер \(один сервер = один шард queued\) с ретраями, circuit breaker'ами per shard и метриками iproto\_\* \(если задан [WithMetricsSet](<#WithMetricsSet>)\). Конфигурация читается из путей /queueds/multi/\* через адаптер iprotoSource \- для обеспечения обратной совместимости с предыдущими версиями go\-tp, вместо использования путей, используемых go\-iprotoconn по умолчанию.
 
 ```go
 type QueuedClient struct {
@@ -1912,10 +1965,12 @@ type QueuedClient struct {
 ### func Dial
 
 ```go
-func Dial(ctx context.Context, conf *queueconfig.Config) (*QueuedClient, error)
+func Dial(ctx context.Context, conf *queueconfig.Config, opts ...DialOption) (*QueuedClient, error)
 ```
 
-Dial открывает соединения к серверам queued, указанным в онлайнконфе
+Dial создаёт клиент queued по списку серверов из онлайнконфа.
+
+Соединения устанавливаются в фоне \(/eager\-dial в go\-iprotoconn\) \- Dial не ждёт их установки и не возвращает ошибку при недоступности серверов \(как и раньше с RedialForever\); ошибка возвращается только при пустом списке серверов или некорректной конфигурации.
 
 <a name="QueuedClient.Defer"></a>
 ### func \(\*QueuedClient\) Defer
@@ -1976,6 +2031,17 @@ GetByIDsBroadcast запрашивает события из очереди queu
 
 Ретраи в случае ошибок не производятся.
 
+<a name="QueuedClient.IsHealthy"></a>
+### func \(\*QueuedClient\) IsHealthy
+
+```go
+func (qc *QueuedClient) IsHealthy() bool
+```
+
+IsHealthy сообщает о работоспособности кластера queued с точки зрения клиента: ни у одного шарда не открыт circuit breaker, и в каждом шарде есть пригодный \(не замороженный после ошибок\) сервер.
+
+Соединения устанавливаются по требованию и в фоне, поэтому "холодный" клиент сразу после Dial считается здоровым \- метод отражает именно наличие проблем, а не факт установленных TCP\-соединений.
+
 <a name="QueuedClient.IsOnline"></a>
 ### func \(\*QueuedClient\) IsOnline
 
@@ -1983,7 +2049,9 @@ GetByIDsBroadcast запрашивает события из очереди queu
 func (qc *QueuedClient) IsOnline() bool
 ```
 
-IsOnline проверяет наличие соединения со всеми шардами.
+IsOnline проверяет доступность кластера queued.
+
+Deprecated: метод больше не проверяет наличие живых TCP\-соединений со всеми шардами \(go\-iprotoconn устанавливает соединения по требованию и в фоне\) \- он эквивалентен [QueuedClient.IsHealthy](<#QueuedClient.IsHealthy>), который и следует использовать.
 
 <a name="QueuedClient.MakeBroadcastRequest"></a>
 ### func \(\*QueuedClient\) MakeBroadcastRequest
@@ -2013,7 +2081,7 @@ MakeMulticastRequest посылает запросы для указанных e
 
 resFunc вызывается из разных горутин и должна быть thread\-safe.
 
-В случае получения не\-логической ошибки \(\!queuedproto.IsSoftError\(err\)\), производится ещё /queueds/multi/retry\_count попыток с задержкой /queueds/multi/retry\_delay. Если после всех этих попыток ошибка повторяется \- она вносится в список ошибок шардов.
+Ретраи при не\-логических ошибках \(\!queuedproto.IsSoftError\(err\)\) выполняет движок go\-iprotoconn \(/queueds/multi/retry\_count попыток с задержкой /queueds/multi/retry\_delay\); если ошибка осталась после всех попыток \- она вносится в список ошибок шардов.
 
 Ошибки обработки результата в resFunc не приводят к ретраям, т.к., скорее всего, являются ошибками прикладного уровня.
 
@@ -2028,9 +2096,9 @@ func (qc *QueuedClient) MakeUnicastRequest(ctx context.Context, shard uint, req 
 
 MakeUnicastRequest посылает запрос req к указанному шарду.
 
-В случае получения не\-логической ошибки \(\!queuedproto.IsSoftError\(err\)\), производится ещё /queueds/multi/retry\_count попыток с задержкой /queueds/multi/retry\_delay. Если после всех этих попыток ошибка повторяется \- она возвращается.
+Ретраи при не\-логических ошибках \(\!queuedproto.IsSoftError\(err\)\) выполняет движок go\-iprotoconn: /queueds/multi/retry\_count попыток с задержкой /queueds/multi/retry\_delay, каждая попытка ограничена /queueds/multi/timeout.
 
-Если задан shard == [BalanceShard](<#ConfServers>), шард выбирается по round robin. В этом случае, каждый ретрай посылается в следующий шард.
+Если задан shard == [BalanceShard](<#ConfServers>), шард выбирается по round robin. Если запрос гарантированно не был отправлен \(\[iprotoconn.RequestNotExecuted\] \- например, у шарда открыт circuit breaker\), пробуется следующий шард \- это безопасно даже для неидемпотентных запросов.
 
 <a name="QueuedClient.MetricsSet"></a>
 ### func \(\*QueuedClient\) MetricsSet
@@ -2089,7 +2157,7 @@ SetActivationTime устанавливает время активации дл�
 func (qc *QueuedClient) SetMetricsSet(ms advmetricsset.Set)
 ```
 
-
+SetMetricsSet сохраняет Set для прикладных метрик \(tp\_events\_\* и т.д., см. Queue\). Транспортные метрики iproto\_\* этим методом не включаются \- реестр подключается только при создании клиента опцией [WithMetricsSet](<#WithMetricsSet>).
 
 <a name="QueuedClient.ShardNum"></a>
 ### func \(\*QueuedClient\) ShardNum
@@ -2273,7 +2341,7 @@ Package workerpool \- абстрактный пул воркеров.
 - [type Stopper](<#Stopper>)
 - [type Worker](<#Worker>)
 - [type WorkerPool](<#WorkerPool>)
-  - [func New\(poller Poller, logger \*zerolog.Logger\) \*WorkerPool](<#New>)
+  - [func New\(poller Poller, logger \*slog.Logger\) \*WorkerPool](<#New>)
   - [func \(wp \*WorkerPool\) Run\(\)](<#WorkerPool.Run>)
   - [func \(wp \*WorkerPool\) SetDryPollDelay\(dryPollDelay time.Duration\)](<#WorkerPool.SetDryPollDelay>)
   - [func \(wp \*WorkerPool\) SetIdleDelay\(idleDelay time.Duration\)](<#WorkerPool.SetIdleDelay>)
@@ -2373,7 +2441,7 @@ type WorkerPool struct {
 ### func New
 
 ```go
-func New(poller Poller, logger *zerolog.Logger) *WorkerPool
+func New(poller Poller, logger *slog.Logger) *WorkerPool
 ```
 
 New создаёт новый пул воркеров
@@ -2542,6 +2610,8 @@ DestroyStorage performs the \`set destroy\_storage\` command. TODO handle contex
 
 ConnPool represents stress test connection pool state.
 
+Connections are built directly on go\-iprotoconn's conn layer: the cluster client deduplicates connections per address process\-wide, while a load generator needs \-conn real TCP connections to the same queued.
+
 ```go
 type ConnPool struct {
     // contains filtered or unexported fields
@@ -2641,7 +2711,7 @@ import "gitlab.adv.team/go/tp.git/managed/master"
 ## Index
 
 - [type ManagedMaster](<#ManagedMaster>)
-  - [func NewManagedMaster\(queue Queue, pool Pool, poller workerpool.Poller, logger \*zerolog.Logger\) \*ManagedMaster](<#NewManagedMaster>)
+  - [func NewManagedMaster\(queue Queue, pool Pool, poller workerpool.Poller, logger \*slog.Logger\) \*ManagedMaster](<#NewManagedMaster>)
   - [func \(mm \*ManagedMaster\) AssignSlot\(slotID, queueID uint32\) error](<#ManagedMaster.AssignSlot>)
   - [func \(mm \*ManagedMaster\) Stats\(\) qmclient.StatsData](<#ManagedMaster.Stats>)
 - [type Pool](<#Pool>)
@@ -2664,7 +2734,7 @@ type ManagedMaster struct {
 ### func NewManagedMaster
 
 ```go
-func NewManagedMaster(queue Queue, pool Pool, poller workerpool.Poller, logger *zerolog.Logger) *ManagedMaster
+func NewManagedMaster(queue Queue, pool Pool, poller workerpool.Poller, logger *slog.Logger) *ManagedMaster
 ```
 
 
@@ -2745,12 +2815,11 @@ import "gitlab.adv.team/go/tp.git/managed/qmclient"
 - [type Client](<#Client>)
   - [func NewClient\(endpoint string, assignSlot func\(slotID, queueID uint32\) error, stats func\(\) StatsData\) \*Client](<#NewClient>)
   - [func \(c \*Client\) Run\(ctx context.Context\)](<#Client.Run>)
-  - [func \(c \*Client\) ServeIProto\(ctx context.Context, conn easygo.Conn, packet easygo.Packet\)](<#Client.ServeIProto>)
-- [type Connection](<#Connection>)
 - [type QueueExtendedStat](<#QueueExtendedStat>)
 - [type QueueStat](<#QueueStat>)
 - [type SetQueue](<#SetQueue>)
 - [type SetQueueRequest](<#SetQueueRequest>)
+  - [func \(SetQueueRequest\) Cmd\(\) uint32](<#SetQueueRequest.Cmd>)
   - [func \(recvSetQueueRequest SetQueueRequest\) MarshalIProto\(buf \[\]byte\) \(\[\]byte, error\)](<#SetQueueRequest.MarshalIProto>)
   - [func \(recv\_SetQueueRequest \*SetQueueRequest\) UnmarshalIProto\(buf \[\]byte\) \(\[\]byte, error\)](<#SetQueueRequest.UnmarshalIProto>)
 - [type SetQueueResponse](<#SetQueueResponse>)
@@ -2758,6 +2827,9 @@ import "gitlab.adv.team/go/tp.git/managed/qmclient"
   - [func \(recv\_SetQueueResponse \*SetQueueResponse\) UnmarshalIProto\(buf \[\]byte\) \(\[\]byte, error\)](<#SetQueueResponse.UnmarshalIProto>)
 - [type SlotStat](<#SlotStat>)
 - [type StatsData](<#StatsData>)
+- [type StatsRequest](<#StatsRequest>)
+  - [func \(StatsRequest\) Cmd\(\) uint32](<#StatsRequest.Cmd>)
+  - [func \(\*StatsRequest\) UnmarshalIProto\(buf \[\]byte\) \(\[\]byte, error\)](<#StatsRequest.UnmarshalIProto>)
 - [type StatsResponse](<#StatsResponse>)
   - [func \(recvStatsResponse StatsResponse\) MarshalIProto\(buf \[\]byte\) \(\[\]byte, error\)](<#StatsResponse.MarshalIProto>)
   - [func \(recv\_StatsResponse \*StatsResponse\) UnmarshalIProto\(buf \[\]byte\) \(\[\]byte, error\)](<#StatsResponse.UnmarshalIProto>)
@@ -2798,37 +2870,7 @@ func NewClient(endpoint string, assignSlot func(slotID, queueID uint32) error, s
 func (c *Client) Run(ctx context.Context)
 ```
 
-
-
-<a name="Client.ServeIProto"></a>
-### func \(\*Client\) ServeIProto
-
-```go
-func (c *Client) ServeIProto(ctx context.Context, conn easygo.Conn, packet easygo.Packet)
-```
-
-
-
-<a name="Connection"></a>
-## type Connection
-
-
-
-```go
-type Connection interface {
-    RemoteAddr() net.Addr
-    LocalAddr() net.Addr
-    Call(ctx context.Context, message uint32, data []byte) ([]byte, error)
-    Notify(ctx context.Context, message uint32, data []byte) error
-    Send(ctx context.Context, packet easygo.Packet) error
-    Close()
-    Shutdown()
-    Done() <-chan struct{}
-    OnClose(func())
-    GetBytes(n int) []byte
-    PutBytes(p []byte)
-}
-```
+Run поддерживает соединение с менеджером очередей и обслуживает его команды \(обратный RPC: соединение устанавливает клиент, запросы шлёт менеджер\). Возврат \- по отмене ctx.
 
 <a name="QueueExtendedStat"></a>
 ## type QueueExtendedStat
@@ -2887,6 +2929,15 @@ type SetQueueRequest struct {
     Queues []SetQueue `iproto:"u32"`
 }
 ```
+
+<a name="SetQueueRequest.Cmd"></a>
+### func \(SetQueueRequest\) Cmd
+
+```go
+func (SetQueueRequest) Cmd() uint32
+```
+
+Cmd возвращает код команды для типизированного мультиплексора go\-iprotoconn.
 
 <a name="SetQueueRequest.MarshalIProto"></a>
 ### func \(SetQueueRequest\) MarshalIProto
@@ -2977,6 +3028,33 @@ type StatsData struct {
     Slots                 []SlotStat `iproto:"u32"`
 }
 ```
+
+<a name="StatsRequest"></a>
+## type StatsRequest
+
+StatsRequest \- запрос статистики от менеджера очередей. Тело запроса игнорируется \(историческое поведение перлового протокола\).
+
+```go
+type StatsRequest struct{}
+```
+
+<a name="StatsRequest.Cmd"></a>
+### func \(StatsRequest\) Cmd
+
+```go
+func (StatsRequest) Cmd() uint32
+```
+
+Cmd возвращает код команды для типизированного мультиплексора go\-iprotoconn.
+
+<a name="StatsRequest.UnmarshalIProto"></a>
+### func \(\*StatsRequest\) UnmarshalIProto
+
+```go
+func (*StatsRequest) UnmarshalIProto(buf []byte) ([]byte, error)
+```
+
+UnmarshalIProto игнорирует тело запроса.
 
 <a name="StatsResponse"></a>
 ## type StatsResponse

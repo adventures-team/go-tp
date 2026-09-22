@@ -111,7 +111,15 @@ type (
 		MetricsSet() advmetricsset.Set
 		SetMetricsSet(advmetricsset.Set)
 
-		// IsOnline проверяет наличие соединения со всеми шардами.
+		// IsHealthy сообщает о работоспособности кластера queued: ни у одного шарда
+		// не открыт circuit breaker, и в каждом шарде есть пригодный сервер.
+		// Холодный старт (соединения ещё не установлены) считается здоровым состоянием.
+		IsHealthy() bool
+
+		// IsOnline проверяет доступность кластера queued.
+		//
+		// Deprecated: эквивалентен IsHealthy (живые TCP-соединения больше не проверяются,
+		// go-iprotoconn устанавливает их по требованию и в фоне) - используйте IsHealthy.
 		IsOnline() bool
 	}
 
@@ -176,8 +184,11 @@ type (
 
 // NewQueue создаёт объект для высокоуровневой работы с API очередей.
 // Инициализирует клиент очередей ([queuedclient]) с указанным конфигом.
-func NewQueue(ctx context.Context, conf *queueconfig.Config) (Queue, error) {
-	client, err := queuedclient.Dial(ctx, conf)
+//
+// Опции передаются в [queuedclient.Dial]; в частности, [queuedclient.WithMetricsSet]
+// включает транспортные метрики iproto_* (реестр подключается при создании клиента).
+func NewQueue(ctx context.Context, conf *queueconfig.Config, opts ...queuedclient.DialOption) (Queue, error) {
+	client, err := queuedclient.Dial(ctx, conf, opts...)
 	if err != nil {
 		return nil, err
 	}
