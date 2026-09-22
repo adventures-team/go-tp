@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	advmetricsset "github.com/my-mail-ru/go-adv-metrics/set"
-	"github.com/my-mail-ru/go-queuedproto/addons"
+	advmetricsset "github.com/adventures-team/go-adv-metrics/set"
+	"github.com/adventures-team/go-queuedproto/addons"
 
 	"gitlab.adv.team/go/tp.git/queueconfig"
 	"gitlab.adv.team/go/tp.git/queuedclient"

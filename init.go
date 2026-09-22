@@ -6,7 +6,7 @@ import (
 
 	"github.com/rs/zerolog"
 
-	advmetricsset "github.com/my-mail-ru/go-adv-metrics/set"
+	advmetricsset "github.com/adventures-team/go-adv-metrics/set"
 
 	"gitlab.adv.team/go/tp.git/queueconfig"
 	"gitlab.adv.team/go/tp.git/workerpool"

@@ -5,7 +5,7 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
-	"github.com/my-mail-ru/go-iproto"
+	"github.com/adventures-team/go-iproto"
 )
 
 // Format - тип ID формата сообщения. Все форматы должны начинаться с uint8 с номером версии.

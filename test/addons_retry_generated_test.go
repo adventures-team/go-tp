@@ -4,6 +4,14 @@
 
 package tptest
 
+// MaxIProtoLen caps how many elements a generated UnmarshalIProto will
+// pre-allocate for a length-prefixed slice or map, bounding memory amplification
+// when decoding untrusted input: a short message can encode a huge element count,
+// and make([]T, n) / make(map, n) reserves n*sizeof(elem) before any element is
+// read. Decoding a slice or map longer than this fails with iproto.ErrOverflow.
+// Declare a constant of this name in the package to override the default.
+const MaxIProtoLen = 1 << 20
+
 func (recvRetryEvent retryEvent) MarshalIProto(buf []byte) ([]byte, error) {
 	return buf, nil
 }

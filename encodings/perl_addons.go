@@ -5,8 +5,8 @@ import (
 	"reflect"
 	"sync"
 
-	"github.com/my-mail-ru/go-queuedproto"
-	"github.com/my-mail-ru/go-queuedproto/addons"
+	"github.com/adventures-team/go-queuedproto"
+	"github.com/adventures-team/go-queuedproto/addons"
 )
 
 // TODO XXX выпилить рефлексию, т.к. итерация по полям здесь не требуется

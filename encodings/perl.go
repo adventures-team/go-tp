@@ -1,9 +1,9 @@
 package encodings
 
 import (
-	"github.com/my-mail-ru/go-iproto"
+	"github.com/adventures-team/go-iproto"
 
-	"github.com/my-mail-ru/go-queuedproto"
+	"github.com/adventures-team/go-queuedproto"
 
 	"gitlab.adv.team/go/tp.git/internal"
 )

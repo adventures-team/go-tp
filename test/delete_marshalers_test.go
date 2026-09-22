@@ -5,7 +5,7 @@ package tptest
 import (
 	"testing"
 
-	"github.com/my-mail-ru/go-queuedproto/addons"
+	"github.com/adventures-team/go-queuedproto/addons"
 
 	tp "gitlab.adv.team/go/tp.git"
 )

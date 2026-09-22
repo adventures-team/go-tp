@@ -11,7 +11,7 @@ Package encodings - поддержка сериализации событий.
 
 # Perl
 
-Кроме основного payload, с которым вопросов возникать не должно (штатное кодирование средствами github.com/my-mail-ru/go-iproto
+Кроме основного payload, с которым вопросов возникать не должно (штатное кодирование средствами github.com/adventures-team/go-iproto
 в [queuedproto.PerlData.Data]), перловый формат поддерживает два механизма передачи дополнительных данных
 в TLV-формате: addons (MR::TP::Addon, используются в современных проектах на перле) и extensions (MR::Queue::Extensions, используются в MM).
 
@@ -39,7 +39,7 @@ Package encodings - поддержка сериализации событий.
   - [addons.Retry2]:        MR::TP::Addon::Retry2
   - [addons.Producer]:      MR::TP::Addon::Producer
 
-Пакет [addons] входит в состав библиотеки [queuedproto], где и реализован нижний уровень аддонов: github.com/my-mail-ru/go-queuedproto/addons
+Пакет [addons] входит в состав библиотеки [queuedproto], где и реализован нижний уровень аддонов: github.com/adventures-team/go-queuedproto/addons
 
 Для использования аддонов, нужно вложить в свою структуру события нужные типы аддонов:
 

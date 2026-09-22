@@ -7,8 +7,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/my-mail-ru/go-queuedproto"
-	"github.com/my-mail-ru/go-queuedproto/addons"
+	"github.com/adventures-team/go-queuedproto"
+	"github.com/adventures-team/go-queuedproto/addons"
 )
 
 // см. queuedproto/perl_format_test.go
