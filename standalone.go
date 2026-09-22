@@ -238,21 +238,47 @@ func (qm *StandaloneMaster) startStop(queueWorkers []queueIDWorkers) {
 // При изменении конфига/по сигналу выход/остановка происходят только при ошибке достижения oom_hard_limit.
 // Для обычных ошибок - пишется ошибка в лог, и остаётся старый конфиг.
 // Вызывать из main, при возврате - выходить.
+//
+// При возврате (после остановки пула) горутина менеджера конфига тоже останавливается,
+// Run дожидается её выхода (иначе она продолжала бы жить и логгировать после Stop -
+// в тестах это приводило к панике "Log in goroutine after test has completed").
 func (qm *StandaloneMaster) Run() {
-	ctx := qm.logger.WithContext(context.Background())
+	ctx, cancel := context.WithCancel(qm.logger.WithContext(context.Background()))
+	done := make(chan struct{})
 
-	go qm.runGoro(ctx) // менеджер конфига запускается асинхронно, т.к. просто посылает команды пулу
+	go func() { // менеджер конфига запускается асинхронно, т.к. просто посылает команды пулу
+		defer close(done)
+
+		qm.runGoro(ctx)
+	}()
 
 	qm.pool.Run() // пул должен запускаться синхронно, чтобы выход из Manage происходил после окончания всей обработки
+
+	cancel()
+	<-done
 }
 
+// runGoro крутит manage, перезапуская его после внутренних паник.
 func (qm *StandaloneMaster) runGoro(ctx context.Context) {
+	for {
+		if qm.manage(ctx) {
+			return
+		}
+
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(workerpool.InternalPanicDelay):
+		}
+	}
+}
+
+// manage возвращает true при штатном завершении (выход/останов пула/отмена контекста),
+// false - после перехваченной паники (для перезапуска в runGoro).
+func (qm *StandaloneMaster) manage(ctx context.Context) (exit bool) {
 	defer func() {
 		if reason := recover(); reason != nil {
 			mylog.LogPanic(qm.logger.Error(), reason).Msg("panic in QueueManager.manage")
-			time.Sleep(workerpool.InternalPanicDelay)
-
-			go qm.runGoro(ctx)
 		}
 	}()
 
@@ -261,13 +287,14 @@ func (qm *StandaloneMaster) runGoro(ctx context.Context) {
 		qm.pool.Stop() // Stop умеет работать асинхронно (т.е. Stop, вызванный до запуска пула, приведёт к его мгновенному выходу при запуске)
 		qm.logger.Err(err).Msg("config error, exiting")
 
-		return
+		return true
 	}
 
 	reloadSigChan := make(chan os.Signal, 1)
 	exitSigChan := make(chan os.Signal, 1)
 
 	signal.Notify(reloadSigChan, SignalReload)
+	defer signal.Stop(reloadSigChan)
 
 	updateChan, err := qm.Config().Subscribe()
 	if err != nil {
@@ -278,10 +305,16 @@ func (qm *StandaloneMaster) runGoro(ctx context.Context) {
 		signal.Notify(exitSigChan, sig)
 	}
 
+	defer signal.Stop(exitSigChan)
+
 	for {
 		timer := time.NewTimer(qm.Config().OOMCheckPeriod(ctx))
 
 		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return true
+
 		case <-updateChan:
 			qm.logger.Info().Msg("reloading config on onlineconf update")
 			qm.forceReload()
@@ -294,7 +327,7 @@ func (qm *StandaloneMaster) runGoro(ctx context.Context) {
 			qm.logger.Info().Msgf("graceful exit on signal '%s'", sig)
 			qm.pool.Stop()
 
-			return
+			return true
 
 		case <-timer.C:
 		}
@@ -305,7 +338,7 @@ func (qm *StandaloneMaster) runGoro(ctx context.Context) {
 		if err != nil {
 			if errors.Is(err, ErrHardMemoryLimit) {
 				qm.pool.Stop()
-				return
+				return true
 			}
 
 			qm.logger.Err(err).Msg("ignoring config changes on error")
