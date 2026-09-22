@@ -1,10 +1,7 @@
 package workerpool
 
 import (
-	"sync/atomic"
 	"time"
-
-	"gitlab.adv.team/go/utils.git/myatomic"
 )
 
 // SetWorkerCount устанавливает кол-во воркеров count для работы jobID.
@@ -21,17 +18,17 @@ func (wp *WorkerPool) SetWorkerCount(jobID JobTypeID, count int) {
 
 // SetMaxDryPolls - устанавливает максимальное кол-во пустых опросов очереди, после которых будет осуществлена задержка опроса этой очереди на dryPollDelay (default: 20 раз)
 func (wp *WorkerPool) SetMaxDryPolls(maxDryPolls int) {
-	atomic.StoreInt32(&wp.maxDryPolls, int32(maxDryPolls))
+	wp.maxDryPolls.Store(int32(maxDryPolls))
 }
 
 // SetDryPollDelay - устанавливает задержку после maxDryPolls пустых запросов (не вернувших новые записи) (default: 50 мсек)
 func (wp *WorkerPool) SetDryPollDelay(dryPollDelay time.Duration) {
-	myatomic.StoreDuration(&wp.dryPollDelay, dryPollDelay)
+	wp.dryPollDelay.Store(int64(dryPollDelay))
 }
 
 // SetIdleDelay - устанавливает задержку опроса по умолчанию, если других задержек нет (default: 5 секунд)
 func (wp *WorkerPool) SetIdleDelay(idleDelay time.Duration) {
-	myatomic.StoreDuration(&wp.idleDelay, idleDelay)
+	wp.idleDelay.Store(int64(idleDelay))
 }
 
 // Stop останавливает обработку. После выхода всех работающих обработчиков событий, метод Run возвращается.

@@ -13,7 +13,7 @@ import (
 
 	zlog "github.com/rs/zerolog/log"
 
-	"github.com/my-mail-ru/go-queuedproto"
+	"github.com/adventures-team/go-queuedproto"
 
 	"gitlab.adv.team/go/tp.git"
 	"gitlab.adv.team/go/tp.git/queueconfig"

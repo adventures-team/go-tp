@@ -8,7 +8,7 @@ import (
 	"encoding/binary"
 	"fmt"
 
-	iproto "github.com/my-mail-ru/go-iproto"
+	iproto "github.com/adventures-team/go-iproto"
 )
 
 func (recvEventPublishOnly eventPublishOnly) MarshalIProto(buf []byte) ([]byte, error) {

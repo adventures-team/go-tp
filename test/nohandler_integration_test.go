@@ -6,9 +6,11 @@ import (
 	"context"
 	"testing"
 
+	// TODO: switch to the standard library uuid package once Go 1.27 reaches
+	// a stable patch release (1.27.1/1.27.2), then drop github.com/gofrs/uuid.
 	"github.com/gofrs/uuid"
 
-	"github.com/my-mail-ru/go-queuedproto"
+	"github.com/adventures-team/go-queuedproto"
 
 	"gitlab.adv.team/go/tp.git"
 	"gitlab.adv.team/go/tp.git/queueconfig"

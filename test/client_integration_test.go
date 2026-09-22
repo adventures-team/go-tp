@@ -12,7 +12,7 @@ import (
 
 	"github.com/rs/zerolog"
 
-	"github.com/my-mail-ru/go-queuedproto"
+	"github.com/adventures-team/go-queuedproto"
 
 	"gitlab.adv.team/go/tp.git/queuedclient"
 )

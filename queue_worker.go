@@ -9,8 +9,8 @@ import (
 	"github.com/VictoriaMetrics/metrics"
 	"github.com/rs/zerolog"
 
-	advmetricsset "github.com/my-mail-ru/go-adv-metrics/set"
-	"github.com/my-mail-ru/go-queuedproto"
+	advmetricsset "github.com/adventures-team/go-adv-metrics/set"
+	"github.com/adventures-team/go-queuedproto"
 
 	"gitlab.adv.team/go/tp.git/queuedclient"
 	"gitlab.adv.team/go/tp.git/workerpool"

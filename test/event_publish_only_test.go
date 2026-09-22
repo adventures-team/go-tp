@@ -5,6 +5,8 @@ package tptest
 import (
 	"errors"
 
+	// TODO: switch to the standard library uuid package once Go 1.27 reaches
+	// a stable patch release (1.27.1/1.27.2), then drop github.com/gofrs/uuid.
 	"github.com/gofrs/uuid"
 
 	"gitlab.adv.team/go/tp.git"

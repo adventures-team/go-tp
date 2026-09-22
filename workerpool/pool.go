@@ -11,9 +11,10 @@ package workerpool
 
 import (
 	"sync"
+	"sync/atomic"
 	"time"
 
-	advmetricsset "github.com/my-mail-ru/go-adv-metrics/set"
+	advmetricsset "github.com/adventures-team/go-adv-metrics/set"
 	"github.com/rs/zerolog"
 )
 
@@ -100,11 +101,10 @@ type (
 		goroutinesRunning  int        // общее кол-во горутин всех воркеров
 		goroutinesRequired int        // требуемое кол-во горутин (сумма requested в jobTypes)
 
-		// с этими значениями работаем атомарными операциями
-		isManaged    int32         // запущен ли менеджер. повторный запуск менеджера сразу возвращается.
-		maxDryPolls  int32         // кол-во пустых запусков, после которых поллинг заданий не осуществляется в течении pollDelay
-		dryPollDelay time.Duration // задержка поллинга, если заданий определённого типа не было maxDryPolls раз подряд
-		idleDelay    time.Duration // задержка, если других задержек нет )
+		isManaged    atomic.Bool  // запущен ли менеджер. повторный запуск менеджера сразу возвращается.
+		maxDryPolls  atomic.Int32 // кол-во пустых запусков, после которых поллинг заданий не осуществляется в течении pollDelay
+		dryPollDelay atomic.Int64 // time.Duration. задержка поллинга, если заданий определённого типа не было maxDryPolls раз подряд
+		idleDelay    atomic.Int64 // time.Duration. задержка, если других задержек нет )
 
 		jobChan            chan JobTypeID         // небуферизованный канал - если все горутины заняты, ждём завершения (а не раздаём задания "на будущее")
 		hasJobChan         chan hasJobInfo        // посылается после вызова Poller.Poll в зависимости от наличия задания
@@ -117,12 +117,9 @@ type (
 
 // New создаёт новый пул воркеров
 func New(poller Poller, logger *zerolog.Logger) *WorkerPool {
-	return &WorkerPool{
+	wp := &WorkerPool{
 		Poller:             poller,
 		logger:             logger,
-		maxDryPolls:        DefaultMaxDryPolls,
-		dryPollDelay:       DefaultDryPollDelay,
-		idleDelay:          DefaultIdleDelay,
 		jobChan:            make(chan JobTypeID),
 		hasJobChan:         make(chan hasJobInfo, chanCapacity),
 		doneChan:           make(chan JobTypeID, chanCapacity),
@@ -130,6 +127,12 @@ func New(poller Poller, logger *zerolog.Logger) *WorkerPool {
 		stopChan:           make(chan struct{}),
 		setWorkerCountChan: make(chan setWorkerCountReq, chanCapacity),
 	}
+
+	wp.maxDryPolls.Store(DefaultMaxDryPolls)
+	wp.dryPollDelay.Store(int64(DefaultDryPollDelay))
+	wp.idleDelay.Store(int64(DefaultIdleDelay))
+
+	return wp
 }
 
 func (wp *WorkerPool) SetMetricsSet(ms advmetricsset.Set) {

@@ -5,9 +5,18 @@ package main
 import (
 	"encoding/binary"
 	"fmt"
+	"math"
 
-	iproto "github.com/my-mail-ru/go-iproto"
+	iproto "github.com/adventures-team/go-iproto"
 )
+
+// MaxIProtoLen caps how many elements a generated UnmarshalIProto will
+// pre-allocate for a length-prefixed slice or map, bounding memory amplification
+// when decoding untrusted input: a short message can encode a huge element count,
+// and make([]T, n) / make(map, n) reserves n*sizeof(elem) before any element is
+// read. Decoding a slice or map longer than this fails with iproto.ErrOverflow.
+// Declare a constant of this name in the package to override the default.
+const MaxIProtoLen = 1 << 20
 
 func (recvSimpleEvent SimpleEvent) MarshalIProto(buf []byte) ([]byte, error) {
 	buf = append(buf, byte(recvSimpleEvent.UserID), byte(recvSimpleEvent.UserID>>8), byte(recvSimpleEvent.UserID>>16), byte(recvSimpleEvent.UserID>>24))
@@ -29,9 +38,12 @@ func (recv_SimpleEvent *SimpleEvent) UnmarshalIProto(buf []byte) ([]byte, error)
 	if err != nil {
 		return nil, err
 	}
+	if math.MaxInt < math.MaxInt64 && u64 > math.MaxInt {
+		return nil, fmt.Errorf("UnmarshalIProto: LenRecv_SimpleEvent_UserName: %w: %d > %d", iproto.ErrOverflow, u64, uint64(math.MaxInt))
+	}
 	lenRecv_SimpleEvent_UserName := int(u64)
-	if len(buf) < lenRecv_SimpleEvent_UserName {
-		return nil, fmt.Errorf("UnmarshalIProto: Recv_SimpleEvent.UserName: %w: %d < %d", iproto.ErrOverflow, len(buf), lenRecv_SimpleEvent_UserName)
+	if uint64(len(buf)) < uint64(lenRecv_SimpleEvent_UserName) {
+		return nil, fmt.Errorf("UnmarshalIProto: Recv_SimpleEvent.UserName: %w: %d < %d", iproto.ErrOverflow, uint64(len(buf)), uint64(lenRecv_SimpleEvent_UserName))
 	}
 	recv_SimpleEvent.UserName = string(buf[:lenRecv_SimpleEvent_UserName])
 	buf = buf[lenRecv_SimpleEvent_UserName:]

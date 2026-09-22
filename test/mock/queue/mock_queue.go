@@ -13,8 +13,8 @@ import (
 	context "context"
 	reflect "reflect"
 
-	advmetricsset "github.com/my-mail-ru/go-adv-metrics/set"
-	queuedproto "github.com/my-mail-ru/go-queuedproto"
+	advmetricsset "github.com/adventures-team/go-adv-metrics/set"
+	queuedproto "github.com/adventures-team/go-queuedproto"
 	zerolog "github.com/rs/zerolog"
 	gomock "go.uber.org/mock/gomock"
 

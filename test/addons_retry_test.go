@@ -11,7 +11,7 @@ import (
 	"github.com/rs/zerolog"
 	zlog "github.com/rs/zerolog/log"
 
-	"github.com/my-mail-ru/go-queuedproto/addons"
+	"github.com/adventures-team/go-queuedproto/addons"
 
 	"gitlab.adv.team/go/tp.git"
 	"gitlab.adv.team/go/tp.git/queuedclient"

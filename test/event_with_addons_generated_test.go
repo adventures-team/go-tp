@@ -7,8 +7,9 @@ package tptest
 import (
 	"encoding/binary"
 	"fmt"
+	"math"
 
-	iproto "github.com/my-mail-ru/go-iproto"
+	iproto "github.com/adventures-team/go-iproto"
 )
 
 func (recvEventWithAddons eventWithAddons) MarshalIProto(buf []byte) ([]byte, error) {
@@ -90,9 +91,12 @@ func (recv_eventWithAddonsV2 *eventWithAddonsV2) UnmarshalIProto(buf []byte) ([]
 	if err != nil {
 		return nil, err
 	}
+	if math.MaxInt < math.MaxInt64 && u64 > math.MaxInt {
+		return nil, fmt.Errorf("UnmarshalIProto: LenRecv_eventWithAddonsV2_Name: %w: %d > %d", iproto.ErrOverflow, u64, uint64(math.MaxInt))
+	}
 	lenRecv_eventWithAddonsV2_Name := int(u64)
-	if len(buf) < lenRecv_eventWithAddonsV2_Name {
-		return nil, fmt.Errorf("UnmarshalIProto: Recv_eventWithAddonsV2.Name: %w: %d < %d", iproto.ErrOverflow, len(buf), lenRecv_eventWithAddonsV2_Name)
+	if uint64(len(buf)) < uint64(lenRecv_eventWithAddonsV2_Name) {
+		return nil, fmt.Errorf("UnmarshalIProto: Recv_eventWithAddonsV2.Name: %w: %d < %d", iproto.ErrOverflow, uint64(len(buf)), uint64(lenRecv_eventWithAddonsV2_Name))
 	}
 	recv_eventWithAddonsV2.Name = string(buf[:lenRecv_eventWithAddonsV2_Name])
 	buf = buf[lenRecv_eventWithAddonsV2_Name:]
