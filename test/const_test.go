@@ -15,8 +15,21 @@ const (
 	testRetryEventQueueID = 65529
 	testUnusedQueueID     = 65528
 	testBatchSize         = 10
-	testDefer             = 5 * time.Second
-	testPollDelay         = time.Second
+
+	// Адреса шардов queued в compose-сети dev-env: интеграционные тесты выполняются в сервисе
+	// tests (см. dev-env/docker-compose.yaml и make test-integration).
+	testShard0Addr = "queued_shard0:20000"
+	testShard1Addr = "queued_shard1:20000"
+
+	// Сетевые алиасы тех же контейнеров (networks.default.aliases в docker-compose.yaml):
+	// go-iprotoconn дедуплицирует соединения по строке адреса process-wide, поэтому тесту,
+	// которому нужно собственное соединение или "переезд" шарда на новый адрес, нужен
+	// другой адрес того же сервера.
+	testShard0ProbeAddr = "queued-shard0-probe:20000" // TestCancelDoesNotKillConnection
+	testShard0MovedAddr = "queued-shard0-moved:20000" // TestHotReconnect
+	testShard1MovedAddr = "queued-shard1-moved:20000" // TestHotReconnect
+	testDefer           = 5 * time.Second
+	testPollDelay       = time.Second
 
 	logLevelTrace = "trace"
 	logLevelDebug = "debug"
