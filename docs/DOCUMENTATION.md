@@ -251,7 +251,7 @@ GetEventID \- возвращает ID события. Код, работающи
 func (bev BaseEvent) HasCustomDefer() bool
 ```
 
-HasCustomDefer \- установлено ли явно время повторной активации вызовом методов [BaseEvent.Defer](<#BaseEvent.Defer>) или \[Queue.Replace\]
+HasCustomDefer \- установлено ли явно время повторной активации вызовом методов [BaseEvent.Defer](<#BaseEvent.Defer>) или Queue.Replace
 
 <a name="BaseEvent.IsDone"></a>
 ### func \(BaseEvent\) IsDone
@@ -1047,7 +1047,7 @@ Package encodings \- поддержка сериализации событий.
 
 ### Perl
 
-Кроме основного payload, с которым вопросов возникать не должно \(штатное кодирование средствами github.com/my\-mail\-ru/go\-iproto в \[queuedproto.PerlData.Data\]\), перловый формат поддерживает два механизма передачи дополнительных данных в TLV\-формате: addons \(MR::TP::Addon, используются в современных проектах на перле\) и extensions \(MR::Queue::Extensions, используются в MM\).
+Кроме основного payload, с которым вопросов возникать не должно \(штатное кодирование средствами github.com/adventures\-team/go\-iproto в \[queuedproto.PerlData.Data\]\), перловый формат поддерживает два механизма передачи дополнительных данных в TLV\-формате: addons \(MR::TP::Addon, используются в современных проектах на перле\) и extensions \(MR::Queue::Extensions, используются в MM\).
 
 Возможности обоих механизмов:
 
@@ -1070,7 +1070,7 @@ Package encodings \- поддержка сериализации событий.
 - \[addons.Retry2\]: MR::TP::Addon::Retry2
 - \[addons.Producer\]: MR::TP::Addon::Producer
 
-Пакет \[addons\] входит в состав библиотеки \[queuedproto\], где и реализован нижний уровень аддонов: github.com/my\-mail\-ru/go\-queuedproto/addons
+Пакет \[addons\] входит в состав библиотеки \[queuedproto\], где и реализован нижний уровень аддонов: github.com/adventures\-team/go\-queuedproto/addons
 
 Для использования аддонов, нужно вложить в свою структуру события нужные типы аддонов:
 
@@ -2737,6 +2737,7 @@ import "gitlab.adv.team/go/tp.git/managed/qmclient"
 
 ## Index
 
+- [Constants](<#constants>)
 - [type Client](<#Client>)
   - [func NewClient\(endpoint string, assignSlot func\(slotID, queueID uint32\) error, stats func\(\) StatsData\) \*Client](<#NewClient>)
   - [func \(c \*Client\) Run\(ctx context.Context\)](<#Client.Run>)
@@ -2757,6 +2758,14 @@ import "gitlab.adv.team/go/tp.git/managed/qmclient"
   - [func \(recvStatsResponse StatsResponse\) MarshalIProto\(buf \[\]byte\) \(\[\]byte, error\)](<#StatsResponse.MarshalIProto>)
   - [func \(recv\_StatsResponse \*StatsResponse\) UnmarshalIProto\(buf \[\]byte\) \(\[\]byte, error\)](<#StatsResponse.UnmarshalIProto>)
 
+
+## Constants
+
+<a name="MaxIProtoLen"></a>MaxIProtoLen caps how many elements a generated UnmarshalIProto will pre\-allocate for a length\-prefixed slice or map, bounding memory amplification when decoding untrusted input: a short message can encode a huge element count, and make\(\[\]T, n\) / make\(map, n\) reserves n\*sizeof\(elem\) before any element is read. Decoding a slice or map longer than this fails with iproto.ErrOverflow. Declare a constant of this name in the package to override the default.
+
+```go
+const MaxIProtoLen = 1 << 20
+```
 
 <a name="Client"></a>
 ## type Client
