@@ -1272,8 +1272,8 @@ per-queue:    $ProjectRoot/tp/go/$InstanceName/$QueueID
 Per\-instance \(название параметра, метод и формат\):
 
 ```
-oom_soft_limit          OOMSoftLimit         https://pkg.go.dev/kythe.io/kythe/go/util/datasize#Parse
-oom_hard_limit          OOMHardLimit         https://pkg.go.dev/kythe.io/kythe/go/util/datasize#Parse
+oom_soft_limit          OOMSoftLimit         размер: голое число - байты; kB/MB/GB/TB/PB - степени 1000; KiB/MiB/GiB/TiB/PiB - степени 1024
+oom_hard_limit          OOMHardLimit         размер (формат - как у oom_soft_limit)
 oom_soft_downscale_rate OOMSoftDownscaleRate strconv.ParseFloat
 oom_check_period        OOMCheckPeriod       time.ParseDuration
 workers_max             WorkersMaxCount      strconv.ParseInt

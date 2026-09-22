@@ -21,7 +21,6 @@ require (
 	go.uber.org/mock v0.6.0
 	google.golang.org/protobuf v1.36.12
 	gopkg.in/yaml.v3 v3.0.1
-	kythe.io v0.0.76
 )
 
 require (
