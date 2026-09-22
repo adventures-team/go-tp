@@ -6,6 +6,7 @@ import (
 
 	advslog "github.com/adventures-team/go-adv-slog"
 	iprotoconn "github.com/adventures-team/go-iprotoconn"
+	"github.com/adventures-team/go-iprotoconn/config"
 )
 
 const (
@@ -150,6 +151,17 @@ func (qmSource) GetStringIfExists(_ string) (string, bool)              { return
 func (qmSource) GetInt(_ string, dflt int) int                          { return dflt }
 func (qmSource) GetDuration(_ string, dflt time.Duration) time.Duration { return dflt }
 func (qmSource) GetFloat(_ string, dflt float64) float64                { return dflt }
+
+// Подписки (config.Subscribable): адрес менеджера очередей фиксирован на всё время жизни
+// клиента - меняться нечему, поэтому подписки принимаются, но никогда не срабатывают.
+// Без них go-iprotoconn при каждом запуске предупреждал бы о выключенном горячем
+// переподключении, что здесь бессмысленно.
+func (qmSource) SubscribeChan(string, chan<- struct{}) error        { return nil }
+func (qmSource) UnsubscribeChan(string, chan<- struct{})            {}
+func (qmSource) SubscribeChanSubtree(string, chan<- struct{}) error { return nil }
+func (qmSource) UnsubscribeChanSubtree(string, chan<- struct{})     {}
+
+var _ config.Subscribable = qmSource{}
 
 // Run поддерживает соединение с менеджером очередей и обслуживает его команды
 // (обратный RPC: соединение устанавливает клиент, запросы шлёт менеджер).

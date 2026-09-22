@@ -73,6 +73,9 @@ func newMockConf(t *testing.T, queueID tp.QueueIDType) OnlineConfWithSubtree {
 	conf.EXPECT().GetInt(queuedclient.ConfMinPID, queuedclient.DefaultMinPID).AnyTimes().Return(queuedclient.DefaultMinPID)
 	conf.EXPECT().GetString(queuedclient.ConfServers, "").AnyTimes().Return("127.0.0.1:20000, 127.0.0.1:20500")
 	conf.EXPECT().GetInt(queuedclient.ConfRetryCount, queuedclient.DefaultRetryCount).AnyTimes().Return(queuedclient.DefaultRetryCount)
+	// подписка адаптера go-iprotoconn на список серверов (горячее переподключение); в моке не срабатывает
+	conf.EXPECT().SubscribeChan(queuedclient.ConfServers, gomock.Any()).AnyTimes().Return(nil)
+	conf.EXPECT().UnsubscribeChan(queuedclient.ConfServers, gomock.Any()).AnyTimes()
 
 	for _, confPath := range confMissingStrings {
 		conf.EXPECT().GetStringIfExists(confPath).AnyTimes().Return("", false)

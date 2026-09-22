@@ -1675,7 +1675,7 @@ WorkersMaxCount получает workers\_max.
 <a name="OnlineConf"></a>
 ## type OnlineConf
 
-OnlineConf \- зависимость от онлайнконфа.
+OnlineConf \- зависимость от онлайнконфа: часть интерфейса onlineconf\-go/v2 \(Module/Subtree\), которая нужна tp.
 
 ```go
 type OnlineConf interface {
@@ -1684,6 +1684,12 @@ type OnlineConf interface {
     GetInt(string, int) int
     GetIntErr(string) (int, error)
     Subscribe(string) (chan struct{}, error)
+    // SubscribeChan/UnsubscribeChan - подписка на изменение значения по пути через переданный
+    // канал (семантика onlineconf-go/v2: уведомление - неблокирующая отправка struct{}{},
+    // UnsubscribeChan закрывает канал). Нужны для горячего переподключения к queued при
+    // смене списка серверов (см. queuedclient.Dial).
+    SubscribeChan(string, chan<- struct{}) error
+    UnsubscribeChan(string, chan<- struct{})
 }
 ```
 
@@ -1971,6 +1977,8 @@ func Dial(ctx context.Context, conf *queueconfig.Config, opts ...DialOption) (*Q
 Dial создаёт клиент queued по списку серверов из онлайнконфа.
 
 Соединения устанавливаются в фоне \(/eager\-dial в go\-iprotoconn\) \- Dial не ждёт их установки и не возвращает ошибку при недоступности серверов \(как и раньше с RedialForever\); ошибка возвращается только при пустом списке серверов или некорректной конфигурации.
+
+Список серверов отслеживается по подписке онлайнконфа: смена адресов в /queueds/multi применяется без перезапуска \(соединения со старыми адресами закрываются, с новыми \- открываются\). Изменение числа шардов при этом требует перезапуска \- оно игнорируется запущенным tp с предупреждением в лог \(см. iprotoSource\).
 
 <a name="QueuedClient.Defer"></a>
 ### func \(\*QueuedClient\) Defer

@@ -58,6 +58,10 @@ func (c staticConf) GetIntErr(path string) (int, error) {
 
 func (staticConf) Subscribe(string) (chan struct{}, error) { return make(chan struct{}), nil }
 
+func (staticConf) SubscribeChan(string, chan<- struct{}) error { return nil }
+
+func (staticConf) UnsubscribeChan(string, chan<- struct{}) {}
+
 func (c staticConf) Subtree(string) staticConf { return c }
 
 // TestCancelDoesNotKillConnection: go-iprotoconn при отмене/таймауте запроса
