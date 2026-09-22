@@ -46,6 +46,8 @@ services:
   # интерактивный шелл (docker compose run --rm tests). Профиль tests - чтобы `up -d` его
   # не запускал. Работает от пользователя хоста с его кешами модулей и сборки: файлы
   # в репозитории (cover.integration.out) остаются его, сборке не нужна сеть.
+  # Образ задаёт Makefile переменной GOIMAGE - golang:<версия из go.mod>-<DISTRO>; при запуске
+  # compose напрямую, без GOIMAGE, используется зафиксированный здесь образ.
   tests:
     image: ${GOIMAGE:-golang:1.26.3-trixie}
     profiles: [tests]

@@ -3,8 +3,11 @@ GOSRC = $(shell find . -type f -name '*.go')
 TEST_TIMEOUT = 10s
 LINT_TIMEOUT = 5m
 GOFLAGS =
-# Образ Go для интеграционных тестов (сервис tests в dev-env/docker-compose.yaml): версия go из go.mod.
-GOIMAGE = golang:1.26.3-trixie
+# Образ Go для интеграционных тестов (сервис tests в dev-env/docker-compose.yaml):
+# golang:<версия из директивы go в go.mod>-<DISTRO>.
+DISTRO = trixie
+GOVERSION = $(shell sed -n 's/^go //p' go.mod)
+GOIMAGE = golang:$(GOVERSION)-$(DISTRO)
 
 .PHONY: all
 all: format deps test full-lint doc queued-stresser
