@@ -6,9 +6,11 @@ import (
 	"time"
 
 	advmetricsset "github.com/adventures-team/go-adv-metrics/set"
+	advslog "github.com/adventures-team/go-adv-slog"
+	iprotoconn "github.com/adventures-team/go-iprotoconn"
+	"github.com/adventures-team/go-iprotoconn/breaker"
+	"github.com/adventures-team/go-iprotoconn/metrics/adv"
 
-	easygo "gitlab.adv.team/go/easygo.git/iproto"
-	"gitlab.adv.team/go/tp.git/internal/iprotolog"
 	"gitlab.adv.team/go/tp.git/queueconfig"
 )
 
@@ -18,6 +20,9 @@ const (
 
 	// ConfTimeout - таймаут в секундах. Поддерживается дробные значения, а также синтаксис time.ParseDuration, однако,
 	// для совместимости с перлом (которым используются те же пути), этого делать не рекомендуется.
+	//
+	// Исторически значение ограничивает одну попытку запроса, поэтому в go-iprotoconn оно
+	// отображается в /attempt-timeout (см. iprotoSource).
 	ConfTimeout = "/queueds/multi/timeout"
 
 	// DefaultTimeout - таймаут по умолчанию.
@@ -38,7 +43,7 @@ const (
 	// ConfRedialInterval - задержка при разрыве соединения.
 	ConfRedialInterval = "/queueds/multi/redial_interval"
 
-	// DefaultRedialInterval - задержка при разрыве соединения по умолчанию. Это дефолтное значение в iproto - но лучше задать явно, на случай, если там поменяют
+	// DefaultRedialInterval - задержка при разрыве соединения по умолчанию. Это дефолтное значение в go-iprotoconn - но лучше задать явно, на случай, если там поменяют
 	DefaultRedialInterval = 10 * time.Millisecond
 
 	// ConfPingInterval - интервал пинга queued.
@@ -61,91 +66,148 @@ const (
 
 var reqID uint32 // per process! не per-QueuedClient. в случае рандомных id, если последовательность будет сквозная у всех "pid", хуже от этого не станет, а вот если внутри процесса с разными объектаи будет совпадение reqID - хуже станет
 
-// QueuedClient - низкоуровневый клиент queued
+// QueuedClient - низкоуровневый клиент queued.
+//
+// Транспорт - go-iprotoconn: шардированный кластер (один сервер = один шард queued)
+// с ретраями, circuit breaker'ами per shard и метриками iproto_* (если задан
+// [WithMetricsSet]). Конфигурация читается из путей /queueds/multi/* через адаптер
+// iprotoSource - для обеспечения обратной совместимости с предыдущими версиями go-tp,
+// вместо использования путей, используемых go-iprotoconn по умолчанию.
 type QueuedClient struct {
 	Config     *queueconfig.Config
-	shards     []*easygo.Pool
+	client     *iprotoconn.Client
+	addrs      []string // адреса шардов (индекс = номер шарда), для ShardNum и сообщений об ошибках
 	metrics    advmetricsset.Set
 	roundRobin uint32
 	pid        uint32
 }
 
-// Dial открывает соединения к серверам queued, указанным в онлайнконфе
-func Dial(ctx context.Context, conf *queueconfig.Config) (*QueuedClient, error) {
+// DialOption - опции [Dial]: [WithMetricsSet].
+type DialOption func(*dialOptions)
+
+type dialOptions struct {
+	metrics advmetricsset.Set
+}
+
+// WithMetricsSet включает сбор транспортных метрик iproto_* в указанный Set.
+// Реестр метрик подключается при создании клиента, поэтому Set должен быть
+// известен на момент вызова [Dial] (в отличие от [QueuedClient.SetMetricsSet],
+// который лишь сохраняет Set для прикладных метрик уровня очередей).
+func WithMetricsSet(ms advmetricsset.Set) DialOption {
+	return func(opt *dialOptions) {
+		opt.metrics = ms
+	}
+}
+
+// Dial создаёт клиент queued по списку серверов из онлайнконфа.
+//
+// Соединения устанавливаются в фоне (/eager-dial в go-iprotoconn) - Dial не ждёт
+// их установки и не возвращает ошибку при недоступности серверов (как и раньше
+// с RedialForever); ошибка возвращается только при пустом списке серверов или
+// некорректной конфигурации.
+func Dial(ctx context.Context, conf *queueconfig.Config, opts ...DialOption) (*QueuedClient, error) {
 	pid, err := GetPID(conf.OnlineConf)
 	if err != nil {
 		return nil, err
 	}
 
-	timeout := conf.GetDuration(ctx, ConfTimeout, DefaultTimeout)
-	redialInterval := conf.GetDuration(ctx, ConfRedialInterval, DefaultRedialInterval)
-	pingInterval := conf.GetDuration(ctx, ConfPingInterval, DefaultPingInterval)
-
 	serverStrings := queueconfig.CSVRegex.Split(conf.GetString(ConfServers, ""), -1)
-	shards := make([]*easygo.Pool, 0, len(serverStrings))
+	addrs := make([]string, 0, len(serverStrings))
 
 	for _, server := range serverStrings {
-		if server == "" {
-			continue
+		if server != "" {
+			addrs = append(addrs, server)
 		}
-
-		logAdapter := iprotolog.Logger{}
-
-		endpoint, err := easygo.Dial(ctx, "tcp", server, &easygo.PoolConfig{
-			Size:              1,
-			ConnectTimeout:    timeout,
-			DialTimeout:       timeout,
-			RedialInterval:    redialInterval,
-			MaxRedialInterval: redialInterval,
-			RedialForever:     true,
-			Logger:            logAdapter,
-			ChannelConfig: &easygo.ChannelConfig{
-				WriteTimeout:   timeout,
-				RequestTimeout: timeout,
-				PingInterval:   pingInterval,
-				Logger:         logAdapter,
-			},
-		})
-		if err != nil {
-			return nil, fmt.Errorf("Dial %s: %w", server, err)
-		}
-
-		shards = append(shards, endpoint)
 	}
 
-	if len(shards) == 0 {
+	if len(addrs) == 0 {
 		return nil, fmt.Errorf("%w: %s", ErrNoServers, ConfServers)
 	}
 
+	var opt dialOptions
+
+	for _, f := range opts {
+		f(&opt)
+	}
+
+	// go-iprotoconn трактует отмену ctx как немедленный сброс всех соединений;
+	// исторически же ctx у Dial ограничивал только установку соединений, поэтому
+	// фоновые механизмы клиента отвязываются от жизни ctx (значения - логгер - сохраняются).
+	bgCtx := context.WithoutCancel(ctx)
+
+	clientOpts := []iprotoconn.ClientOption{
+		iprotoconn.WithLogger(advslog.Ctx(ctx)),
+	}
+
+	if (opt.metrics != advmetricsset.Set{}) {
+		clientOpts = append(clientOpts, iprotoconn.WithMetrics(adv.NewRegistry(opt.metrics)))
+	}
+
+	client, err := iprotoconn.NewClient(bgCtx, &iprotoSource{conf: conf, addrs: addrs, ctx: bgCtx}, clientOpts...)
+	if err != nil {
+		return nil, fmt.Errorf("iproto client: %w", err)
+	}
+
 	return &QueuedClient{
-		Config: conf,
-		shards: shards,
-		pid:    pid,
+		Config:  conf,
+		client:  client,
+		addrs:   addrs,
+		metrics: opt.metrics,
+		pid:     pid,
 	}, nil
 }
 
 // ShardNum возвращает количество шардов, указанных в /queueds/multi.
 func (qc *QueuedClient) ShardNum() uint {
-	return uint(len(qc.shards))
+	return uint(len(qc.addrs))
 }
 
 func (qc *QueuedClient) MetricsSet() advmetricsset.Set {
 	return qc.metrics
 }
 
+// SetMetricsSet сохраняет Set для прикладных метрик (tp_events_* и т.д., см. Queue).
+// Транспортные метрики iproto_* этим методом не включаются - реестр подключается
+// только при создании клиента опцией [WithMetricsSet].
 func (qc *QueuedClient) SetMetricsSet(ms advmetricsset.Set) {
 	qc.metrics = ms
 }
 
-// IsOnline проверяет наличие соединения со всеми шардами.
-func (qc *QueuedClient) IsOnline() bool {
-	online := 0
+// IsHealthy сообщает о работоспособности кластера queued с точки зрения клиента:
+// ни у одного шарда не открыт circuit breaker, и в каждом шарде есть пригодный
+// (не замороженный после ошибок) сервер.
+//
+// Соединения устанавливаются по требованию и в фоне, поэтому "холодный" клиент
+// сразу после Dial считается здоровым - метод отражает именно наличие проблем,
+// а не факт установленных TCP-соединений.
+func (qc *QueuedClient) IsHealthy() bool {
+	usable := make(map[int]bool, len(qc.addrs))
+	brokenShards := make(map[int]bool)
 
-	for _, shard := range qc.shards {
-		if shard.Stats().Online > 0 {
-			online++
+	for _, row := range qc.client.ClusterState() {
+		if row.Breaker == breaker.Open {
+			brokenShards[row.Shard] = true
+		}
+
+		if !row.Frozen {
+			usable[row.Shard] = true
 		}
 	}
 
-	return online == len(qc.shards)
+	for shard := 1; shard <= len(qc.addrs); shard++ {
+		if brokenShards[shard] || !usable[shard] {
+			return false
+		}
+	}
+
+	return true
+}
+
+// IsOnline проверяет доступность кластера queued.
+//
+// Deprecated: метод больше не проверяет наличие живых TCP-соединений со всеми
+// шардами (go-iprotoconn устанавливает соединения по требованию и в фоне) -
+// он эквивалентен [QueuedClient.IsHealthy], который и следует использовать.
+func (qc *QueuedClient) IsOnline() bool {
+	return qc.IsHealthy()
 }

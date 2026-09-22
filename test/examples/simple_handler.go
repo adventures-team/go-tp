@@ -18,7 +18,7 @@ func (*Service) Handle(ctx context.Context, events []SimpleEvent) error {
 		advslog.Ctx(ctx).Info("SimpleEvent received", "user_id", ev.UserID, "user_name", ev.UserName)
 		ev.Done()
 
-		if !ev.Queue().Client().IsOnline() {
+		if !ev.Queue().Client().IsHealthy() {
 			return errors.New("queued is offline")
 		}
 	}

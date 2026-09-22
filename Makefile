@@ -78,7 +78,6 @@ generate-mocks:
 	$(GO) tool mockgen -destination test/mock/slotpool/mock_slotpool.go -typed -package mockslotpool gitlab.adv.team/go/tp.git/managed/master Pool
 	$(GO) tool mockgen -destination test/mock/stats/mock_stat.go -typed -package mockstat gitlab.adv.team/go/tp.git/managed/master SlotStat
 	$(GO) tool mockgen -destination test/mock/poller/mock_poller.go -typed -package mockpoller gitlab.adv.team/go/tp.git/workerpool Poller,Worker,WorkerStat
-	$(GO) tool mockgen -destination test/mock/iproto/mock_iproto.go -typed -package mockiproto gitlab.adv.team/go/tp.git/managed/qmclient Connection
 	$(GO) tool mockgen -destination test/mock/onlineconf/mock_onlineconf.go -typed -package mockonlineconf gitlab.adv.team/go/tp.git/queueconfig OnlineConf
 	$(GO) tool mockgen -destination test/mock/onlineconf/mock_onlineconf_subtree.go -typed -package mockonlineconf gitlab.adv.team/go/tp.git/test OnlineConfWithSubtree
 

@@ -2,20 +2,15 @@ package qmclient
 
 import (
 	"context"
-	"net"
 	"time"
 
 	advslog "github.com/adventures-team/go-adv-slog"
-
-	easygo "gitlab.adv.team/go/easygo.git/iproto"
-	"gitlab.adv.team/go/tp.git/internal"
-	"gitlab.adv.team/go/tp.git/internal/iprotolog"
+	iprotoconn "github.com/adventures-team/go-iprotoconn"
 )
 
 const (
-	cmdStat      = 2
-	cmdSetQueue  = 3
-	cmdBroadcast = 10
+	cmdStat     = 2
+	cmdSetQueue = 3
 
 	answerOK   = 0
 	answerFail = 4
@@ -23,19 +18,18 @@ const (
 	cluster = "generic"
 )
 
-type Connection interface {
-	RemoteAddr() net.Addr
-	LocalAddr() net.Addr
-	Call(ctx context.Context, message uint32, data []byte) ([]byte, error)
-	Notify(ctx context.Context, message uint32, data []byte) error
-	Send(ctx context.Context, packet easygo.Packet) error
-	Close()
-	Shutdown()
-	Done() <-chan struct{}
-	OnClose(func())
-	GetBytes(n int) []byte
-	PutBytes(p []byte)
-}
+// StatsRequest - запрос статистики от менеджера очередей. Тело запроса игнорируется
+// (историческое поведение перлового протокола).
+type StatsRequest struct{}
+
+// Cmd возвращает код команды для типизированного мультиплексора go-iprotoconn.
+func (StatsRequest) Cmd() uint32 { return cmdStat }
+
+// UnmarshalIProto игнорирует тело запроса.
+func (*StatsRequest) UnmarshalIProto(buf []byte) ([]byte, error) { return buf, nil }
+
+// Cmd возвращает код команды для типизированного мультиплексора go-iprotoconn.
+func (SetQueueRequest) Cmd() uint32 { return cmdSetQueue }
 
 //adv:iproto:
 type StatsResponse struct {
@@ -110,11 +104,9 @@ type SetQueueResponse struct {
 }
 
 type Client struct {
-	endpoint       string
-	timeout        time.Duration
-	redialInterval time.Duration
-	assignSlot     func(slotID, queueID uint32) error
-	stats          func() StatsData
+	endpoint   string
+	assignSlot func(slotID, queueID uint32) error
+	stats      func() StatsData
 }
 
 func NewClient(endpoint string, assignSlot func(slotID, queueID uint32) error, stats func() StatsData) *Client {
@@ -125,105 +117,96 @@ func NewClient(endpoint string, assignSlot func(slotID, queueID uint32) error, s
 	}
 }
 
-func (c *Client) Run(ctx context.Context) {
-	logAdapter := iprotolog.Logger{}
+// qmSource - статический config.Source для go-iprotoconn: один "шард" с одним
+// мастером (менеджер очередей); соединение поддерживается постоянно (/eager-dial),
+// Cancel-пакеты выключены (легаси-пир закрывает соединение на неизвестных типах
+// сообщений - проверено на реальном queued, см. TestCancelDoesNotKillConnection).
+// Остальные параметры - дефолты go-iprotoconn.
+type qmSource struct {
+	endpoint string
+}
 
-	pool, err := easygo.Dial(ctx, "tcp", c.endpoint, &easygo.PoolConfig{
-		Size:              1,
-		ConnectTimeout:    c.timeout,
-		DialTimeout:       c.timeout,
-		RedialInterval:    c.redialInterval,
-		MaxRedialInterval: c.redialInterval,
-		RedialForever:     true,
-		Logger:            logAdapter,
-		ChannelConfig: &easygo.ChannelConfig{
-			Handler:        c,
-			WriteTimeout:   c.timeout,
-			RequestTimeout: c.timeout,
-			Logger:         logAdapter,
-		},
-	})
+func (s qmSource) GetStrings(path string, dflt []string) []string {
+	if path == "/masters" {
+		return []string{s.endpoint}
+	}
+
+	return dflt
+}
+
+func (qmSource) GetBool(path string, dflt bool) bool {
+	switch path {
+	case "/eager-dial", "/redial-forever":
+		return true
+	case "/cancels-enabled":
+		return false
+	}
+
+	return dflt
+}
+
+func (qmSource) GetString(_ string, dflt string) string                 { return dflt }
+func (qmSource) GetStringIfExists(_ string) (string, bool)              { return "", false }
+func (qmSource) GetInt(_ string, dflt int) int                          { return dflt }
+func (qmSource) GetDuration(_ string, dflt time.Duration) time.Duration { return dflt }
+func (qmSource) GetFloat(_ string, dflt float64) float64                { return dflt }
+
+// Run поддерживает соединение с менеджером очередей и обслуживает его команды
+// (обратный RPC: соединение устанавливает клиент, запросы шлёт менеджер).
+// Возврат - по отмене ctx.
+func (c *Client) Run(ctx context.Context) {
+	// отмена ctx для go-iprotoconn означает мгновенный сброс соединений;
+	// нам нужен graceful shutdown - поэтому фоновые механизмы клиента
+	// отвязываются от ctx, а по ctx.Done() зовётся Close.
+	client, err := iprotoconn.NewClient(context.WithoutCancel(ctx), qmSource{endpoint: c.endpoint},
+		iprotoconn.WithLogger(advslog.Ctx(ctx)))
 	if err != nil {
-		advslog.FatalContext(ctx, "qmclient: iproto dial", advslog.Err(err))
+		advslog.FatalContext(ctx, "qmclient: iproto client", advslog.Err(err))
+	}
+
+	mux := iprotoconn.NewMux()
+	iprotoconn.MustHandle(mux, c.handleStats)
+	iprotoconn.MustHandle(mux, c.handleSetQueue)
+
+	// Handle сразу после NewClient: соединение поднимается в фоне (/eager-dial),
+	// и пуш, пришедший до подключения мультиплексора, был бы отброшен.
+	// Менеджер очередей опрашивает клиентов периодически, поэтому микросекундное
+	// окно здесь безвредно.
+	if err := client.Handle(mux); err != nil {
+		advslog.FatalContext(ctx, "qmclient: attach mux", advslog.Err(err))
 	}
 
 	<-ctx.Done()
-	pool.Close()
+
+	_ = client.Close(context.Background())
 }
 
-func (c *Client) ServeIProto(ctx context.Context, conn easygo.Conn, packet easygo.Packet) {
-	advslog.Ctx(ctx).Debug("command received", "msg", packet.Header.Msg)
+func (c *Client) handleStats(_ context.Context, _ *StatsRequest) *StatsResponse {
+	return &StatsResponse{
+		Status:  answerOK,
+		Data:    c.stats(),
+		Cluster: cluster,
+	}
+}
 
-	switch packet.Header.Msg {
-	case cmdStat:
-		response := StatsResponse{
+func (c *Client) handleSetQueue(_ context.Context, req *SetQueueRequest) *SetQueueResponse {
+	queueStatuses := make([]uint32, 0, len(req.Queues))
+
+	for _, j := range req.Queues {
+		if err := c.assignSlot(j.Slot, j.QueueID); err != nil {
+			queueStatuses = append(queueStatuses, answerFail)
+		} else {
+			queueStatuses = append(queueStatuses, answerOK)
+		}
+	}
+
+	return &SetQueueResponse{
+		Status:           answerOK,
+		SetQueueStatuses: queueStatuses,
+		Stats: StatsResponse{
 			Status:  answerOK,
 			Data:    c.stats(),
 			Cluster: cluster,
-		}
-
-		data, err := response.MarshalIProto(internal.AllocBytes())
-		if err != nil {
-			advslog.Ctx(ctx).Error("marshal stats response", advslog.Err(err))
-			break
-		}
-
-		err = conn.Send(ctx, easygo.Packet{
-			Header: easygo.Header{
-				Msg:  packet.Header.Msg,
-				Len:  uint32(len(data)),
-				Sync: packet.Header.Sync,
-			},
-			Data: data,
-		})
-		if err != nil {
-			advslog.Ctx(ctx).Error("send stats response", advslog.Err(err))
-		}
-	case cmdSetQueue:
-		var req SetQueueRequest
-
-		_, err := req.UnmarshalIProto(packet.Data)
-		if err != nil {
-			advslog.Ctx(ctx).Error("unmarshal set-queue request", advslog.Err(err))
-			break // TODO AnswerFail should be sent
-		}
-
-		queueStatuses := make([]uint32, 0, len(req.Queues))
-
-		for _, j := range req.Queues {
-			if err = c.assignSlot(j.Slot, j.QueueID); err != nil {
-				queueStatuses = append(queueStatuses, answerFail)
-			} else {
-				queueStatuses = append(queueStatuses, answerOK)
-			}
-		}
-
-		data, err := SetQueueResponse{
-			Status:           answerOK,
-			SetQueueStatuses: queueStatuses,
-			Stats: StatsResponse{
-				Status:  answerOK,
-				Data:    c.stats(),
-				Cluster: cluster,
-			},
-		}.MarshalIProto(internal.AllocBytes())
-		if err != nil {
-			advslog.Ctx(ctx).Error("marshal set-queue response", advslog.Err(err))
-			break
-		}
-
-		err = conn.Send(ctx, easygo.Packet{
-			Header: easygo.Header{
-				Msg:  packet.Header.Msg,
-				Len:  uint32(len(data)),
-				Sync: packet.Header.Sync,
-			},
-			Data: data,
-		})
-		if err != nil {
-			advslog.Ctx(ctx).Error("send set-queue response", advslog.Err(err))
-		}
-	default:
-		advslog.Ctx(ctx).Error("unexpected msg", "msg", packet.Header.Msg)
+		},
 	}
 }

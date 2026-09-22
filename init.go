@@ -9,6 +9,7 @@ import (
 	advslog "github.com/adventures-team/go-adv-slog"
 
 	"gitlab.adv.team/go/tp.git/queueconfig"
+	"gitlab.adv.team/go/tp.git/queuedclient"
 	"gitlab.adv.team/go/tp.git/workerpool"
 )
 
@@ -131,7 +132,7 @@ func InitProcessor[T queueconfig.OnlineConf](conf queueconfig.OnlineConfWithSubt
 	instanceLogger := opt.logger.With("instance", opt.instanceName)
 	ctx := advslog.NewContext(context.Background(), instanceLogger)
 
-	queue, err := NewQueue(ctx, queueconfig.New(conf, opt.instanceName))
+	queue, err := NewQueue(ctx, queueconfig.New(conf, opt.instanceName), queuedclient.WithMetricsSet(opt.metrics))
 	if err != nil {
 		advslog.FatalContext(ctx, "error initializing queue processor", advslog.Err(err))
 	}
@@ -198,7 +199,7 @@ func InitProducer[T queueconfig.OnlineConf](conf queueconfig.OnlineConfWithSubtr
 
 	ctx := advslog.NewContext(context.Background(), opt.logger)
 
-	queue, err := NewQueue(ctx, queueconfig.New(conf, opt.instanceName))
+	queue, err := NewQueue(ctx, queueconfig.New(conf, opt.instanceName), queuedclient.WithMetricsSet(opt.metrics))
 	if err != nil {
 		advslog.FatalContext(ctx, "error initializing queue processor", advslog.Err(err))
 	}

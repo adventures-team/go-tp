@@ -6,15 +6,12 @@ import (
 	"log/slog"
 	"sync"
 	"sync/atomic"
-	"time"
 
-	"github.com/VictoriaMetrics/metrics"
-
-	advmetricsset "github.com/adventures-team/go-adv-metrics/set"
 	advslog "github.com/adventures-team/go-adv-slog"
+	iprotoconn "github.com/adventures-team/go-iprotoconn"
+	iprotoserver "github.com/adventures-team/go-iprotoconn/server"
 	"github.com/adventures-team/go-queuedproto"
 
-	easygo "gitlab.adv.team/go/easygo.git/iproto"
 	"gitlab.adv.team/go/tp.git/internal"
 )
 
@@ -27,10 +24,6 @@ type (
 	//
 	// Эта функция вызывается из разных горутин и должна быть thread-safe (не использовать прямой append/обычный map без лока! использовать каналы, [sync.Map] и т.д.)
 	ResultFunc func(shard uint, result []byte) error
-
-	withQueueID interface {
-		QueueID() uint16
-	}
 )
 
 func (qc *QueuedClient) balanceShard(shard uint) uint {
@@ -41,96 +34,122 @@ func (qc *QueuedClient) balanceShard(shard uint) uint {
 	return uint(atomic.AddUint32(&qc.roundRobin, 1)) % qc.ShardNum()
 }
 
+// hardRetCode запоминает последний "жёсткий" код возврата, увиденный классификатором
+// в рамках одного вызова: движок не возвращает тело ответа неисправного сервера,
+// а вызывающие стороны матчат протокольные ошибки (errors.Is / текст) - поэтому
+// после исчерпания ретраев код возврата прикладывается к итоговой ошибке.
+// Атомик - на случай параллельных попыток (hedging).
+type hardRetCode struct {
+	code atomic.Int32 // -1 = не было
+}
+
+// classify классифицирует ответ queued для движка ретраев go-iprotoconn:
+// пустой ответ и "жёсткие" коды возврата - OutcomeHard (сервер замораживается,
+// попытка перезапрашивается, ошибка учитывается circuit breaker'ом);
+// успех и "мягкие" (прикладные, [queuedproto.IsSoftError]) ошибки - OutcomeOK,
+// код возврата разбирается вызывающей стороной.
+func (h *hardRetCode) classify(_ uint32, payload []byte) iprotoconn.Outcome {
+	if len(payload) == 0 {
+		return iprotoconn.OutcomeHard
+	}
+
+	if err := queuedproto.ErrorByRetCode(payload[0]); err != nil && !queuedproto.IsSoftError(err) {
+		h.code.Store(int32(payload[0]))
+		return iprotoconn.OutcomeHard
+	}
+
+	return iprotoconn.OutcomeOK
+}
+
+// wrap оборачивает протокольную ошибку последнего "жёсткого" кода возврата ошибкой движка
+// (если такой код был): callErr остаётся в цепочке, errors.Is работает для обоих.
+func (h *hardRetCode) wrap(callErr error) error {
+	if rc := h.code.Load(); rc >= 0 {
+		if rcErr := queuedproto.ErrorByRetCode(byte(rc)); rcErr != nil {
+			return fmt.Errorf("%w (%w)", rcErr, callErr)
+		}
+	}
+
+	return callErr
+}
+
+// call выполняет запрос к указанному шарду (нумерация с 0). Ретраи, задержки
+// между ними и таймауты - на движке go-iprotoconn согласно /queueds/multi/*
+// (см. iprotoSource); дополнительные opts могут переопределить их per call.
+//
+// Возвращает тело ответа без байта кода возврата. "Мягкие" ошибки возвращаются
+// вместе с телом ответа (как и раньше). "Жёсткие" коды возврата, исчерпавшие
+// ретраи, возвращаются протокольной ошибкой ([queuedproto.ErrorByRetCode]) с
+// приложенной ошибкой движка (*iprotoconn.Error) в цепочке - errors.Is работает
+// для обеих.
+func (qc *QueuedClient) call(ctx context.Context, shard uint, req queuedproto.Request, opts ...iprotoconn.CallOption) ([]byte, error) {
+	reqBytes, err := req.MarshalIProto(internal.AllocBytes())
+	if err != nil {
+		return nil, fmt.Errorf("pack: %w", err)
+	}
+
+	lastHard := &hardRetCode{}
+	lastHard.code.Store(-1)
+
+	callOpts := make([]iprotoconn.CallOption, 0, len(opts)+2)
+	callOpts = append(callOpts,
+		iprotoconn.WithShard(int(shard)+1), // go-iprotoconn нумерует шарды с 1
+		iprotoconn.WithClassifierRaw(lastHard.classify),
+	)
+	callOpts = append(callOpts, opts...)
+
+	// RawRequest обходит несовместимость интерфейсов (queuedproto.Cmd - именованный
+	// тип, движку нужен Cmd() uint32) и сохраняет один маршалинг на все шарды
+	// broadcast/multicast-запросов.
+	var resp iprotoserver.RawResponse
+
+	err = qc.client.Call(ctx, iprotoserver.RawRequest(uint32(req.Cmd()), reqBytes), &resp, callOpts...)
+	if err != nil {
+		return nil, lastHard.wrap(err)
+	}
+
+	if len(resp) == 0 {
+		return nil, ErrEmptyResponse
+	}
+
+	// сюда доходят только успех и "мягкие" ошибки: "жёсткие" коды классифицированы
+	// как OutcomeHard и превращаются движком в ошибку Call после ретраев
+	return resp[1:], queuedproto.ErrorByRetCode(resp[0])
+}
+
 // MakeUnicastRequest посылает запрос req к указанному шарду.
 //
-// В случае получения не-логической ошибки (!queuedproto.IsSoftError(err)), производится ещё /queueds/multi/retry_count попыток
-// с задержкой /queueds/multi/retry_delay. Если после всех этих попыток ошибка повторяется - она возвращается.
+// Ретраи при не-логических ошибках (!queuedproto.IsSoftError(err)) выполняет движок
+// go-iprotoconn: /queueds/multi/retry_count попыток с задержкой /queueds/multi/retry_delay,
+// каждая попытка ограничена /queueds/multi/timeout.
 //
-// Если задан shard == [BalanceShard], шард выбирается по round robin. В этом случае, каждый ретрай посылается в следующий шард.
+// Если задан shard == [BalanceShard], шард выбирается по round robin. Если запрос
+// гарантированно не был отправлен ([iprotoconn.RequestNotExecuted] - например,
+// у шарда открыт circuit breaker), пробуется следующий шард - это безопасно
+// даже для неидемпотентных запросов.
 func (qc *QueuedClient) MakeUnicastRequest(ctx context.Context, shard uint, req queuedproto.Request) (usedShard uint, respBytes []byte, err error) {
 	if shard != BalanceShard && shard >= qc.ShardNum() {
 		return 0, nil, fmt.Errorf("%w %d", ErrInvalidShard, shard)
 	}
 
-	reqBytes, err := req.MarshalIProto(internal.AllocBytes())
-	if err != nil {
-		return 0, nil, err
+	shardsToTry := 1
+	if shard == BalanceShard {
+		shardsToTry = int(qc.ShardNum())
 	}
 
-	cmd := req.Cmd()
-	retry := 0
-	queueID := 0
-
-	if qID, ok := req.(withQueueID); ok {
-		queueID = int(qID.QueueID())
-	}
-
-	for {
+	for range shardsToTry {
 		usedShard = qc.balanceShard(shard)
-		endpoint := qc.shards[usedShard]
 
-		var (
-			reqStarted time.Time
-			inProgress *metrics.Gauge
-		)
-
-		if (qc.metrics != advmetricsset.Set{}) {
-			reqStarted = time.Now()
-			inProgress = qc.metrics.Name("tp_queued_in_progress").Str("queued", endpoint.RemoteAddr().String()).Str("cmd", cmd.String()).Int("queue_id", queueID).GetOrCreateGauge(nil)
-
-			qc.metrics.Name("tp_queued_total").Str("queued", endpoint.RemoteAddr().String()).Str("cmd", cmd.String()).Int("queue_id", queueID).GetOrCreateCounter().Inc()
-			inProgress.Inc()
+		respBytes, err = qc.call(ctx, usedShard, req)
+		if err == nil || !iprotoconn.RequestNotExecuted(err) {
+			return usedShard, respBytes, err
 		}
 
-		respBytes, err = endpoint.Call(ctx, uint32(cmd), reqBytes)
-
-		if inProgress != nil {
-			inProgress.Dec()
-			qc.metrics.Name("tp_queued_duration_seconds").Str("queued", endpoint.RemoteAddr().String()).Str("cmd", cmd.String()).Int("queue_id", queueID).GetOrCreateHistogram().UpdateDuration(reqStarted)
-		}
-
-		if err == nil {
-			if len(respBytes) == 0 {
-				return usedShard, nil, ErrEmptyResponse
-			}
-
-			if err = queuedproto.ErrorByRetCode(respBytes[0]); err == nil || queuedproto.IsSoftError(err) {
-				return usedShard, respBytes[1:], err
-			}
-
-			if inProgress != nil {
-				// err is low-cardinality
-				qc.metrics.Name("tp_queued_errors").Str("queued", endpoint.RemoteAddr().String()).Str("cmd", cmd.String()).Int("queue_id", queueID).Str("err", err.Error()).GetOrCreateCounter().Inc()
-			}
-		} else if inProgress != nil {
-			qc.metrics.Name("tp_queued_errors").Str("queued", endpoint.RemoteAddr().String()).Str("cmd", cmd.String()).Int("queue_id", queueID).Str("err", "network").GetOrCreateCounter().Inc()
-		}
-
-		retry++
-
-		retryCount := qc.Config.GetInt(ConfRetryCount, DefaultRetryCount)
-
-		logAttrs := make([]slog.Attr, 0, 8) // +1 под retry_delay ниже
-		logAttrs = append(logAttrs,
-			advslog.Err(err),
-			slog.Uint64("shard", uint64(usedShard)),
-			slog.Any("queued", endpoint.RemoteAddr()),
-			slog.Int("retry", retry),
-			slog.Int("retry_count", retryCount),
-			slog.Any("cmd", cmd),
-			slog.Any("req", req),
-		)
-
-		if retry >= retryCount {
-			advslog.Ctx(ctx).LogAttrs(ctx, slog.LevelError, "retry count exceeded", logAttrs...)
-			return usedShard, nil, err
-		}
-
-		retryDelay := qc.Config.GetDuration(ctx, ConfRetryDelay, DefaultRetryDelay)
-
-		advslog.Ctx(ctx).LogAttrs(ctx, slog.LevelError, "retry on error", append(logAttrs, slog.Duration("retry_delay", retryDelay))...)
-		time.Sleep(retryDelay)
+		advslog.Ctx(ctx).Warn("queued shard unavailable, trying next",
+			advslog.Err(err), "shard", usedShard, "queued", qc.addrs[usedShard], "cmd", req.Cmd().String())
 	}
+
+	return usedShard, respBytes, err
 }
 
 // MakeBroadcastRequest посылает запрос req параллельно во все шарды. После получения ответа от каждого шарда,
@@ -146,101 +165,44 @@ func (qc *QueuedClient) MakeUnicastRequest(ctx context.Context, shard uint, req 
 //
 // TODO раскопипастить broad/multicast запросы - когда полностью определимся с их логикой.
 func (qc *QueuedClient) MakeBroadcastRequest(ctx context.Context, req queuedproto.Request, resFunc ResultFunc) error {
-	reqBytes, err := req.MarshalIProto(internal.AllocBytes())
-	if err != nil {
-		return err
-	}
-
-	cmd := req.Cmd()
-	queueID := 0
 	errChan := make(chan error)
-	errs := make(ErrMulti, 0, len(qc.shards))
+	errs := make(ErrMulti, 0, qc.ShardNum())
 
-	if qID, ok := req.(withQueueID); ok {
-		queueID = int(qID.QueueID())
-	}
-
-	for shard, endpoint := range qc.shards {
-		go func(shard uint, endpoint *easygo.Pool) {
-			var (
-				err           error
-				errMetricSent bool
-				reqStarted    time.Time
-				inProgress    *metrics.Gauge
-			)
+	for shard := range qc.ShardNum() {
+		go func(shard uint) {
+			var err error
 
 			defer func() {
 				if reason := recover(); reason != nil {
 					advslog.Ctx(ctx).LogAttrs(ctx, slog.LevelError, "panic in MakeBroadcastRequest",
-						append(advslog.PanicAttrs(reason), slog.Uint64("shard", uint64(shard)), slog.Any("queued", endpoint.RemoteAddr()))...)
-
-					if inProgress != nil {
-						qc.metrics.Name("tp_queued_errors").Str("queued", endpoint.RemoteAddr().String()).Str("cmd", cmd.String()).Int("queue_id", queueID).Str("err", "panic").GetOrCreateCounter().Inc()
-					}
+						append(advslog.PanicAttrs(reason), slog.Uint64("shard", uint64(shard)), slog.String("queued", qc.addrs[shard]))...)
 
 					err = ErrPanic
-					errMetricSent = true
 				}
 
 				if err == nil {
 					errChan <- nil
 				} else {
-					if !errMetricSent && inProgress != nil {
-						qc.metrics.Name("tp_queued_errors").Str("queued", endpoint.RemoteAddr().String()).Str("cmd", cmd.String()).Int("queue_id", queueID).Str("err", "network").GetOrCreateCounter().Inc()
-					}
-
-					errChan <- fmt.Errorf("shard #%d (%s): %w", shard, endpoint.RemoteAddr().String(), err)
+					errChan <- fmt.Errorf("shard #%d (%s): %w", shard, qc.addrs[shard], err)
 				}
 			}()
 
-			advslog.Ctx(ctx).Log(ctx, advslog.LevelTrace, "iproto.Call", "shard", shard, "cmd", cmd, "req", req)
+			var respBytes []byte
 
-			if (qc.metrics != advmetricsset.Set{}) {
-				reqStarted = time.Now()
-				inProgress = qc.metrics.Name("tp_queued_in_progress").Str("queued", endpoint.RemoteAddr().String()).Str("cmd", cmd.String()).Int("queue_id", queueID).GetOrCreateGauge(nil)
-
-				qc.metrics.Name("tp_queued_total").Str("queued", endpoint.RemoteAddr().String()).Str("cmd", cmd.String()).Int("queue_id", queueID).GetOrCreateCounter().Inc()
-				inProgress.Inc()
-			}
-
-			respBytes, err := endpoint.Call(ctx, uint32(cmd), reqBytes)
-
-			if inProgress != nil {
-				inProgress.Dec()
-				qc.metrics.Name("tp_queued_duration_seconds").Str("queued", endpoint.RemoteAddr().String()).Str("cmd", cmd.String()).Int("queue_id", queueID).GetOrCreateHistogram().UpdateDuration(reqStarted)
-			}
-
+			respBytes, err = qc.call(ctx, shard, req, iprotoconn.WithMaxTries(1)) // без ретраев
 			if err != nil {
 				return
 			}
 
-			advslog.Ctx(ctx).Log(ctx, advslog.LevelTrace, "iproto.Call", "shard", shard, "cmd", cmd, "resp", string(respBytes))
-
-			if len(respBytes) == 0 {
-				err = ErrEmptyResponse
+			if resFunc == nil || len(respBytes) == 0 {
 				return
 			}
 
-			if err = queuedproto.ErrorByRetCode(respBytes[0]); err != nil {
-				if inProgress != nil {
-					// err is low-cardinality
-					qc.metrics.Name("tp_queued_errors").Str("queued", endpoint.RemoteAddr().String()).Str("cmd", cmd.String()).Int("queue_id", queueID).Str("err", err.Error()).GetOrCreateCounter().Inc()
-
-					errMetricSent = true
-				}
-
-				return
-			}
-
-			if resFunc == nil || len(respBytes) == 1 {
-				return
-			}
-
-			err = resFunc(shard, respBytes[1:])
-		}(uint(shard), endpoint)
+			err = resFunc(shard, respBytes)
+		}(shard)
 	}
 
-	for range qc.shards {
+	for range qc.ShardNum() {
 		if err := <-errChan; err != nil {
 			errs.Append(err)
 		}
@@ -256,8 +218,9 @@ func (qc *QueuedClient) MakeBroadcastRequest(ctx context.Context, req queuedprot
 //
 // resFunc вызывается из разных горутин и должна быть thread-safe.
 //
-// В случае получения не-логической ошибки (!queuedproto.IsSoftError(err)), производится ещё /queueds/multi/retry_count попыток
-// с задержкой /queueds/multi/retry_delay. Если после всех этих попыток ошибка повторяется - она вносится в список ошибок шардов.
+// Ретраи при не-логических ошибках (!queuedproto.IsSoftError(err)) выполняет движок
+// go-iprotoconn (/queueds/multi/retry_count попыток с задержкой /queueds/multi/retry_delay);
+// если ошибка осталась после всех попыток - она вносится в список ошибок шардов.
 //
 // Ошибки обработки результата в resFunc не приводят к ретраям, т.к., скорее всего, являются ошибками прикладного уровня.
 //
@@ -280,7 +243,7 @@ func (qc *QueuedClient) MakeMulticastRequest(ctx context.Context, batchSize int,
 	}
 
 	errChan := make(chan error)
-	errs := make(ErrMulti, 0, len(qc.shards))
+	errs := make(ErrMulti, 0, qc.ShardNum())
 	wg := &sync.WaitGroup{} // ошибок может быть больше шардов, если len(ids) < batchSize, поэтому кроме канала нужно wg.
 	// по этому же, nil-ошибки можно не посылать
 
@@ -303,33 +266,27 @@ func (qc *QueuedClient) MakeMulticastRequest(ctx context.Context, batchSize int,
 }
 
 func (qc *QueuedClient) reqMultiProcessShard(ctx context.Context, batchSize int, shard uint, ids []uint64, errChan chan<- error, wg *sync.WaitGroup, reqFunc RequestFunc, resFunc ResultFunc) {
-	endpoint := qc.shards[shard]
-
 	defer func() {
 		if reason := recover(); reason != nil {
-			// XXX can't implement panic metrics without introducing unnecessary complexity, and this code is already excessively complex. don't hesitate to remove the panic metrics in MakeBroadcastRequest if they appear to be asymmetrical.
 			advslog.Ctx(ctx).LogAttrs(ctx, slog.LevelError, "panic in MakeMulticastRequest",
-				append(advslog.PanicAttrs(reason), slog.Uint64("shard", uint64(shard)), slog.Any("queued", endpoint.RemoteAddr()))...)
+				append(advslog.PanicAttrs(reason), slog.Uint64("shard", uint64(shard)), slog.String("queued", qc.addrs[shard]))...)
 
-			errChan <- fmt.Errorf("shard #%d (%s): %w", shard, endpoint.RemoteAddr().String(), ErrPanic)
+			errChan <- fmt.Errorf("shard #%d (%s): %w", shard, qc.addrs[shard], ErrPanic)
 		}
 
 		wg.Done()
 	}()
 
 	for start := 0; start < len(ids); start += batchSize {
-		end := start + batchSize
-		if end > len(ids) {
-			end = len(ids)
-		}
+		end := min(start+batchSize, len(ids))
 
 		batch := ids[start:end]
 		req := reqFunc(batch)
 
-		respBytes, op, err := qc.reqMultiRetryLoop(ctx, shard, endpoint, req)
+		respBytes, err := qc.call(ctx, shard, req)
 		if err != nil {
 			// TODO логгировать номера ивентов в том же формате, как и везде - будет ли админам польза от этого?
-			errChan <- fmt.Errorf("shard #%d (%s), event_ids=%v: %s%w", shard, endpoint.RemoteAddr().String(), batch, op, err)
+			errChan <- fmt.Errorf("shard #%d (%s), event_ids=%v: %w", shard, qc.addrs[shard], batch, err)
 			continue
 		}
 
@@ -338,95 +295,7 @@ func (qc *QueuedClient) reqMultiProcessShard(ctx context.Context, batchSize int,
 		}
 
 		if err = resFunc(shard, respBytes); err != nil {
-			errChan <- fmt.Errorf("shard #%d (%s), event_ids=%v: ResultFunc: %w", shard, endpoint.RemoteAddr().String(), batch, err)
+			errChan <- fmt.Errorf("shard #%d (%s), event_ids=%v: ResultFunc: %w", shard, qc.addrs[shard], batch, err)
 		}
-	}
-}
-
-func (qc *QueuedClient) reqMultiRetryLoop(ctx context.Context, shard uint, endpoint *easygo.Pool, req queuedproto.Request) (respBytes []byte, op string, err error) {
-	reqBytes, err := req.MarshalIProto(internal.AllocBytes())
-	if err != nil {
-		return nil, "Pack: ", err
-	}
-
-	zLog := advslog.Ctx(ctx)
-	cmd := req.Cmd()
-	queueID := 0
-	retry := 0
-	retryCount := qc.Config.GetInt(ConfRetryCount, DefaultRetryCount)
-
-	if qID, ok := req.(withQueueID); ok {
-		queueID = int(qID.QueueID())
-	}
-
-	for {
-		// перфекционистам - ip шарда не логгирую, т.к. это не для админов, а для разработчиков
-		zLog.Log(ctx, advslog.LevelTrace, "iproto.Call", "shard", shard, "retry", retry, "retry_count", retryCount, "cmd", cmd, "req", req)
-
-		var (
-			reqStarted time.Time
-			inProgress *metrics.Gauge
-		)
-
-		if (qc.metrics != advmetricsset.Set{}) {
-			reqStarted = time.Now()
-			inProgress = qc.metrics.Name("tp_queued_in_progress").Str("queued", endpoint.RemoteAddr().String()).Str("cmd", cmd.String()).Int("queue_id", queueID).GetOrCreateGauge(nil)
-
-			qc.metrics.Name("tp_queued_total").Str("queued", endpoint.RemoteAddr().String()).Str("cmd", cmd.String()).Int("queue_id", queueID).GetOrCreateCounter().Inc()
-			inProgress.Inc()
-		}
-
-		respBytes, err = endpoint.Call(ctx, uint32(cmd), reqBytes)
-
-		if inProgress != nil {
-			inProgress.Dec()
-			qc.metrics.Name("tp_queued_duration_seconds").Str("queued", endpoint.RemoteAddr().String()).Str("cmd", cmd.String()).Int("queue_id", queueID).GetOrCreateHistogram().UpdateDuration(reqStarted)
-		}
-
-		if err == nil {
-			op = ""
-
-			zLog.Log(ctx, advslog.LevelTrace, "iproto.Call", "shard", shard, "cmd", cmd, "resp", string(respBytes))
-
-			if len(respBytes) == 0 {
-				return nil, "", ErrEmptyResponse
-			}
-
-			if err = queuedproto.ErrorByRetCode(respBytes[0]); err == nil || queuedproto.IsSoftError(err) {
-				return respBytes[1:], "", err
-			}
-
-			if inProgress != nil {
-				// err is low-cardinality
-				qc.metrics.Name("tp_queued_errors").Str("queued", endpoint.RemoteAddr().String()).Str("cmd", cmd.String()).Int("queue_id", queueID).Str("err", err.Error()).GetOrCreateCounter().Inc()
-			}
-		} else if inProgress != nil {
-			qc.metrics.Name("tp_queued_errors").Str("queued", endpoint.RemoteAddr().String()).Str("cmd", cmd.String()).Int("queue_id", queueID).Str("err", "network").GetOrCreateCounter().Inc()
-
-			op = "Call: "
-		}
-
-		retry++
-
-		logAttrs := make([]slog.Attr, 0, 8) // +1 под retry_delay ниже
-		logAttrs = append(logAttrs,
-			advslog.Err(err),
-			slog.Uint64("shard", uint64(shard)),
-			slog.Any("queued", endpoint.RemoteAddr()),
-			slog.Int("retry", retry),
-			slog.Int("retry_count", retryCount),
-			slog.Any("cmd", cmd),
-			slog.Any("req", req),
-		)
-
-		if retry >= retryCount {
-			zLog.LogAttrs(ctx, slog.LevelError, "retry count exceeded", logAttrs...)
-			return nil, op, err
-		}
-
-		retryDelay := qc.Config.GetDuration(ctx, ConfRetryDelay, DefaultRetryDelay)
-
-		zLog.LogAttrs(ctx, slog.LevelError, "retry on error", append(logAttrs, slog.Duration("retry_delay", retryDelay))...)
-		time.Sleep(retryDelay)
 	}
 }

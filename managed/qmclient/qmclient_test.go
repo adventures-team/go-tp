@@ -2,121 +2,123 @@ package qmclient
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/go-faker/faker/v4"
-	"go.uber.org/mock/gomock"
-
-	easygo "gitlab.adv.team/go/easygo.git/iproto"
-	"gitlab.adv.team/go/tp.git/internal"
-	mockiproto "gitlab.adv.team/go/tp.git/test/mock/iproto"
+	"github.com/google/go-cmp/cmp"
 )
 
-func TestServeIProto_cmdStat(t *testing.T) {
+func TestHandleStats(t *testing.T) {
+	data := StatsData{}
+	_ = faker.FakeData(&data)
+
+	client := Client{
+		stats: func() StatsData { return data },
+	}
+
+	got := client.handleStats(context.Background(), &StatsRequest{})
+
+	want := &StatsResponse{
+		Status:  answerOK,
+		Data:    data,
+		Cluster: cluster,
+	}
+
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("handleStats mismatch (-want +got):\n%s", diff)
+	}
+}
+
+func TestHandleSetQueue(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
-		ctx := context.Background()
-		ctrl := gomock.NewController(t)
-		conn := mockiproto.NewMockConnection(ctrl)
-
+		assignSlotCalls := 0
 		data := StatsData{}
-		_ = faker.FakeData(&data)
 
-		collectStatsData := func() StatsData {
-			return data
-		}
 		client := Client{
-			stats: collectStatsData,
-		}
-		req := easygo.Packet{
-			Header: easygo.Header{
-				Msg:  cmdStat,
-				Sync: 1,
+			stats: func() StatsData { return data },
+			assignSlot: func(uint32, uint32) error {
+				assignSlotCalls++
+				return nil
 			},
 		}
 
-		statsResp := StatsResponse{
-			Status:  answerOK,
-			Data:    data,
-			Cluster: "generic",
-		}
-
-		iprotoResp, err := statsResp.MarshalIProto(internal.AllocBytes())
-		if err != nil {
-			t.Fatal("statsResp.MarshalIProto: ", err)
-		}
-
-		conn.EXPECT().Send(ctx, easygo.Packet{
-			Header: easygo.Header{
-				Msg:  req.Header.Msg,
-				Len:  uint32(len(iprotoResp)),
-				Sync: req.Header.Sync,
-			},
-			Data: iprotoResp,
+		got := client.handleSetQueue(context.Background(), &SetQueueRequest{
+			Queues: []SetQueue{{Slot: 0, QueueID: 1}, {Slot: 1, QueueID: 2}},
 		})
 
-		client.ServeIProto(ctx, conn, req)
+		want := &SetQueueResponse{
+			Status:           answerOK,
+			SetQueueStatuses: []uint32{answerOK, answerOK},
+			Stats: StatsResponse{
+				Status:  answerOK,
+				Data:    data,
+				Cluster: cluster,
+			},
+		}
+
+		if diff := cmp.Diff(want, got); diff != "" {
+			t.Errorf("handleSetQueue mismatch (-want +got):\n%s", diff)
+		}
+
+		if want := 2; assignSlotCalls != want {
+			t.Errorf("unexpected number of assignSlot calls: got %d, want %d", assignSlotCalls, want)
+		}
+	})
+
+	t.Run("assign error", func(t *testing.T) {
+		client := Client{
+			stats: func() StatsData { return StatsData{} },
+			assignSlot: func(_, queueID uint32) error {
+				if queueID == 2 {
+					return errors.New("slot is busy")
+				}
+
+				return nil
+			},
+		}
+
+		got := client.handleSetQueue(context.Background(), &SetQueueRequest{
+			Queues: []SetQueue{{Slot: 0, QueueID: 1}, {Slot: 1, QueueID: 2}},
+		})
+
+		if want := []uint32{answerOK, answerFail}; !cmp.Equal(want, got.SetQueueStatuses) {
+			t.Errorf("SetQueueStatuses: got %v, want %v", got.SetQueueStatuses, want)
+		}
 	})
 }
 
-func TestServeIProto_cmdSetQueue(t *testing.T) {
-	t.Run("success", func(t *testing.T) {
-		ctx := context.Background()
-		ctrl := gomock.NewController(t)
-		conn := mockiproto.NewMockConnection(ctrl)
+// TestRequestCodecs - страховка соответствия типов запросов контрактам
+// go-iprotoconn (Cmd + Unmarshal): регистрация в мультиплексоре проверяет
+// это на этапе компиляции, тест фиксирует коды команд протокола.
+func TestRequestCodecs(t *testing.T) {
+	if got := (StatsRequest{}).Cmd(); got != cmdStat {
+		t.Errorf("StatsRequest.Cmd() = %d, want %d", got, cmdStat)
+	}
 
-		assignSlotCalls := 0
-		data := StatsData{}
-		// _ = faker.FakeData(&data)
+	if got := (SetQueueRequest{}).Cmd(); got != cmdSetQueue {
+		t.Errorf("SetQueueRequest.Cmd() = %d, want %d", got, cmdSetQueue)
+	}
 
-		collectStatsData := func() StatsData {
-			return data
-		}
-		assignSlot := func(uint32, uint32) error {
-			assignSlotCalls++
-			return nil
-		}
-		client := Client{
-			stats:      collectStatsData,
-			assignSlot: assignSlot,
-		}
+	req := SetQueueRequest{Queues: []SetQueue{{Slot: 3, QueueID: 7, Flags: 1}}}
 
-		setQueues := []SetQueue{{Slot: 0, QueueID: 1}, {Slot: 1, QueueID: 2}}
-		reqData, _ := SetQueueRequest{Queues: setQueues}.MarshalIProto(internal.AllocBytes())
-		req := easygo.Packet{
-			Header: easygo.Header{
-				Msg:  cmdSetQueue,
-				Sync: 1,
-			},
-			Data: reqData,
-		}
+	data, err := req.MarshalIProto(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-		statsResp := StatsResponse{
-			Status:  answerOK,
-			Data:    data,
-			Cluster: "generic",
-		}
-		queueResp := SetQueueResponse{
-			Status:           answerOK,
-			SetQueueStatuses: []uint32{answerOK, answerOK},
-			Stats:            statsResp,
-		}
-		iprotoResp, _ := queueResp.MarshalIProto(internal.AllocBytes())
-		_ = iprotoResp
+	var decoded SetQueueRequest
 
-		conn.EXPECT().Send(ctx, easygo.Packet{
-			Header: easygo.Header{
-				Msg:  req.Header.Msg,
-				Len:  uint32(len(iprotoResp)),
-				Sync: req.Header.Sync,
-			},
-			Data: iprotoResp,
-		})
+	rest, err := decoded.UnmarshalIProto(data)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-		client.ServeIProto(ctx, conn, req)
+	if len(rest) != 0 {
+		t.Fatalf("unexpected tail: %d bytes", len(rest))
+	}
 
-		got, want := assignSlotCalls, 2
-		if got != want {
-			t.Errorf("unexpected number of assignSlot calls: got %d, want %d", got, want)
-		}
-	})
+	if diff := cmp.Diff(req, decoded); diff != "" {
+		t.Errorf("SetQueueRequest roundtrip mismatch (-want +got):\n%s", diff)
+	}
 }
