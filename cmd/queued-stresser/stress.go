@@ -9,7 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/my-mail-ru/go-queuedproto"
+	"github.com/adventures-team/go-queuedproto"
 
 	easygo "gitlab.adv.team/go/easygo.git/iproto"
 	"gitlab.adv.team/go/tp.git/internal"

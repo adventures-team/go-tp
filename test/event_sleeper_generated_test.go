@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"time"
 
-	iproto "github.com/my-mail-ru/go-iproto"
+	iproto "github.com/adventures-team/go-iproto"
 )
 
 func (recvEventSleeper eventSleeper) MarshalIProto(buf []byte) ([]byte, error) {

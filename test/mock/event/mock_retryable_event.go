@@ -14,7 +14,7 @@ import (
 	reflect "reflect"
 	time "time"
 
-	queuedproto "github.com/my-mail-ru/go-queuedproto"
+	queuedproto "github.com/adventures-team/go-queuedproto"
 	gomock "go.uber.org/mock/gomock"
 
 	tp "gitlab.adv.team/go/tp.git"

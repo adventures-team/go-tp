@@ -9,10 +9,10 @@ import (
 
 	"github.com/rs/zerolog"
 
-	advmetricsset "github.com/my-mail-ru/go-adv-metrics/set"
-	"github.com/my-mail-ru/go-iproto"
+	advmetricsset "github.com/adventures-team/go-adv-metrics/set"
+	"github.com/adventures-team/go-iproto"
 
-	"github.com/my-mail-ru/go-queuedproto"
+	"github.com/adventures-team/go-queuedproto"
 
 	"gitlab.adv.team/go/tp.git/encodings"
 	"gitlab.adv.team/go/tp.git/queueconfig"

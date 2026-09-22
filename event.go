@@ -8,9 +8,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	advmetricsset "github.com/my-mail-ru/go-adv-metrics/set"
-	"github.com/my-mail-ru/go-iproto"
-	"github.com/my-mail-ru/go-queuedproto"
+	advmetricsset "github.com/adventures-team/go-adv-metrics/set"
+	"github.com/adventures-team/go-iproto"
+	"github.com/adventures-team/go-queuedproto"
 )
 
 const (

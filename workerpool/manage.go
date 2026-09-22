@@ -1,18 +1,15 @@
 package workerpool
 
 import (
-	"sync/atomic"
 	"time"
 
-	advmetricsset "github.com/my-mail-ru/go-adv-metrics/set"
+	advmetricsset "github.com/adventures-team/go-adv-metrics/set"
 	zlog "github.com/rs/zerolog/log"
-
-	"gitlab.adv.team/go/utils.git/myatomic"
 )
 
 // Run управляет запуском заданий. В случае паники об этом пишется в лог, и обработка возобновляется. Возврат из метода происходит при вызове Stop.
 func (wp *WorkerPool) Run() {
-	if !atomic.CompareAndSwapInt32(&wp.isManaged, 0, 1) {
+	if !wp.isManaged.CompareAndSwap(false, true) {
 		return
 	}
 
@@ -20,7 +17,7 @@ func (wp *WorkerPool) Run() {
 	needStop := false
 
 	for {
-		delay := myatomic.LoadDuration(&wp.idleDelay)
+		delay := time.Duration(wp.idleDelay.Load())
 
 		if needStop {
 			if len(jobs) == 0 {
@@ -74,7 +71,7 @@ func (wp *WorkerPool) Run() {
 		}
 	}
 
-	atomic.StoreInt32(&wp.isManaged, 0)
+	wp.isManaged.Store(false)
 }
 
 // scheduleJobs пытается запустить новых воркеров, если есть свободные слоты.
@@ -107,10 +104,10 @@ func (wp *WorkerPool) scheduleJobs(jobs jobMap) time.Duration {
 			wp.metrics.Name("tp_pool_workers").Int("queue_id", int(jobID)).Str("state", "idle").GetOrCreateGauge(nil).Dec()
 		}
 
-		if job.dryCount > atomic.LoadInt32(&wp.maxDryPolls) {
+		if job.dryCount > wp.maxDryPolls.Load() {
 			// если мы запустили работу - но сейчас dryCount больше порога - устанавливаем задержку.
 			// т.е. поллим по 1 заданию, даже если есть свободные воркеры.
-			job.delayedUntil = time.Now().Add(myatomic.LoadDuration(&wp.dryPollDelay))
+			job.delayedUntil = time.Now().Add(time.Duration(wp.dryPollDelay.Load()))
 
 			if delayUntil.IsZero() || delayUntil.After(job.delayedUntil) {
 				delayUntil = job.delayedUntil
@@ -132,7 +129,7 @@ func (wp *WorkerPool) scheduleJobs(jobs jobMap) time.Duration {
 		return delayUntil.Sub(now)
 	}
 
-	return myatomic.LoadDuration(&wp.idleDelay)
+	return time.Duration(wp.idleDelay.Load())
 }
 
 func (wp *WorkerPool) onHasJob(jobs jobMap, hasJob hasJobInfo) {
@@ -149,11 +146,11 @@ func (wp *WorkerPool) onHasJob(jobs jobMap, hasJob hasJobInfo) {
 	} else {
 		job.dryCount++
 
-		if job.dryCount > atomic.LoadInt32(&wp.maxDryPolls) {
+		if job.dryCount > wp.maxDryPolls.Load() {
 			// TODO вот тут неявно присутствует нулевая задержка между пустыми поллами -
 			// если иф не сработал, delayedUntil остаётся 0. Учесть это при рефакторинге
 			// на ненулевую задержку.
-			job.delayedUntil = time.Now().Add(myatomic.LoadDuration(&wp.dryPollDelay))
+			job.delayedUntil = time.Now().Add(time.Duration(wp.dryPollDelay.Load()))
 		}
 	}
 

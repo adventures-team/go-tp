@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	advmetricsset "github.com/my-mail-ru/go-adv-metrics/set"
+	advmetricsset "github.com/adventures-team/go-adv-metrics/set"
 
 	easygo "gitlab.adv.team/go/easygo.git/iproto"
 	"gitlab.adv.team/go/tp.git/queueconfig"

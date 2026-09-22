@@ -6,13 +6,12 @@ import (
 	"path"
 	"regexp"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/onlineconf/onlineconf-go/v2"
 	"kythe.io/kythe/go/util/datasize"
-
-	"gitlab.adv.team/go/utils.git/mytime"
 )
 
 const globalPath = "/tp/go"
@@ -163,6 +162,17 @@ func (c *Config) getSizePerInstance(confPath string) (uint64, error) {
 	return uint64(size), nil
 }
 
+// parseDuration разбирает длительность: голое число (в т.ч. дробное) трактуется как секунды -
+// для совместимости с перловым конфигом. Иначе - синтаксис [time.ParseDuration].
+// Алгоритм идентичен парзингу onlineconf-go v2 (там он не экспортирован).
+func parseDuration(s string) (time.Duration, error) {
+	if strings.ContainsAny(s, "hms") { // доли секунды тоже содержат s
+		return time.ParseDuration(s)
+	}
+
+	return time.ParseDuration(s + "s")
+}
+
 // GetDuration получает длительность по указанному глобальному (не per-instance) пути.
 // Если путь не найден - возвращается дефолт. В случае ошибки парзинга - в лог пишется об этом, и возвращается дефолт.
 func (c *Config) GetDuration(ctx context.Context, confPath string, dfl time.Duration) time.Duration {
@@ -171,7 +181,7 @@ func (c *Config) GetDuration(ctx context.Context, confPath string, dfl time.Dura
 		return dfl
 	}
 
-	d, err := mytime.ParseDuration(s)
+	d, err := parseDuration(s)
 	if err == nil {
 		return d
 	}
@@ -194,7 +204,7 @@ func (c *Config) getDurationPerInstance(confPath string) (time.Duration, error) 
 		return 0, err
 	}
 
-	d, err := mytime.ParseDuration(s)
+	d, err := parseDuration(s)
 	if err != nil {
 		return 0, &ConfError{
 			Path:  confPath,
@@ -212,7 +222,7 @@ func (c *Config) getDurationPerQueue(queueID uint16, confPath string) (time.Dura
 		return 0, err
 	}
 
-	d, err := mytime.ParseDuration(s)
+	d, err := parseDuration(s)
 	if err != nil {
 		return 0, &ConfError{
 			Path:  usedPath,

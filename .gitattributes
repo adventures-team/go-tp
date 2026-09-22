@@ -1,2 +1,2 @@
 test/mock/** -diff -merge
-API.md -diff -merge
+docs/DOCUMENTATION.md -diff -merge

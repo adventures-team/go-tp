@@ -7,8 +7,16 @@ import (
 	"fmt"
 	"math"
 
-	iproto "github.com/my-mail-ru/go-iproto"
+	iproto "github.com/adventures-team/go-iproto"
 )
+
+// MaxIProtoLen caps how many elements a generated UnmarshalIProto will
+// pre-allocate for a length-prefixed slice or map, bounding memory amplification
+// when decoding untrusted input: a short message can encode a huge element count,
+// and make([]T, n) / make(map, n) reserves n*sizeof(elem) before any element is
+// read. Decoding a slice or map longer than this fails with iproto.ErrOverflow.
+// Declare a constant of this name in the package to override the default.
+const MaxIProtoLen = 1 << 20
 
 func (recvSetQueueRequest SetQueueRequest) MarshalIProto(buf []byte) ([]byte, error) {
 	buf = append(buf, byte(len(recvSetQueueRequest.Queues)), byte(len(recvSetQueueRequest.Queues)>>8), byte(len(recvSetQueueRequest.Queues)>>16), byte(len(recvSetQueueRequest.Queues)>>24))
@@ -25,8 +33,11 @@ func (recv_SetQueueRequest *SetQueueRequest) UnmarshalIProto(buf []byte) ([]byte
 	}
 	lenRecv_SetQueueRequest_Queues := int(binary.LittleEndian.Uint32(buf))
 	buf = buf[4:]
-	if len(buf) < lenRecv_SetQueueRequest_Queues {
-		return nil, fmt.Errorf("UnmarshalIProto: Recv_SetQueueRequest.Queues: %w: %d < %d", iproto.ErrOverflow, len(buf), lenRecv_SetQueueRequest_Queues)
+	if uint64(lenRecv_SetQueueRequest_Queues) > uint64(MaxIProtoLen) {
+		return nil, fmt.Errorf("UnmarshalIProto: Recv_SetQueueRequest.Queues: %w: %d > %d", iproto.ErrOverflow, uint64(lenRecv_SetQueueRequest_Queues), uint64(MaxIProtoLen))
+	}
+	if uint64(len(buf)) < uint64(lenRecv_SetQueueRequest_Queues) {
+		return nil, fmt.Errorf("UnmarshalIProto: Recv_SetQueueRequest.Queues: %w: %d < %d", iproto.ErrOverflow, uint64(len(buf)), uint64(lenRecv_SetQueueRequest_Queues))
 	}
 	recv_SetQueueRequest.Queues = make([]SetQueue, lenRecv_SetQueueRequest_Queues)
 	for iRecv_SetQueueRequest_Queues := 0; iRecv_SetQueueRequest_Queues < lenRecv_SetQueueRequest_Queues; iRecv_SetQueueRequest_Queues++ {
@@ -152,8 +163,11 @@ func (recv_SetQueueResponse *SetQueueResponse) UnmarshalIProto(buf []byte) ([]by
 	}
 	lenRecv_SetQueueResponse_SetQueueStatuses := int(binary.LittleEndian.Uint32(buf))
 	buf = buf[4:]
-	if len(buf) < lenRecv_SetQueueResponse_SetQueueStatuses {
-		return nil, fmt.Errorf("UnmarshalIProto: Recv_SetQueueResponse.SetQueueStatuses: %w: %d < %d", iproto.ErrOverflow, len(buf), lenRecv_SetQueueResponse_SetQueueStatuses)
+	if uint64(lenRecv_SetQueueResponse_SetQueueStatuses) > uint64(MaxIProtoLen) {
+		return nil, fmt.Errorf("UnmarshalIProto: Recv_SetQueueResponse.SetQueueStatuses: %w: %d > %d", iproto.ErrOverflow, uint64(lenRecv_SetQueueResponse_SetQueueStatuses), uint64(MaxIProtoLen))
+	}
+	if uint64(len(buf)) < uint64(lenRecv_SetQueueResponse_SetQueueStatuses) {
+		return nil, fmt.Errorf("UnmarshalIProto: Recv_SetQueueResponse.SetQueueStatuses: %w: %d < %d", iproto.ErrOverflow, uint64(len(buf)), uint64(lenRecv_SetQueueResponse_SetQueueStatuses))
 	}
 	recv_SetQueueResponse.SetQueueStatuses = make([]uint32, lenRecv_SetQueueResponse_SetQueueStatuses)
 	for iRecv_SetQueueResponse_SetQueueStatuses := 0; iRecv_SetQueueResponse_SetQueueStatuses < lenRecv_SetQueueResponse_SetQueueStatuses; iRecv_SetQueueResponse_SetQueueStatuses++ {
@@ -203,8 +217,11 @@ func (recv_SetQueueResponse *SetQueueResponse) UnmarshalIProto(buf []byte) ([]by
 	}
 	lenRecv_SetQueueResponse_Stats_Data_Slots := int(binary.LittleEndian.Uint32(buf))
 	buf = buf[4:]
-	if len(buf) < lenRecv_SetQueueResponse_Stats_Data_Slots {
-		return nil, fmt.Errorf("UnmarshalIProto: Recv_SetQueueResponse.Stats.Data.Slots: %w: %d < %d", iproto.ErrOverflow, len(buf), lenRecv_SetQueueResponse_Stats_Data_Slots)
+	if uint64(lenRecv_SetQueueResponse_Stats_Data_Slots) > uint64(MaxIProtoLen) {
+		return nil, fmt.Errorf("UnmarshalIProto: Recv_SetQueueResponse.Stats.Data.Slots: %w: %d > %d", iproto.ErrOverflow, uint64(lenRecv_SetQueueResponse_Stats_Data_Slots), uint64(MaxIProtoLen))
+	}
+	if uint64(len(buf)) < uint64(lenRecv_SetQueueResponse_Stats_Data_Slots) {
+		return nil, fmt.Errorf("UnmarshalIProto: Recv_SetQueueResponse.Stats.Data.Slots: %w: %d < %d", iproto.ErrOverflow, uint64(len(buf)), uint64(lenRecv_SetQueueResponse_Stats_Data_Slots))
 	}
 	recv_SetQueueResponse.Stats.Data.Slots = make([]SlotStat, lenRecv_SetQueueResponse_Stats_Data_Slots)
 	for iRecv_SetQueueResponse_Stats_Data_Slots := 0; iRecv_SetQueueResponse_Stats_Data_Slots < lenRecv_SetQueueResponse_Stats_Data_Slots; iRecv_SetQueueResponse_Stats_Data_Slots++ {
@@ -415,8 +432,11 @@ func (recv_SetQueueResponse *SetQueueResponse) UnmarshalIProto(buf []byte) ([]by
 		}
 		lenRecv_SetQueueResponse_Stats_Data_Slots_iRecv_SetQueueResponse_Stats_Data_Slots__ArchivedQueues := int(binary.LittleEndian.Uint32(buf))
 		buf = buf[4:]
-		if len(buf) < lenRecv_SetQueueResponse_Stats_Data_Slots_iRecv_SetQueueResponse_Stats_Data_Slots__ArchivedQueues {
-			return nil, fmt.Errorf("UnmarshalIProto: Recv_SetQueueResponse.Stats.Data.Slots[iRecv_SetQueueResponse_Stats_Data_Slots].ArchivedQueues: %w: %d < %d", iproto.ErrOverflow, len(buf), lenRecv_SetQueueResponse_Stats_Data_Slots_iRecv_SetQueueResponse_Stats_Data_Slots__ArchivedQueues)
+		if uint64(lenRecv_SetQueueResponse_Stats_Data_Slots_iRecv_SetQueueResponse_Stats_Data_Slots__ArchivedQueues) > uint64(MaxIProtoLen) {
+			return nil, fmt.Errorf("UnmarshalIProto: Recv_SetQueueResponse.Stats.Data.Slots[iRecv_SetQueueResponse_Stats_Data_Slots].ArchivedQueues: %w: %d > %d", iproto.ErrOverflow, uint64(lenRecv_SetQueueResponse_Stats_Data_Slots_iRecv_SetQueueResponse_Stats_Data_Slots__ArchivedQueues), uint64(MaxIProtoLen))
+		}
+		if uint64(len(buf)) < uint64(lenRecv_SetQueueResponse_Stats_Data_Slots_iRecv_SetQueueResponse_Stats_Data_Slots__ArchivedQueues) {
+			return nil, fmt.Errorf("UnmarshalIProto: Recv_SetQueueResponse.Stats.Data.Slots[iRecv_SetQueueResponse_Stats_Data_Slots].ArchivedQueues: %w: %d < %d", iproto.ErrOverflow, uint64(len(buf)), uint64(lenRecv_SetQueueResponse_Stats_Data_Slots_iRecv_SetQueueResponse_Stats_Data_Slots__ArchivedQueues))
 		}
 		recv_SetQueueResponse.Stats.Data.Slots[iRecv_SetQueueResponse_Stats_Data_Slots].ArchivedQueues = make([]QueueExtendedStat, lenRecv_SetQueueResponse_Stats_Data_Slots_iRecv_SetQueueResponse_Stats_Data_Slots__ArchivedQueues)
 		for iRecv_SetQueueResponse_Stats_Data_Slots_iRecv_SetQueueResponse_Stats_Data_Slots__ArchivedQueues := 0; iRecv_SetQueueResponse_Stats_Data_Slots_iRecv_SetQueueResponse_Stats_Data_Slots__ArchivedQueues < lenRecv_SetQueueResponse_Stats_Data_Slots_iRecv_SetQueueResponse_Stats_Data_Slots__ArchivedQueues; iRecv_SetQueueResponse_Stats_Data_Slots_iRecv_SetQueueResponse_Stats_Data_Slots__ArchivedQueues++ {
@@ -531,8 +551,8 @@ func (recv_SetQueueResponse *SetQueueResponse) UnmarshalIProto(buf []byte) ([]by
 	}
 	lenRecv_SetQueueResponse_Stats_Cluster := int(binary.LittleEndian.Uint32(buf))
 	buf = buf[4:]
-	if len(buf) < lenRecv_SetQueueResponse_Stats_Cluster {
-		return nil, fmt.Errorf("UnmarshalIProto: Recv_SetQueueResponse.Stats.Cluster: %w: %d < %d", iproto.ErrOverflow, len(buf), lenRecv_SetQueueResponse_Stats_Cluster)
+	if uint64(len(buf)) < uint64(lenRecv_SetQueueResponse_Stats_Cluster) {
+		return nil, fmt.Errorf("UnmarshalIProto: Recv_SetQueueResponse.Stats.Cluster: %w: %d < %d", iproto.ErrOverflow, uint64(len(buf)), uint64(lenRecv_SetQueueResponse_Stats_Cluster))
 	}
 	recv_SetQueueResponse.Stats.Cluster = string(buf[:lenRecv_SetQueueResponse_Stats_Cluster])
 	buf = buf[lenRecv_SetQueueResponse_Stats_Cluster:]
@@ -667,8 +687,11 @@ func (recv_StatsResponse *StatsResponse) UnmarshalIProto(buf []byte) ([]byte, er
 	}
 	lenRecv_StatsResponse_Data_Slots := int(binary.LittleEndian.Uint32(buf))
 	buf = buf[4:]
-	if len(buf) < lenRecv_StatsResponse_Data_Slots {
-		return nil, fmt.Errorf("UnmarshalIProto: Recv_StatsResponse.Data.Slots: %w: %d < %d", iproto.ErrOverflow, len(buf), lenRecv_StatsResponse_Data_Slots)
+	if uint64(lenRecv_StatsResponse_Data_Slots) > uint64(MaxIProtoLen) {
+		return nil, fmt.Errorf("UnmarshalIProto: Recv_StatsResponse.Data.Slots: %w: %d > %d", iproto.ErrOverflow, uint64(lenRecv_StatsResponse_Data_Slots), uint64(MaxIProtoLen))
+	}
+	if uint64(len(buf)) < uint64(lenRecv_StatsResponse_Data_Slots) {
+		return nil, fmt.Errorf("UnmarshalIProto: Recv_StatsResponse.Data.Slots: %w: %d < %d", iproto.ErrOverflow, uint64(len(buf)), uint64(lenRecv_StatsResponse_Data_Slots))
 	}
 	recv_StatsResponse.Data.Slots = make([]SlotStat, lenRecv_StatsResponse_Data_Slots)
 	for iRecv_StatsResponse_Data_Slots := 0; iRecv_StatsResponse_Data_Slots < lenRecv_StatsResponse_Data_Slots; iRecv_StatsResponse_Data_Slots++ {
@@ -879,8 +902,11 @@ func (recv_StatsResponse *StatsResponse) UnmarshalIProto(buf []byte) ([]byte, er
 		}
 		lenRecv_StatsResponse_Data_Slots_iRecv_StatsResponse_Data_Slots__ArchivedQueues := int(binary.LittleEndian.Uint32(buf))
 		buf = buf[4:]
-		if len(buf) < lenRecv_StatsResponse_Data_Slots_iRecv_StatsResponse_Data_Slots__ArchivedQueues {
-			return nil, fmt.Errorf("UnmarshalIProto: Recv_StatsResponse.Data.Slots[iRecv_StatsResponse_Data_Slots].ArchivedQueues: %w: %d < %d", iproto.ErrOverflow, len(buf), lenRecv_StatsResponse_Data_Slots_iRecv_StatsResponse_Data_Slots__ArchivedQueues)
+		if uint64(lenRecv_StatsResponse_Data_Slots_iRecv_StatsResponse_Data_Slots__ArchivedQueues) > uint64(MaxIProtoLen) {
+			return nil, fmt.Errorf("UnmarshalIProto: Recv_StatsResponse.Data.Slots[iRecv_StatsResponse_Data_Slots].ArchivedQueues: %w: %d > %d", iproto.ErrOverflow, uint64(lenRecv_StatsResponse_Data_Slots_iRecv_StatsResponse_Data_Slots__ArchivedQueues), uint64(MaxIProtoLen))
+		}
+		if uint64(len(buf)) < uint64(lenRecv_StatsResponse_Data_Slots_iRecv_StatsResponse_Data_Slots__ArchivedQueues) {
+			return nil, fmt.Errorf("UnmarshalIProto: Recv_StatsResponse.Data.Slots[iRecv_StatsResponse_Data_Slots].ArchivedQueues: %w: %d < %d", iproto.ErrOverflow, uint64(len(buf)), uint64(lenRecv_StatsResponse_Data_Slots_iRecv_StatsResponse_Data_Slots__ArchivedQueues))
 		}
 		recv_StatsResponse.Data.Slots[iRecv_StatsResponse_Data_Slots].ArchivedQueues = make([]QueueExtendedStat, lenRecv_StatsResponse_Data_Slots_iRecv_StatsResponse_Data_Slots__ArchivedQueues)
 		for iRecv_StatsResponse_Data_Slots_iRecv_StatsResponse_Data_Slots__ArchivedQueues := 0; iRecv_StatsResponse_Data_Slots_iRecv_StatsResponse_Data_Slots__ArchivedQueues < lenRecv_StatsResponse_Data_Slots_iRecv_StatsResponse_Data_Slots__ArchivedQueues; iRecv_StatsResponse_Data_Slots_iRecv_StatsResponse_Data_Slots__ArchivedQueues++ {
@@ -995,8 +1021,8 @@ func (recv_StatsResponse *StatsResponse) UnmarshalIProto(buf []byte) ([]byte, er
 	}
 	lenRecv_StatsResponse_Cluster := int(binary.LittleEndian.Uint32(buf))
 	buf = buf[4:]
-	if len(buf) < lenRecv_StatsResponse_Cluster {
-		return nil, fmt.Errorf("UnmarshalIProto: Recv_StatsResponse.Cluster: %w: %d < %d", iproto.ErrOverflow, len(buf), lenRecv_StatsResponse_Cluster)
+	if uint64(len(buf)) < uint64(lenRecv_StatsResponse_Cluster) {
+		return nil, fmt.Errorf("UnmarshalIProto: Recv_StatsResponse.Cluster: %w: %d < %d", iproto.ErrOverflow, uint64(len(buf)), uint64(lenRecv_StatsResponse_Cluster))
 	}
 	recv_StatsResponse.Cluster = string(buf[:lenRecv_StatsResponse_Cluster])
 	buf = buf[lenRecv_StatsResponse_Cluster:]
