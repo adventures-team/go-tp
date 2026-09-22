@@ -26,9 +26,10 @@ import (
 // iprotoSource -> пересчёт топологии в go-iprotoconn -> Apply: соединения с новыми
 // адресами открываются (/eager-dial), запросы продолжают проходить без пересоздания клиента.
 //
-// Новые адреса - тот же докерный queued через другой loopback-адрес (порт слушается
-// на 0.0.0.0); 127.0.0.3 не используется другими тестами, чтобы соединения (go-iprotoconn
-// дедуплицирует их по строке адреса process-wide) и метрики были свои.
+// Новые адреса - те же контейнеры queued под сетевыми алиасами (testShard*MovedAddr,
+// networks.default.aliases в dev-env/docker-compose.yaml); алиасы не используются другими
+// тестами, чтобы соединения (go-iprotoconn дедуплицирует их по строке адреса process-wide)
+// и метрики были свои.
 func TestHotReconnect(t *testing.T) {
 	ctx := advslog.NewContext(context.Background(), advslog.InitTest(t))
 
@@ -59,17 +60,12 @@ func TestHotReconnect(t *testing.T) {
 
 	checkRequest("before the switch")
 
-	const (
-		newShard0 = "127.0.0.3:20000"
-		newShard1 = "127.0.0.3:20500"
-	)
-
-	replaceServers(t, cdb, newShard0+","+newShard1)
+	replaceServers(t, cdb, testShard0MovedAddr+","+testShard1MovedAddr)
 
 	// onlineconf перечитывает модуль асинхронно (fsnotify), go-iprotoconn применяет топологию
 	// в фоне: ждём, пока метрики покажут dial к обоим новым адресам
-	waitServerMetric(t, ms, "iproto_dials_total", newShard0)
-	waitServerMetric(t, ms, "iproto_dials_total", newShard1)
+	waitServerMetric(t, ms, "iproto_dials_total", testShard0MovedAddr)
+	waitServerMetric(t, ms, "iproto_dials_total", testShard1MovedAddr)
 
 	checkRequest("after the switch")
 }

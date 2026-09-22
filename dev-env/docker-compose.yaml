@@ -1,5 +1,6 @@
 x-queued_shard: &queued_shard
-  image: queued:latest
+  image: queued
+  pull_policy: never
 # build: queued/build
   volumes:
    - ./queued-1.conf:/etc/queued/queued.conf
@@ -8,6 +9,15 @@ x-queued_shard: &queued_shard
     - "-c"
     - "cd /var/lib/queued; mkdir -p xlogs snaps logs; chown -R nonroot:nonroot .; exec /usr/sbin/queued -c /etc/queued/queued.conf"
 
+# Интеграционные тесты выполняются сервисом tests в одной сети с шардами (make test-integration),
+# поэтому адреса шардов в тестах - имена контейнеров: queued_shard0:20000, queued_shard1:20000
+# (см. test/const_test.go и build/local/config.yaml). Порты на хост проброшены для ручной
+# отладки и queued-stresser.
+#
+# Сетевые алиасы - те же контейнеры под другими адресами: go-iprotoconn дедуплицирует
+# соединения по строке адреса process-wide, а тестам нужны собственное соединение
+# (queued-shard0-probe в TestCancelDoesNotKillConnection) и "переезд" шардов на новые адреса
+# (queued-shard*-moved в TestHotReconnect).
 services:
   queued_shard0:
     <<: *queued_shard
@@ -15,6 +25,11 @@ services:
     ports:
       - 20000:20000
       - 20010:21000
+    networks:
+      default:
+        aliases:
+          - queued-shard0-probe
+          - queued-shard0-moved
 
   queued_shard1:
     <<: *queued_shard
@@ -22,6 +37,32 @@ services:
     ports:
       - 20500:20000
       - 20510:21000
+    networks:
+      default:
+        aliases:
+          - queued-shard1-moved
+
+  # Окружение для go test с тегом integration: команду передаёт Makefile, без команды -
+  # интерактивный шелл (docker compose run --rm tests). Профиль tests - чтобы `up -d` его
+  # не запускал. Работает от пользователя хоста с его кешами модулей и сборки: файлы
+  # в репозитории (cover.integration.out) остаются его, сборке не нужна сеть.
+  tests:
+    image: ${GOIMAGE:-golang:1.26.3-trixie}
+    profiles: [tests]
+    depends_on:
+      - queued_shard0
+      - queued_shard1
+    user: "${TEST_UID:-1000}:${TEST_GID:-1000}"
+    working_dir: /src
+    environment:
+      HOME: /tmp
+      GOCACHE: /gocache
+      GOTOOLCHAIN: local # без скачивания тулчейна по go.mod
+      GOFLAGS: -buildvcs=false
+    volumes:
+      - ..:/src
+      - ${GOMODCACHE:-~/go/pkg/mod}:/go/pkg/mod:ro
+      - ${GOCACHE:-~/.cache/go-build}:/gocache
 #  qm:
 #    image: qm:master
 #    ports:

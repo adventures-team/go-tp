@@ -77,14 +77,15 @@ func (c staticConf) Subtree(string) staticConf { return c }
 // не посылает Cancel (iproto_cancels_sent_total == 0) и соединение не закрывается
 // ни одной из сторон (iproto_connections_closed_total == 0).
 //
-// Сервер адресуется как 127.0.0.2 (тот же докерный queued: порт слушается на 0.0.0.0):
-// go-iprotoconn дедуплицирует соединения по строке адреса process-wide, а тесту нужно
-// отдельное соединение с собственным реестром метрик, не разделяемое с другими тестами.
+// Сервер адресуется по сетевому алиасу контейнера шарда 0 (testShard0ProbeAddr, см.
+// dev-env/docker-compose.yaml): go-iprotoconn дедуплицирует соединения по строке адреса
+// process-wide, а тесту нужно отдельное соединение с собственным реестром метрик, не
+// разделяемое с другими тестами.
 func TestCancelDoesNotKillConnection(t *testing.T) {
 	ctx := advslog.NewContext(context.Background(), advslog.InitTest(t))
 
 	// --- часть 1: фактическое поведение queued при получении Cancel ---
-	if rawCancelProbe(t, "127.0.0.1:20000") {
+	if rawCancelProbe(t, testShard0Addr) {
 		t.Log("queued now SURVIVES an unknown Cancel (0xFF02) control message: " +
 			"consider re-enabling /cancels-enabled in queuedclient/source.go - it is off only because of this legacy behavior")
 	} else {
@@ -94,7 +95,7 @@ func TestCancelDoesNotKillConnection(t *testing.T) {
 
 	// --- часть 2: под таймаутами клиент не шлёт Cancel и соединение живёт ---
 	conf := staticConf{
-		queuedclient.ConfServers: "127.0.0.2:20000",
+		queuedclient.ConfServers: testShard0ProbeAddr,
 		queuedclient.ConfTimeout: "1", // секунда на попытку - чтобы ретраи теста не растягивались
 	}
 

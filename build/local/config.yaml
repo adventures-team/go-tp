@@ -1,5 +1,6 @@
 queueds:
-  multi: 127.0.0.1:20000,127.0.0.1:20500
+  # адреса шардов в compose-сети dev-env (тесты выполняются в сервисе tests, см. test/const_test.go)
+  multi: queued_shard0:20000,queued_shard1:20000
 tp:
   go:
     log_level: debug

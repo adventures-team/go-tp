@@ -3,6 +3,8 @@ GOSRC = $(shell find . -type f -name '*.go')
 TEST_TIMEOUT = 10s
 LINT_TIMEOUT = 5m
 GOFLAGS =
+# Образ Go для интеграционных тестов (сервис tests в dev-env/docker-compose.yaml): версия go из go.mod.
+GOIMAGE = golang:1.26.3-trixie
 
 .PHONY: all
 all: format deps test full-lint doc queued-stresser
@@ -49,9 +51,16 @@ test:
 	    ./...
 	$(GO) tool cover -html cover.out -o cover.html
 
+# Интеграционные тесты выполняются внутри compose-сервиса tests (образ $(GOIMAGE)) - в одной
+# сети с шардами queued, поэтому адреса шардов в тестах - имена и алиасы контейнеров, а не
+# проброшенные на хост порты. В контейнер монтируются репозиторий и кеши модулей/сборки
+# хоста (см. dev-env/docker-compose.yaml). $(GO) хоста нужен только для HTML-отчёта покрытия.
 .PHONY: test-integration
 test-integration: dev_env_start
-	$(GO) test $(GOFLAGS) -v                \
+	GOIMAGE=$(GOIMAGE) GOMODCACHE=$$($(GO) env GOMODCACHE) GOCACHE=$$($(GO) env GOCACHE) \
+	TEST_UID=$$(id -u) TEST_GID=$$(id -g)                                              \
+	docker compose -f dev-env/docker-compose.yaml run --rm tests                        \
+	    go test $(GOFLAGS) -v                \
 	    -tags=integration                   \
 	    -race                               \
 	    -covermode atomic                   \
