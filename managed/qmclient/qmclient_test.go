@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
+	"github.com/adventures-team/go-iprotoconn/config"
 	"github.com/go-faker/faker/v4"
 	"github.com/google/go-cmp/cmp"
 )
@@ -120,5 +122,35 @@ func TestRequestCodecs(t *testing.T) {
 
 	if diff := cmp.Diff(req, decoded); diff != "" {
 		t.Errorf("SetQueueRequest roundtrip mismatch (-want +got):\n%s", diff)
+	}
+}
+
+// TestQMSourceSubscribable: адрес менеджера фиксирован, но источник должен поддерживать
+// интерфейс подписок - иначе go-iprotoconn при каждом запуске предупреждает об отключённом
+// горячем переподключении. Подписка принимается и никогда не срабатывает.
+func TestQMSourceSubscribable(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	updates := config.NewTopologyProvider(qmSource{endpoint: "127.0.0.1:7877"}).Watch(ctx)
+	if updates == nil {
+		t.Fatal("Watch returned nil: qmSource is not seen as config.Subscribable")
+	}
+
+	select {
+	case top := <-updates:
+		t.Fatalf("unexpected topology update: %+v", top)
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	cancel()
+
+	select {
+	case _, ok := <-updates:
+		if ok {
+			t.Fatal("unexpected topology update after cancel")
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("updates channel is not closed after cancel")
 	}
 }

@@ -146,7 +146,7 @@ func (qc *QueuedClient) MakeUnicastRequest(ctx context.Context, shard uint, req 
 		}
 
 		advslog.Ctx(ctx).Warn("queued shard unavailable, trying next",
-			advslog.Err(err), "shard", usedShard, "queued", qc.addrs[usedShard], "cmd", req.Cmd().String())
+			advslog.Err(err), "shard", usedShard, "queued", qc.addr(usedShard), "cmd", req.Cmd().String())
 	}
 
 	return usedShard, respBytes, err
@@ -175,7 +175,7 @@ func (qc *QueuedClient) MakeBroadcastRequest(ctx context.Context, req queuedprot
 			defer func() {
 				if reason := recover(); reason != nil {
 					advslog.Ctx(ctx).LogAttrs(ctx, slog.LevelError, "panic in MakeBroadcastRequest",
-						append(advslog.PanicAttrs(reason), slog.Uint64("shard", uint64(shard)), slog.String("queued", qc.addrs[shard]))...)
+						append(advslog.PanicAttrs(reason), slog.Uint64("shard", uint64(shard)), slog.String("queued", qc.addr(shard)))...)
 
 					err = ErrPanic
 				}
@@ -183,7 +183,7 @@ func (qc *QueuedClient) MakeBroadcastRequest(ctx context.Context, req queuedprot
 				if err == nil {
 					errChan <- nil
 				} else {
-					errChan <- fmt.Errorf("shard #%d (%s): %w", shard, qc.addrs[shard], err)
+					errChan <- fmt.Errorf("shard #%d (%s): %w", shard, qc.addr(shard), err)
 				}
 			}()
 
@@ -269,9 +269,9 @@ func (qc *QueuedClient) reqMultiProcessShard(ctx context.Context, batchSize int,
 	defer func() {
 		if reason := recover(); reason != nil {
 			advslog.Ctx(ctx).LogAttrs(ctx, slog.LevelError, "panic in MakeMulticastRequest",
-				append(advslog.PanicAttrs(reason), slog.Uint64("shard", uint64(shard)), slog.String("queued", qc.addrs[shard]))...)
+				append(advslog.PanicAttrs(reason), slog.Uint64("shard", uint64(shard)), slog.String("queued", qc.addr(shard)))...)
 
-			errChan <- fmt.Errorf("shard #%d (%s): %w", shard, qc.addrs[shard], ErrPanic)
+			errChan <- fmt.Errorf("shard #%d (%s): %w", shard, qc.addr(shard), ErrPanic)
 		}
 
 		wg.Done()
@@ -286,7 +286,7 @@ func (qc *QueuedClient) reqMultiProcessShard(ctx context.Context, batchSize int,
 		respBytes, err := qc.call(ctx, shard, req)
 		if err != nil {
 			// TODO логгировать номера ивентов в том же формате, как и везде - будет ли админам польза от этого?
-			errChan <- fmt.Errorf("shard #%d (%s), event_ids=%v: %w", shard, qc.addrs[shard], batch, err)
+			errChan <- fmt.Errorf("shard #%d (%s), event_ids=%v: %w", shard, qc.addr(shard), batch, err)
 			continue
 		}
 
@@ -295,7 +295,7 @@ func (qc *QueuedClient) reqMultiProcessShard(ctx context.Context, batchSize int,
 		}
 
 		if err = resFunc(shard, respBytes); err != nil {
-			errChan <- fmt.Errorf("shard #%d (%s), event_ids=%v: ResultFunc: %w", shard, qc.addrs[shard], batch, err)
+			errChan <- fmt.Errorf("shard #%d (%s), event_ids=%v: ResultFunc: %w", shard, qc.addr(shard), batch, err)
 		}
 	}
 }

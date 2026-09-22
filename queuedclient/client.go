@@ -76,7 +76,8 @@ var reqID uint32 // per process! не per-QueuedClient. в случае ранд
 type QueuedClient struct {
 	Config     *queueconfig.Config
 	client     *iprotoconn.Client
-	addrs      []string // адреса шардов (индекс = номер шарда), для ShardNum и сообщений об ошибках
+	src        *iprotoSource // конфиг go-iprotoconn; актуальные адреса шардов - для сообщений об ошибках
+	shardNum   uint          // число шардов, зафиксированное при Dial (см. iprotoSource.servers)
 	metrics    advmetricsset.Set
 	roundRobin uint32
 	pid        uint32
@@ -105,23 +106,15 @@ func WithMetricsSet(ms advmetricsset.Set) DialOption {
 // их установки и не возвращает ошибку при недоступности серверов (как и раньше
 // с RedialForever); ошибка возвращается только при пустом списке серверов или
 // некорректной конфигурации.
+//
+// Список серверов отслеживается по подписке онлайнконфа: смена адресов в /queueds/multi
+// применяется без перезапуска (соединения со старыми адресами закрываются, с новыми -
+// открываются). Изменение числа шардов при этом требует перезапуска - оно игнорируется
+// запущенным tp с предупреждением в лог (см. iprotoSource).
 func Dial(ctx context.Context, conf *queueconfig.Config, opts ...DialOption) (*QueuedClient, error) {
 	pid, err := GetPID(conf.OnlineConf)
 	if err != nil {
 		return nil, err
-	}
-
-	serverStrings := queueconfig.CSVRegex.Split(conf.GetString(ConfServers, ""), -1)
-	addrs := make([]string, 0, len(serverStrings))
-
-	for _, server := range serverStrings {
-		if server != "" {
-			addrs = append(addrs, server)
-		}
-	}
-
-	if len(addrs) == 0 {
-		return nil, fmt.Errorf("%w: %s", ErrNoServers, ConfServers)
 	}
 
 	var opt dialOptions
@@ -135,6 +128,11 @@ func Dial(ctx context.Context, conf *queueconfig.Config, opts ...DialOption) (*Q
 	// фоновые механизмы клиента отвязываются от жизни ctx (значения - логгер - сохраняются).
 	bgCtx := context.WithoutCancel(ctx)
 
+	src, err := newIprotoSource(bgCtx, conf)
+	if err != nil {
+		return nil, err
+	}
+
 	clientOpts := []iprotoconn.ClientOption{
 		iprotoconn.WithLogger(advslog.Ctx(ctx)),
 	}
@@ -143,23 +141,34 @@ func Dial(ctx context.Context, conf *queueconfig.Config, opts ...DialOption) (*Q
 		clientOpts = append(clientOpts, iprotoconn.WithMetrics(adv.NewRegistry(opt.metrics)))
 	}
 
-	client, err := iprotoconn.NewClient(bgCtx, &iprotoSource{conf: conf, addrs: addrs, ctx: bgCtx}, clientOpts...)
+	client, err := iprotoconn.NewClient(bgCtx, src, clientOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("iproto client: %w", err)
 	}
 
 	return &QueuedClient{
-		Config:  conf,
-		client:  client,
-		addrs:   addrs,
-		metrics: opt.metrics,
-		pid:     pid,
+		Config:   conf,
+		client:   client,
+		src:      src,
+		shardNum: uint(len(src.servers())),
+		metrics:  opt.metrics,
+		pid:      pid,
 	}, nil
 }
 
 // ShardNum возвращает количество шардов, указанных в /queueds/multi.
 func (qc *QueuedClient) ShardNum() uint {
-	return uint(len(qc.addrs))
+	return qc.shardNum
+}
+
+// addr возвращает актуальный адрес шарда (нумерация с 0) - для сообщений об ошибках.
+func (qc *QueuedClient) addr(shard uint) string {
+	addrs := qc.src.servers()
+	if shard >= uint(len(addrs)) {
+		return ""
+	}
+
+	return addrs[shard]
 }
 
 func (qc *QueuedClient) MetricsSet() advmetricsset.Set {
@@ -181,7 +190,7 @@ func (qc *QueuedClient) SetMetricsSet(ms advmetricsset.Set) {
 // сразу после Dial считается здоровым - метод отражает именно наличие проблем,
 // а не факт установленных TCP-соединений.
 func (qc *QueuedClient) IsHealthy() bool {
-	usable := make(map[int]bool, len(qc.addrs))
+	usable := make(map[int]bool, qc.shardNum)
 	brokenShards := make(map[int]bool)
 
 	for _, row := range qc.client.ClusterState() {
@@ -194,7 +203,7 @@ func (qc *QueuedClient) IsHealthy() bool {
 		}
 	}
 
-	for shard := 1; shard <= len(qc.addrs); shard++ {
+	for shard := 1; shard <= int(qc.shardNum); shard++ {
 		if brokenShards[shard] || !usable[shard] {
 			return false
 		}

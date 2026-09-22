@@ -2,9 +2,14 @@ package queuedclient
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
+
+	advslog "github.com/adventures-team/go-adv-slog"
+	"github.com/adventures-team/go-iprotoconn/config"
 
 	"gitlab.adv.team/go/tp.git/queueconfig"
 )
@@ -15,11 +20,19 @@ import (
 //
 // Правила отображения:
 //   - топология: "/shards/<n>/masters" -> n-й сервер из /queueds/multi (нумерация шардов
-//     в go-iprotoconn - с 1); реплик у queued нет;
+//     в go-iprotoconn - с 1); реплик у queued нет; число шардов фиксируется при Dial,
+//     его изменение требует перезапуска tp;
 //   - параметры движка вычисляются из существующих перло-совместимых ключей
 //     (соответствие описано у методов ниже);
 //   - все неотображённые ключи возвращают переданный дефолт, т.е. действуют
 //     дефолты go-iprotoconn.
+//
+// Горячее переподключение (config.Subscribable): подписки go-iprotoconn на виртуальные
+// пути топологии (/shards, /masters, /replicas) отображаются в подписку на единственный
+// реальный ключ /queueds/multi, а список адресов перечитывается из конфига при каждом
+// пересчёте топологии - смена адресов серверов применяется без перезапуска. Число шардов
+// при этом зафиксировано при Dial: от него зависит маршрутизация запросов в QueuedClient,
+// поэтому список другой длины игнорируется с предупреждением в лог (см. servers).
 //
 // Особые случаи:
 //   - "/retry-flags" всегда содержит "same": шард queued - это ровно один сервер,
@@ -32,9 +45,101 @@ import (
 //     "/request-timeout" вычисляется как retry_count * (timeout + retry_delay),
 //     чтобы суммарное окно ретраев соответствовало старому поведению.
 type iprotoSource struct {
-	conf  *queueconfig.Config
-	addrs []string        // адреса шардов из /queueds/multi (индекс = шард-1)
-	ctx   context.Context // для логгирования ошибок парзинга значений конфига
+	conf *queueconfig.Config
+	ctx  context.Context // для логгирования: ошибки парзинга значений конфига, отвергнутые изменения списка серверов
+
+	mu       sync.Mutex
+	raw      string   // значение /queueds/multi, из которого получен addrs
+	addrs    []string // адреса шардов (индекс = шард-1); длина зафиксирована при Dial
+	rejected string   // последнее отвергнутое значение /queueds/multi - чтобы не повторять предупреждение
+}
+
+// go-iprotoconn узнаёт о поддержке подписок через type assertion: потеряй адаптер
+// один из методов - горячее переподключение молча выключится (с предупреждением при
+// старте). Компилятор этого не допустит.
+var _ config.Subscribable = (*iprotoSource)(nil)
+
+// newIprotoSource читает начальный список серверов; пустой список - ошибка [ErrNoServers].
+func newIprotoSource(ctx context.Context, conf *queueconfig.Config) (*iprotoSource, error) {
+	raw := conf.GetString(ConfServers, "")
+
+	addrs := parseServers(raw)
+	if len(addrs) == 0 {
+		return nil, fmt.Errorf("%w: %s", ErrNoServers, ConfServers)
+	}
+
+	return &iprotoSource{conf: conf, ctx: ctx, raw: raw, addrs: addrs}, nil
+}
+
+// parseServers разбирает CSV-список серверов из /queueds/multi, пропуская пустые элементы.
+func parseServers(raw string) []string {
+	fields := queueconfig.CSVRegex.Split(raw, -1)
+	addrs := make([]string, 0, len(fields))
+
+	for _, server := range fields {
+		if server != "" {
+			addrs = append(addrs, server)
+		}
+	}
+
+	return addrs
+}
+
+// servers возвращает актуальный список адресов шардов из /queueds/multi.
+//
+// Смена адресов при том же числе шардов применяется сразу (go-iprotoconn пересчитывает
+// топологию по подписке, см. SubscribeChan). Список другой длины отвергается: число шардов
+// зафиксировано при Dial (от него зависит маршрутизация запросов в QueuedClient), такое
+// изменение требует перезапуска - о нём один раз пишется предупреждение, а действовать
+// продолжает прежний список.
+func (s *iprotoSource) servers() []string {
+	raw := s.conf.GetString(ConfServers, "")
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if raw == s.raw {
+		return s.addrs
+	}
+
+	addrs := parseServers(raw)
+	if len(addrs) != len(s.addrs) {
+		if raw != s.rejected {
+			s.rejected = raw
+
+			advslog.Ctx(s.ctx).Warn("shard count in "+ConfServers+" changed, keeping the current server list until restart",
+				"shards", len(s.addrs), "new_shards", len(addrs), "value", raw)
+		}
+
+		return s.addrs
+	}
+
+	s.raw, s.addrs = raw, addrs
+
+	return addrs
+}
+
+// SubscribeChan - config.Subscribable: любая подписка на виртуальные пути топологии
+// go-iprotoconn - это подписка на реальный ключ /queueds/multi, из которого топология
+// и вычисляется. Семантика каналов - onlineconf-go/v2 (см. [queueconfig.OnlineConf]).
+func (s *iprotoSource) SubscribeChan(_ string, ch chan<- struct{}) error {
+	return s.conf.SubscribeChan(ConfServers, ch)
+}
+
+// UnsubscribeChan - см. SubscribeChan.
+func (s *iprotoSource) UnsubscribeChan(_ string, ch chan<- struct{}) {
+	s.conf.UnsubscribeChan(ConfServers, ch)
+}
+
+// SubscribeChanSubtree - см. SubscribeChan: параметры /queueds/multi/* на топологию
+// не влияют, поэтому и для поддерева достаточно подписки на само значение ключа.
+func (s *iprotoSource) SubscribeChanSubtree(_ string, ch chan<- struct{}) error {
+	return s.conf.SubscribeChan(ConfServers, ch)
+}
+
+// UnsubscribeChanSubtree - см. SubscribeChan.
+func (s *iprotoSource) UnsubscribeChanSubtree(_ string, ch chan<- struct{}) {
+	s.conf.UnsubscribeChan(ConfServers, ch)
 }
 
 func (s *iprotoSource) timeout() time.Duration {
@@ -76,8 +181,8 @@ func shardMasters(path string) (int, bool) {
 
 func (s *iprotoSource) GetStrings(path string, dflt []string) []string {
 	if n, ok := shardMasters(path); ok {
-		if n >= 1 && n <= len(s.addrs) {
-			return []string{s.addrs[n-1]}
+		if addrs := s.servers(); n >= 1 && n <= len(addrs) {
+			return []string{addrs[n-1]}
 		}
 
 		return nil

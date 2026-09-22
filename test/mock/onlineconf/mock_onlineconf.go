@@ -231,3 +231,77 @@ func (c *MockOnlineConfSubscribeCall) DoAndReturn(f func(string) (chan struct{},
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
+
+// SubscribeChan mocks base method.
+func (m *MockOnlineConf) SubscribeChan(arg0 string, arg1 chan<- struct{}) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SubscribeChan", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SubscribeChan indicates an expected call of SubscribeChan.
+func (mr *MockOnlineConfMockRecorder) SubscribeChan(arg0, arg1 any) *MockOnlineConfSubscribeChanCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SubscribeChan", reflect.TypeOf((*MockOnlineConf)(nil).SubscribeChan), arg0, arg1)
+	return &MockOnlineConfSubscribeChanCall{Call: call}
+}
+
+// MockOnlineConfSubscribeChanCall wrap *gomock.Call
+type MockOnlineConfSubscribeChanCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockOnlineConfSubscribeChanCall) Return(arg0 error) *MockOnlineConfSubscribeChanCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockOnlineConfSubscribeChanCall) Do(f func(string, chan<- struct{}) error) *MockOnlineConfSubscribeChanCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockOnlineConfSubscribeChanCall) DoAndReturn(f func(string, chan<- struct{}) error) *MockOnlineConfSubscribeChanCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// UnsubscribeChan mocks base method.
+func (m *MockOnlineConf) UnsubscribeChan(arg0 string, arg1 chan<- struct{}) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "UnsubscribeChan", arg0, arg1)
+}
+
+// UnsubscribeChan indicates an expected call of UnsubscribeChan.
+func (mr *MockOnlineConfMockRecorder) UnsubscribeChan(arg0, arg1 any) *MockOnlineConfUnsubscribeChanCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnsubscribeChan", reflect.TypeOf((*MockOnlineConf)(nil).UnsubscribeChan), arg0, arg1)
+	return &MockOnlineConfUnsubscribeChanCall{Call: call}
+}
+
+// MockOnlineConfUnsubscribeChanCall wrap *gomock.Call
+type MockOnlineConfUnsubscribeChanCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockOnlineConfUnsubscribeChanCall) Return() *MockOnlineConfUnsubscribeChanCall {
+	c.Call = c.Call.Return()
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockOnlineConfUnsubscribeChanCall) Do(f func(string, chan<- struct{})) *MockOnlineConfUnsubscribeChanCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockOnlineConfUnsubscribeChanCall) DoAndReturn(f func(string, chan<- struct{})) *MockOnlineConfUnsubscribeChanCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}

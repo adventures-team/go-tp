@@ -19,13 +19,20 @@ const globalPath = "/tp/go"
 // CSVRegex - значения в конфиге через запятую, с опциональными пробелами.
 var CSVRegex = regexp.MustCompile(`\s*,\s*`)
 
-// OnlineConf - зависимость от онлайнконфа.
+// OnlineConf - зависимость от онлайнконфа: часть интерфейса onlineconf-go/v2 (Module/Subtree),
+// которая нужна tp.
 type OnlineConf interface {
 	GetString(string, string) string
 	GetStringIfExists(string) (string, bool)
 	GetInt(string, int) int
 	GetIntErr(string) (int, error)
 	Subscribe(string) (chan struct{}, error)
+	// SubscribeChan/UnsubscribeChan - подписка на изменение значения по пути через переданный
+	// канал (семантика onlineconf-go/v2: уведомление - неблокирующая отправка struct{}{},
+	// UnsubscribeChan закрывает канал). Нужны для горячего переподключения к queued при
+	// смене списка серверов (см. queuedclient.Dial).
+	SubscribeChan(string, chan<- struct{}) error
+	UnsubscribeChan(string, chan<- struct{})
 }
 
 // OnlineConfWithSubtree - зависимость от онлайнконфа с методом Subtree.
