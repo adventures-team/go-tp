@@ -10,14 +10,14 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"go.uber.org/mock/gomock"
 
-	"gitlab.adv.team/go/tp.git"
-	"gitlab.adv.team/go/tp.git/managed/qmclient"
-	"gitlab.adv.team/go/tp.git/managed/stats"
-	"gitlab.adv.team/go/tp.git/slotpool"
-	mockpoller "gitlab.adv.team/go/tp.git/test/mock/poller"
-	mockqueue "gitlab.adv.team/go/tp.git/test/mock/queue"
-	mockslotpool "gitlab.adv.team/go/tp.git/test/mock/slotpool"
-	mockstat "gitlab.adv.team/go/tp.git/test/mock/stats"
+	"github.com/adventures-team/go-tp"
+	"github.com/adventures-team/go-tp/managed/qmclient"
+	"github.com/adventures-team/go-tp/managed/stats"
+	"github.com/adventures-team/go-tp/slotpool"
+	mockpoller "github.com/adventures-team/go-tp/test/mock/poller"
+	mockqueue "github.com/adventures-team/go-tp/test/mock/queue"
+	mockslotpool "github.com/adventures-team/go-tp/test/mock/slotpool"
+	mockstat "github.com/adventures-team/go-tp/test/mock/stats"
 )
 
 func TestAssignSlot(t *testing.T) {

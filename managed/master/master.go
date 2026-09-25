@@ -7,11 +7,11 @@ import (
 
 	advslog "github.com/adventures-team/go-adv-slog"
 
-	"gitlab.adv.team/go/tp.git"
-	"gitlab.adv.team/go/tp.git/managed/qmclient"
-	"gitlab.adv.team/go/tp.git/managed/stats"
-	"gitlab.adv.team/go/tp.git/slotpool"
-	"gitlab.adv.team/go/tp.git/workerpool"
+	"github.com/adventures-team/go-tp"
+	"github.com/adventures-team/go-tp/managed/qmclient"
+	"github.com/adventures-team/go-tp/managed/stats"
+	"github.com/adventures-team/go-tp/slotpool"
+	"github.com/adventures-team/go-tp/workerpool"
 )
 
 const (

@@ -13,7 +13,7 @@ import (
 
 	advslog "github.com/adventures-team/go-adv-slog"
 
-	"gitlab.adv.team/go/tp.git/workerpool"
+	"github.com/adventures-team/go-tp/workerpool"
 )
 
 // SignalReload - перечитывается конфиг (как и при изменении онлайнконфа)

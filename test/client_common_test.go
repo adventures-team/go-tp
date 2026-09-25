@@ -10,8 +10,8 @@ import (
 
 	"github.com/onlineconf/onlineconf-go/v2"
 
-	"gitlab.adv.team/go/tp.git/queueconfig"
-	"gitlab.adv.team/go/tp.git/queuedclient"
+	"github.com/adventures-team/go-tp/queueconfig"
+	"github.com/adventures-team/go-tp/queuedclient"
 )
 
 func getTestClient(t *testing.T) (context.Context, *queuedclient.QueuedClient) {

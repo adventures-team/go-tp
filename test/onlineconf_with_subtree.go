@@ -1,7 +1,7 @@
 package tptest
 
 import (
-	"gitlab.adv.team/go/tp.git/queueconfig"
+	"github.com/adventures-team/go-tp/queueconfig"
 )
 
 // OnlineConfWithSubtree is for test use only.

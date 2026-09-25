@@ -12,7 +12,7 @@ import (
 	iprotoserver "github.com/adventures-team/go-iprotoconn/server"
 	"github.com/adventures-team/go-queuedproto"
 
-	"gitlab.adv.team/go/tp.git/internal"
+	"github.com/adventures-team/go-tp/internal"
 )
 
 type (

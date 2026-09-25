@@ -11,7 +11,7 @@ import (
 	advslog "github.com/adventures-team/go-adv-slog"
 	"github.com/adventures-team/go-queuedproto/addons"
 
-	"gitlab.adv.team/go/tp.git"
+	"github.com/adventures-team/go-tp"
 )
 
 // used by TestInitialDelay only

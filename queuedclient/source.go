@@ -11,7 +11,7 @@ import (
 	advslog "github.com/adventures-team/go-adv-slog"
 	"github.com/adventures-team/go-iprotoconn/config"
 
-	"gitlab.adv.team/go/tp.git/queueconfig"
+	"github.com/adventures-team/go-tp/queueconfig"
 )
 
 // iprotoSource адаптирует легаси-схему конфига queued (/queueds/multi - CSV серверов,

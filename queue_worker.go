@@ -13,8 +13,8 @@ import (
 	advslog "github.com/adventures-team/go-adv-slog"
 	"github.com/adventures-team/go-queuedproto"
 
-	"gitlab.adv.team/go/tp.git/queuedclient"
-	"gitlab.adv.team/go/tp.git/workerpool"
+	"github.com/adventures-team/go-tp/queuedclient"
+	"github.com/adventures-team/go-tp/workerpool"
 )
 
 type (

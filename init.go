@@ -8,9 +8,9 @@ import (
 	advmetricsset "github.com/adventures-team/go-adv-metrics/set"
 	advslog "github.com/adventures-team/go-adv-slog"
 
-	"gitlab.adv.team/go/tp.git/queueconfig"
-	"gitlab.adv.team/go/tp.git/queuedclient"
-	"gitlab.adv.team/go/tp.git/workerpool"
+	"github.com/adventures-team/go-tp/queueconfig"
+	"github.com/adventures-team/go-tp/queuedclient"
+	"github.com/adventures-team/go-tp/workerpool"
 )
 
 // DefaultProducerInstance - имя инстанса в онлайнконфе по умолчанию для продюсеров (веб-сервисы, и т.д.)

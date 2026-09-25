@@ -11,7 +11,7 @@ import (
 	"github.com/adventures-team/go-iprotoconn/breaker"
 	"github.com/adventures-team/go-iprotoconn/metrics/adv"
 
-	"gitlab.adv.team/go/tp.git/queueconfig"
+	"github.com/adventures-team/go-tp/queueconfig"
 )
 
 const (

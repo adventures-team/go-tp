@@ -9,7 +9,7 @@ import (
 	// a stable patch release (1.27.1/1.27.2), then drop github.com/gofrs/uuid.
 	"github.com/gofrs/uuid"
 
-	"gitlab.adv.team/go/tp.git"
+	"github.com/adventures-team/go-tp"
 )
 
 // UUID - uuid.UUID iproto wrapper
@@ -33,7 +33,7 @@ type eventPublishOnly struct {
 	tp.BaseEvent
 
 	TransientID uint64
-	UUID     UUID
+	UUID        UUID
 }
 
 var _ tp.Event = &eventPublishOnly{}

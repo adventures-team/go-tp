@@ -15,7 +15,7 @@ import (
 	"github.com/adventures-team/go-iprotoconn/conn"
 	"github.com/adventures-team/go-queuedproto"
 
-	"gitlab.adv.team/go/tp.git/internal"
+	"github.com/adventures-team/go-tp/internal"
 )
 
 // ConnPool represents stress test connection pool state.

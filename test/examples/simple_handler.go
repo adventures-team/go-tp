@@ -10,7 +10,7 @@ import (
 
 	advslog "github.com/adventures-team/go-adv-slog"
 
-	"gitlab.adv.team/go/tp.git"
+	"github.com/adventures-team/go-tp"
 )
 
 func (*Service) Handle(ctx context.Context, events []SimpleEvent) error {

@@ -8,7 +8,7 @@ import (
 	advslog "github.com/adventures-team/go-adv-slog"
 	"github.com/adventures-team/go-queuedproto/addons"
 
-	"gitlab.adv.team/go/tp.git"
+	"github.com/adventures-team/go-tp"
 )
 
 type (
@@ -19,8 +19,8 @@ type (
 		addons.CreationTime
 		addons.Producer
 
-		TrackID uint32
-		ExternalID   uint32
+		TrackID    uint32
+		ExternalID uint32
 	}
 
 	// eventWithAddonsV2 - тест на событие новой версии
@@ -32,9 +32,9 @@ type (
 		addons.CreationTime
 		addons.Producer
 
-		TrackID uint32
-		ExternalID   uint32
-		Name    string `iproto:"ber"`
+		TrackID    uint32
+		ExternalID uint32
+		Name       string `iproto:"ber"`
 	}
 )
 

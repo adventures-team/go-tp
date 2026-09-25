@@ -10,8 +10,8 @@ import (
 	advmetricsset "github.com/adventures-team/go-adv-metrics/set"
 	"github.com/adventures-team/go-queuedproto/addons"
 
-	"gitlab.adv.team/go/tp.git/queueconfig"
-	"gitlab.adv.team/go/tp.git/queuedclient"
+	"github.com/adventures-team/go-tp/queueconfig"
+	"github.com/adventures-team/go-tp/queuedclient"
 )
 
 type Handler[EvType Event, EvSlice ~[]EvType] func(context.Context, EvSlice) error

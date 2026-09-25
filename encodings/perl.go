@@ -5,7 +5,7 @@ import (
 
 	"github.com/adventures-team/go-queuedproto"
 
-	"gitlab.adv.team/go/tp.git/internal"
+	"github.com/adventures-team/go-tp/internal"
 )
 
 func perlEncoder(version uint8, valPtr iproto.Marshaler) ([]byte, error) {

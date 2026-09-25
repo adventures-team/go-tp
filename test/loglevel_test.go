@@ -41,7 +41,7 @@ func (r *recordingTB) contains(substr string) bool {
 
 // TestPerPackageLogLevels проверяет связку [tp.WithLogLevelConfig] сквозь реальный
 // onlineconf-модуль (собирается из build/local/config.yaml): фикстура задаёт оверрайд
-// /tp/go/log/gitlab.adv.team/go/tp.git/test/level = error для import path
+// /tp/go/log/github.com/adventures-team/go-tp/test/level = error для import path
 // этого тестового пакета, и child lists, без которых advslog не нашёл бы его.
 //
 // Проверяется и разделение владения уровнями: глобальный уровень задаёт параметр

@@ -1,4 +1,4 @@
-module gitlab.adv.team/go/tp.git
+module github.com/adventures-team/go-tp
 
 go 1.26.3
 

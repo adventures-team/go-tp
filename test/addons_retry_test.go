@@ -12,8 +12,8 @@ import (
 	advslog "github.com/adventures-team/go-adv-slog"
 	"github.com/adventures-team/go-queuedproto/addons"
 
-	"gitlab.adv.team/go/tp.git"
-	"gitlab.adv.team/go/tp.git/queuedclient"
+	"github.com/adventures-team/go-tp"
+	"github.com/adventures-team/go-tp/queuedclient"
 )
 
 //adv:iproto:

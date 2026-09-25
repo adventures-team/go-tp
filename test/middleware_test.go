@@ -13,12 +13,12 @@ import (
 
 	advmetricsset "github.com/adventures-team/go-adv-metrics/set"
 
-	"gitlab.adv.team/go/tp.git"
-	"gitlab.adv.team/go/tp.git/queueconfig"
-	"gitlab.adv.team/go/tp.git/queuedclient"
-	mockevent "gitlab.adv.team/go/tp.git/test/mock/event"
-	mockonlineconf "gitlab.adv.team/go/tp.git/test/mock/onlineconf"
-	mockqueue "gitlab.adv.team/go/tp.git/test/mock/queue"
+	"github.com/adventures-team/go-tp"
+	"github.com/adventures-team/go-tp/queueconfig"
+	"github.com/adventures-team/go-tp/queuedclient"
+	mockevent "github.com/adventures-team/go-tp/test/mock/event"
+	mockonlineconf "github.com/adventures-team/go-tp/test/mock/onlineconf"
+	mockqueue "github.com/adventures-team/go-tp/test/mock/queue"
 )
 
 func TestWithRetry(t *testing.T) {

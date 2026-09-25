@@ -17,8 +17,8 @@ import (
 	"github.com/adventures-team/go-queuedproto"
 	"github.com/onlineconf/onlineconf-go/v2"
 
-	"gitlab.adv.team/go/tp.git/queueconfig"
-	"gitlab.adv.team/go/tp.git/queuedclient"
+	"github.com/adventures-team/go-tp/queueconfig"
+	"github.com/adventures-team/go-tp/queuedclient"
 )
 
 // TestHotReconnect проверяет горячее переподключение по цепочке целиком: подмена файла

@@ -3,7 +3,7 @@
 # tp
 
 ```go
-import "gitlab.adv.team/go/tp.git"
+import "github.com/adventures-team/go-tp"
 ```
 
 Package tp \- высокоуровневая библиотека для работы с очередями на базе queued.
@@ -1063,7 +1063,7 @@ type VersionType = uint8 // из-за флагов в номере версии 
 # encodings
 
 ```go
-import "gitlab.adv.team/go/tp.git/encodings"
+import "github.com/adventures-team/go-tp/encodings"
 ```
 
 Package encodings \- поддержка сериализации событий.
@@ -1221,7 +1221,7 @@ Detect определяет формат структуры данных по с
 # internal
 
 ```go
-import "gitlab.adv.team/go/tp.git/internal"
+import "github.com/adventures-team/go-tp/internal"
 ```
 
 ## Index
@@ -1250,7 +1250,7 @@ AllocBytes выделяет буфер с capacity AllocSize
 # queueconfig
 
 ```go
-import "gitlab.adv.team/go/tp.git/queueconfig"
+import "github.com/adventures-team/go-tp/queueconfig"
 ```
 
 Package queueconfig \- доступ к конфигу с возможностью переопределения значений для очереди и инстанса.
@@ -1708,7 +1708,7 @@ type OnlineConfWithSubtree[T OnlineConf] interface {
 # queuedclient
 
 ```go
-import "gitlab.adv.team/go/tp.git/queuedclient"
+import "github.com/adventures-team/go-tp/queuedclient"
 ```
 
 Package queuedclient \- низкоуровневый клиент queued.
@@ -2199,7 +2199,7 @@ type ResultFunc func(shard uint, result []byte) error
 # slotpool
 
 ```go
-import "gitlab.adv.team/go/tp.git/slotpool"
+import "github.com/adventures-team/go-tp/slotpool"
 ```
 
 ## Index
@@ -2332,7 +2332,7 @@ type Work struct {
 # workerpool
 
 ```go
-import "gitlab.adv.team/go/tp.git/workerpool"
+import "github.com/adventures-team/go-tp/workerpool"
 ```
 
 Package workerpool \- абстрактный пул воркеров.
@@ -2534,7 +2534,7 @@ type WorkerStat interface {
 # queued\-stresser
 
 ```go
-import "gitlab.adv.team/go/tp.git/cmd/queued-stresser"
+import "github.com/adventures-team/go-tp/cmd/queued-stresser"
 ```
 
 queued\-stresser \- parallel and asynchronous queued stress test.
@@ -2713,7 +2713,7 @@ type Options struct {
 # managedmaster
 
 ```go
-import "gitlab.adv.team/go/tp.git/managed/master"
+import "github.com/adventures-team/go-tp/managed/master"
 ```
 
 ## Index
@@ -2814,7 +2814,7 @@ type SlotStat interface {
 # qmclient
 
 ```go
-import "gitlab.adv.team/go/tp.git/managed/qmclient"
+import "github.com/adventures-team/go-tp/managed/qmclient"
 ```
 
 ## Index
@@ -3098,7 +3098,7 @@ func (recv_StatsResponse *StatsResponse) UnmarshalIProto(buf []byte) ([]byte, er
 # stats
 
 ```go
-import "gitlab.adv.team/go/tp.git/managed/stats"
+import "github.com/adventures-team/go-tp/managed/stats"
 ```
 
 Package stats provides functionality for tracking and managing statistical data related to queues and slots.

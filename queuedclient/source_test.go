@@ -12,7 +12,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/onlineconf/onlineconf-go/v2"
 
-	"gitlab.adv.team/go/tp.git/queueconfig"
+	"github.com/adventures-team/go-tp/queueconfig"
 )
 
 // subscribableConf - минимальный queueconfig.OnlineConf с подписками в духе onlineconf-go:

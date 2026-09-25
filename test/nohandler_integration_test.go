@@ -14,8 +14,8 @@ import (
 
 	"github.com/adventures-team/go-queuedproto"
 
-	"gitlab.adv.team/go/tp.git"
-	"gitlab.adv.team/go/tp.git/queueconfig"
+	"github.com/adventures-team/go-tp"
+	"github.com/adventures-team/go-tp/queueconfig"
 )
 
 func TestNoHandler(t *testing.T) {

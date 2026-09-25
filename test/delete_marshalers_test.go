@@ -7,7 +7,7 @@ import (
 
 	"github.com/adventures-team/go-queuedproto/addons"
 
-	tp "gitlab.adv.team/go/tp.git"
+	tp "github.com/adventures-team/go-tp"
 )
 
 type (

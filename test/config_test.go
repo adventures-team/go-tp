@@ -11,10 +11,10 @@ import (
 
 	"go.uber.org/mock/gomock"
 
-	"gitlab.adv.team/go/tp.git"
-	"gitlab.adv.team/go/tp.git/queueconfig"
-	"gitlab.adv.team/go/tp.git/queuedclient"
-	mockonlineconf "gitlab.adv.team/go/tp.git/test/mock/onlineconf"
+	"github.com/adventures-team/go-tp"
+	"github.com/adventures-team/go-tp/queueconfig"
+	"github.com/adventures-team/go-tp/queuedclient"
+	mockonlineconf "github.com/adventures-team/go-tp/test/mock/onlineconf"
 )
 
 var (

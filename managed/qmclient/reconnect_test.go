@@ -13,7 +13,7 @@ import (
 	"github.com/adventures-team/go-iprotoconn/config"
 	"github.com/adventures-team/go-iprotoconn/conn"
 
-	"gitlab.adv.team/go/tp.git/internal"
+	"github.com/adventures-team/go-tp/internal"
 )
 
 // testSource - config.Source, отдающий сплошные дефолты (для conn-стороны фейкового

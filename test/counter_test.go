@@ -6,7 +6,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"gitlab.adv.team/go/tp.git"
+	"github.com/adventures-team/go-tp"
 )
 
 type counter struct {

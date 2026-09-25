@@ -10,9 +10,9 @@ import (
 
 	"github.com/onlineconf/onlineconf-go/v2"
 
-	"gitlab.adv.team/go/tp.git"
-	"gitlab.adv.team/go/tp.git/queueconfig"
-	"gitlab.adv.team/go/tp.git/workerpool"
+	"github.com/adventures-team/go-tp"
+	"github.com/adventures-team/go-tp/queueconfig"
+	"github.com/adventures-team/go-tp/workerpool"
 )
 
 func TestQueueWorker(t *testing.T) {
@@ -49,13 +49,13 @@ func TestQueueWorker(t *testing.T) {
 	pool.SetWorkerCount(testAddonsQueueID, 5)
 
 	ev := &eventWithAddons{
-		TrackID: 1,
-		ExternalID:   2,
+		TrackID:    1,
+		ExternalID: 2,
 	}
 
 	evV2 := &eventWithAddonsV2{
-		TrackID: 11,
-		ExternalID:   22,
+		TrackID:    11,
+		ExternalID: 22,
 	}
 
 	eventID, err := queue.Publish(ctx, ev)

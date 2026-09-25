@@ -1,4 +1,0 @@
-include:
-  - project: 'ci-cd'
-    ref: master
-    file: '/go/test-lint.yml'
