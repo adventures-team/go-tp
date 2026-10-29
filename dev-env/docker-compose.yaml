@@ -42,6 +42,23 @@ services:
         aliases:
           - queued-shard1-moved
 
+  # Кластер B для тестов queued-mover (test/mover_integration_test.go): те же образ и конфиг,
+  # что у шардов кластера A (queued_shard0/1). Адреса в тестах - queued_dst0:20000, queued_dst1:20000
+  # (поддерево queued-mover в build/local/config.yaml); порты на хост - для ручной отладки.
+  queued_dst0:
+    <<: *queued_shard
+    container_name: queued_dst0
+    ports:
+      - 22000:20000
+      - 22010:21000
+
+  queued_dst1:
+    <<: *queued_shard
+    container_name: queued_dst1
+    ports:
+      - 22500:20000
+      - 22510:21000
+
   # Окружение для go test с тегом integration: команду передаёт Makefile, без команды -
   # интерактивный шелл (docker compose run --rm tests). Профиль tests - чтобы `up -d` его
   # не запускал. Работает от пользователя хоста с его кешами модулей и сборки: файлы
@@ -54,6 +71,8 @@ services:
     depends_on:
       - queued_shard0
       - queued_shard1
+      - queued_dst0
+      - queued_dst1
     user: "${TEST_UID:-1000}:${TEST_GID:-1000}"
     working_dir: /src
     environment:

@@ -3,14 +3,14 @@ package tp
 import (
 	"context"
 	"fmt"
-	"hash/crc32"
-	"strconv"
 	"sync/atomic"
 	"time"
 
 	advmetricsset "github.com/adventures-team/go-adv-metrics/set"
 	"github.com/adventures-team/go-iproto"
 	"github.com/adventures-team/go-queuedproto"
+
+	"github.com/adventures-team/go-tp/queuedclient"
 )
 
 const (
@@ -189,9 +189,9 @@ func (bev BaseEvent) Shard(shardNum uint) uint {
 	return CalcShard(bev.EventID.ID, shardNum)
 }
 
+// CalcShard - см. [queuedclient.CalcShard].
 func CalcShard(eventID uint64, shardNum uint) uint {
-	hash := uint64(crc32.ChecksumIEEE([]byte(strconv.FormatUint(eventID, 10))))
-	return uint(hash % uint64(shardNum))
+	return queuedclient.CalcShard(eventID, shardNum)
 }
 
 // MarshalIProto - не поддерживается. Тип BaseEvent не предназначен для передачи по протоколу

@@ -24,3 +24,20 @@ tp:
             test:
               "": ["level"]
               level: error
+# queued-mover (cmd/queued-mover): кластер A - queued_shard0/1, кластер B - queued_dst0/1
+# (см. dev-env/docker-compose.yaml). Поддерево - основа конфигов test/mover_integration_test.go
+# (тесты переопределяют отдельные параметры). Очередь 65526 - см. test/const_test.go.
+queued-mover:
+  src:
+    queueds:
+      multi: queued_shard0:20000,queued_shard1:20000
+  dst:
+    queueds:
+      multi: queued_dst0:20000,queued_dst1:20000
+  queue_ids: 65526
+  one_shot: 1
+  fetch_batch_size: 5
+  poll_delay: 0.1
+  defer_time: 2
+  stat_period: 2
+  log_level: debug

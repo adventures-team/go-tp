@@ -5,6 +5,7 @@ package tptest
 import (
 	"bytes"
 	"context"
+	"errors"
 	"math/rand"
 	"sort"
 	"testing"
@@ -212,4 +213,149 @@ func TestSharding(t *testing.T) {
 	if err := client.Delete(ctx, testShardingQueueID, eventIDs); err != nil {
 		advslog.FatalContext(ctx, "Delete failed", advslog.Err(err), "event_ids", eventIDs)
 	}
+}
+
+// TestQueueStat - статистика очереди по шардам (ReqQueueStat версии queuedclient.QueueStatVersion
+// на реальном queued): после публикации события учтены в ItemsCount, выданные GetActive -
+// в LockedCount, несуществующая очередь даёт нули.
+func TestQueueStat(t *testing.T) {
+	ctx, client := getTestClient(t)
+	zlog := advslog.Ctx(ctx)
+
+	// очередь могла остаться непустой после сфейлившего запуска - выгребаем всё
+	drainQueue(ctx, t, client, testStatQueueID)
+
+	stats, err := client.QueueStat(ctx, testUnusedQueueID)
+	if err != nil {
+		t.Fatalf("QueueStat(unused queue): %v", err)
+	}
+
+	if len(stats) != int(client.ShardNum()) {
+		t.Fatalf("QueueStat(unused queue): %d shards in result, want %d", len(stats), client.ShardNum())
+	}
+
+	for shard, stat := range stats {
+		if stat != (queuedproto.RespQueueStat{}) {
+			t.Errorf("QueueStat(unused queue): shard %d: %+v, want zero stat", shard, stat)
+		}
+	}
+
+	eventIDs := make([]queuedproto.EventID, 0, testBatchSize)
+
+	for i := 0; i < testBatchSize; i++ {
+		eventID, err := client.Publish(ctx, testStatQueueID, queuedproto.EventID{Shard: queuedclient.BalanceShard}, 0, []byte("stat"))
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		eventIDs = append(eventIDs, eventID)
+	}
+
+	defer func() {
+		if err := client.Delete(ctx, testStatQueueID, eventIDs); err != nil {
+			t.Errorf("cleanup Delete: %v", err)
+		}
+	}()
+
+	items, active, locked := sumQueueStat(ctx, t, client, testStatQueueID)
+	zlog.Info("after publish", "items", items, "active", active, "locked", locked)
+
+	if items != testBatchSize || locked != 0 {
+		t.Fatalf("after publish: items %d, locked %d; want items %d, locked 0", items, locked, testBatchSize)
+	}
+
+	// queued активирует новые события периодической процедурой, а не в момент публикации -
+	// ждём, пока GetActive выдаст (и заблокирует) всю пачку
+	fetched := 0
+	deadline := time.Now().Add(10 * time.Second)
+
+	for fetched < testBatchSize {
+		if time.Now().After(deadline) {
+			t.Fatalf("GetActive: fetched %d of %d events before the deadline", fetched, testBatchSize)
+		}
+
+		events, err := client.GetActive(ctx, testStatQueueID, testBatchSize)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		fetched += len(events.Items)
+
+		if len(events.Items) == 0 {
+			time.Sleep(testPollDelay / 5)
+		}
+	}
+
+	items, active, locked = sumQueueStat(ctx, t, client, testStatQueueID)
+	zlog.Info("after GetActive", "fetched", fetched, "items", items, "active", active, "locked", locked)
+
+	if locked != testBatchSize {
+		t.Errorf("after GetActive: locked %d, want %d (fetched items)", locked, testBatchSize)
+	}
+
+	if items != testBatchSize {
+		t.Errorf("after GetActive: items %d, want %d (locked items are still counted)", items, testBatchSize)
+	}
+}
+
+// sumQueueStat суммирует статистику очереди по шардам.
+func sumQueueStat(ctx context.Context, t *testing.T, client *queuedclient.QueuedClient, queueID uint16) (items, active, locked uint32) {
+	t.Helper()
+
+	stats, err := client.QueueStat(ctx, queueID)
+	if err != nil {
+		t.Fatalf("QueueStat(%d): %v", queueID, err)
+	}
+
+	for _, stat := range stats {
+		items += stat.ItemsCount
+		active += stat.ActiveCount
+		locked += stat.LockedCount
+	}
+
+	return items, active, locked
+}
+
+// drainQueue удаляет из очереди все активные события (остатки предыдущих запусков тестов).
+func drainQueue(ctx context.Context, t *testing.T, client *queuedclient.QueuedClient, queueID uint16) {
+	t.Helper()
+
+	for {
+		events, err := client.GetActive(ctx, queueID, 2*testBatchSize)
+		if err != nil && len(events.Items) == 0 {
+			var errMulti queuedclient.ErrMulti
+
+			if errors.As(err, &errMulti) && len(dropUnknownQueue(errMulti)) == 0 {
+				return // очереди ещё нет ни в одном шарде
+			}
+
+			t.Fatalf("drainQueue(%d): %v", queueID, err)
+		}
+
+		if len(events.Items) == 0 {
+			return
+		}
+
+		ids := make([]queuedproto.EventID, 0, len(events.Items))
+		for _, event := range events.Items {
+			ids = append(ids, event.EventID)
+		}
+
+		if err := client.Delete(ctx, queueID, ids); err != nil {
+			t.Fatalf("drainQueue(%d): Delete: %v", queueID, err)
+		}
+	}
+}
+
+// dropUnknownQueue возвращает ошибки шардов, кроме "unknown queue type".
+func dropUnknownQueue(errs queuedclient.ErrMulti) queuedclient.ErrMulti {
+	rest := make(queuedclient.ErrMulti, 0, len(errs))
+
+	for _, err := range errs {
+		if !errors.Is(err, queuedproto.ErrUnknownQueueType) {
+			rest = append(rest, err)
+		}
+	}
+
+	return rest
 }

@@ -14,6 +14,8 @@ const (
 	testShardingQueueID   = 65530
 	testRetryEventQueueID = 65529
 	testUnusedQueueID     = 65528
+	testStatQueueID       = 65527
+	testMoverQueueID      = 65526
 	testBatchSize         = 10
 
 	// Адреса шардов queued в compose-сети dev-env: интеграционные тесты выполняются в сервисе

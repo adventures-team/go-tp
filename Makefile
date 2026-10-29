@@ -10,13 +10,19 @@ GOVERSION = $(shell sed -n 's/^go //p' go.mod)
 GOIMAGE = golang:$(GOVERSION)-$(DISTRO)
 
 .PHONY: all
-all: format deps test full-lint doc queued-stresser
+all: format deps test full-lint doc queued-stresser queued-mover
 
 .PHONY: queued-stresser
 queued-stresser: bin/queued-stresser
 
 bin/queued-stresser: cmd/queued-stresser/*.go go.mod go.sum
 	$(GO) build -o $@ ./cmd/queued-stresser
+
+.PHONY: queued-mover
+queued-mover: bin/queued-mover
+
+bin/queued-mover: cmd/queued-mover/*.go internal/mover/*.go queuedclient/*.go queueconfig/*.go go.mod go.sum
+	$(GO) build -o $@ ./cmd/queued-mover
 
 .PHONY: help
 help:
@@ -92,6 +98,7 @@ generate-mocks:
 	$(GO) tool mockgen -destination test/mock/poller/mock_poller.go -typed -package mockpoller github.com/adventures-team/go-tp/workerpool Poller,Worker,WorkerStat
 	$(GO) tool mockgen -destination test/mock/onlineconf/mock_onlineconf.go -typed -package mockonlineconf github.com/adventures-team/go-tp/queueconfig OnlineConf
 	$(GO) tool mockgen -destination test/mock/onlineconf/mock_onlineconf_subtree.go -typed -package mockonlineconf github.com/adventures-team/go-tp/test OnlineConfWithSubtree
+	$(GO) tool mockgen -destination test/mock/mover/mock_client.go -typed -package mockmover github.com/adventures-team/go-tp/internal/mover Client
 
 .PHONY: generate-cdb
 generate-cdb:

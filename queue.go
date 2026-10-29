@@ -96,6 +96,9 @@ type (
 		// SetActivationTime устанавливает время активации для указанных событий.
 		SetActivationTime(ctx context.Context, queueID uint16, atime time.Time, eventIDs []queuedproto.EventID) error
 
+		// QueueStat запрашивает статистику очереди queueID изо всех шардов одновременно (результат - по шардам).
+		QueueStat(ctx context.Context, queueID uint16) ([]queuedproto.RespQueueStat, error)
+
 		// ShardNum возвращает количество сконфигурированных шардов queued.
 		ShardNum() uint
 

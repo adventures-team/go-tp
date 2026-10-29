@@ -151,16 +151,16 @@ var SignalsExit = [...]os.Signal{syscall.SIGTERM, syscall.SIGINT}
 ```
 
 <a name="CalcShard"></a>
-## func CalcShard
+## func [CalcShard](<https://github.com/adventures-team/go-tp/blob/master/event.go#L193>)
 
 ```go
 func CalcShard(eventID uint64, shardNum uint) uint
 ```
 
-
+CalcShard \- см. \[queuedclient.CalcShard\].
 
 <a name="EncodeEvent"></a>
-## func EncodeEvent
+## func [EncodeEvent](<https://github.com/adventures-team/go-tp/blob/master/queue.go#L538>)
 
 ```go
 func EncodeEvent(event Event) (eventData []byte, err error)
@@ -177,7 +177,7 @@ EncodeEvent кодирует событие.
 ID события, кроме интерфейса EventIDBuilder, можно также передать явно. Номер шарда будет вычислен из ID события, если оно задано одним из этих способов. Если EventID.ID == 0, шард будет выбран по round robin \(\[queuedclient.BalanceShard\]\).
 
 <a name="Register"></a>
-## func Register
+## func [Register](<https://github.com/adventures-team/go-tp/blob/master/queue.go#L471>)
 
 ```go
 func Register[EvType Event, EvSlice ~[]EvType](q Queue, handler func(context.Context, EvSlice) error) error
@@ -186,7 +186,7 @@ func Register[EvType Event, EvSlice ~[]EvType](q Queue, handler func(context.Con
 Register регистрирует обработчик очереди для получения событий. Для отправки \(Publish\) регистрация не требуется. handler принимает слайс событий, поддерживающих интерфейс Event \(конкретных типов \- не слайс интерфейсов\). ID очереди и версия события определяется методами QueueID и Version. Для одной очереди могут быть зарегистрированы обработчики событий нескольких версий.
 
 <a name="BaseEvent"></a>
-## type BaseEvent
+## type [BaseEvent](<https://github.com/adventures-team/go-tp/blob/master/event.go#L85-L87>)
 
 BaseEvent \- базовый тип события, должен встраиваться в пользовательские типы событий.
 
@@ -197,7 +197,7 @@ type BaseEvent struct {
 ```
 
 <a name="NewBaseEvent"></a>
-### func NewBaseEvent
+### func [NewBaseEvent](<https://github.com/adventures-team/go-tp/blob/master/event.go#L98>)
 
 ```go
 func NewBaseEvent() BaseEvent
@@ -206,7 +206,7 @@ func NewBaseEvent() BaseEvent
 NewBaseEvent \- для использования в тестах. Возвращает проинициализированный BaseEvent, в котором будут работать флаги \(в частности, метод Done\). Для отправки инициализировать событие не нужно, функция предусмотрена только для тестов, которым нужно проверить установку Done.
 
 <a name="BaseEvent.AddonID"></a>
-### func \(BaseEvent\) AddonID
+### func \(BaseEvent\) [AddonID](<https://github.com/adventures-team/go-tp/blob/master/event.go#L210>)
 
 ```go
 func (BaseEvent) AddonID(incompatible)
@@ -215,7 +215,7 @@ func (BaseEvent) AddonID(incompatible)
 AddonID \- не поддерживается. Тип BaseEvent не предназначен для передачи по протоколу
 
 <a name="BaseEvent.Defer"></a>
-### func \(BaseEvent\) Defer
+### func \(BaseEvent\) [Defer](<https://github.com/adventures-team/go-tp/blob/master/event.go#L168>)
 
 ```go
 func (bev BaseEvent) Defer(ctx context.Context, delay time.Duration) error
@@ -228,7 +228,7 @@ Defer устанавливает задержку события.
 Если событие было помечено как выполненное при помощи Done, а потом был вызван Defer, пометка на удаление снимается.
 
 <a name="BaseEvent.Done"></a>
-### func \(BaseEvent\) Done
+### func \(BaseEvent\) [Done](<https://github.com/adventures-team/go-tp/blob/master/event.go#L124>)
 
 ```go
 func (bev BaseEvent) Done()
@@ -239,7 +239,7 @@ Done помечает событие обработанным.
 События удаляются не сразу, а по завершении цикла обработки всех событий, полученных за один запрос из queued. В случае возникновения паник \(в т.ч. необработанных\), удаление все равно должно произойти до выхода из tp.Queue.Work
 
 <a name="BaseEvent.GetEventID"></a>
-### func \(BaseEvent\) GetEventID
+### func \(BaseEvent\) [GetEventID](<https://github.com/adventures-team/go-tp/blob/master/event.go#L116>)
 
 ```go
 func (bev BaseEvent) GetEventID() queuedproto.EventID
@@ -248,7 +248,7 @@ func (bev BaseEvent) GetEventID() queuedproto.EventID
 GetEventID \- возвращает ID события. Код, работающий с конкретным событием \(не через интерфейс\) может обращаться к полу EventID напрямую.
 
 <a name="BaseEvent.HasCustomDefer"></a>
-### func \(BaseEvent\) HasCustomDefer
+### func \(BaseEvent\) [HasCustomDefer](<https://github.com/adventures-team/go-tp/blob/master/event.go#L145>)
 
 ```go
 func (bev BaseEvent) HasCustomDefer() bool
@@ -257,7 +257,7 @@ func (bev BaseEvent) HasCustomDefer() bool
 HasCustomDefer \- установлено ли явно время повторной активации вызовом методов [BaseEvent.Defer](<#BaseEvent.Defer>) или Queue.Replace
 
 <a name="BaseEvent.IsDone"></a>
-### func \(BaseEvent\) IsDone
+### func \(BaseEvent\) [IsDone](<https://github.com/adventures-team/go-tp/blob/master/event.go#L136>)
 
 ```go
 func (bev BaseEvent) IsDone() bool
@@ -266,7 +266,7 @@ func (bev BaseEvent) IsDone() bool
 IsDone \- вызывался ли метод Done для события.
 
 <a name="BaseEvent.MarshalAddon"></a>
-### func \(BaseEvent\) MarshalAddon
+### func \(BaseEvent\) [MarshalAddon](<https://github.com/adventures-team/go-tp/blob/master/event.go#L204>)
 
 ```go
 func (BaseEvent) MarshalAddon(incompatible)
@@ -275,7 +275,7 @@ func (BaseEvent) MarshalAddon(incompatible)
 MarshalAddon \- не поддерживается. Тип BaseEvent не предназначен для передачи по протоколу
 
 <a name="BaseEvent.MarshalIProto"></a>
-### func \(BaseEvent\) MarshalIProto
+### func \(BaseEvent\) [MarshalIProto](<https://github.com/adventures-team/go-tp/blob/master/event.go#L198>)
 
 ```go
 func (BaseEvent) MarshalIProto(incompatible)
@@ -284,7 +284,7 @@ func (BaseEvent) MarshalIProto(incompatible)
 MarshalIProto \- не поддерживается. Тип BaseEvent не предназначен для передачи по протоколу
 
 <a name="BaseEvent.MarshalerDisabled"></a>
-### func \(BaseEvent\) MarshalerDisabled
+### func \(BaseEvent\) [MarshalerDisabled](<https://github.com/adventures-team/go-tp/blob/master/event.go#L212>)
 
 ```go
 func (BaseEvent) MarshalerDisabled(incompatible)
@@ -293,7 +293,7 @@ func (BaseEvent) MarshalerDisabled(incompatible)
 
 
 <a name="BaseEvent.Queue"></a>
-### func \(BaseEvent\) Queue
+### func \(BaseEvent\) [Queue](<https://github.com/adventures-team/go-tp/blob/master/event.go#L181>)
 
 ```go
 func (bev BaseEvent) Queue() Queue
@@ -302,7 +302,7 @@ func (bev BaseEvent) Queue() Queue
 Queue возвращает интерфейс API очередей.
 
 <a name="BaseEvent.Shard"></a>
-### func \(BaseEvent\) Shard
+### func \(BaseEvent\) [Shard](<https://github.com/adventures-team/go-tp/blob/master/event.go#L188>)
 
 ```go
 func (bev BaseEvent) Shard(shardNum uint) uint
@@ -311,7 +311,7 @@ func (bev BaseEvent) Shard(shardNum uint) uint
 Shard распределяет события по шардам в зависимости от хеша от ID события. Совместимо с перлом \(алгоритм хеширования \- crc от строкового десятичного представления eventID, распределение по шардам \- остаток от деления\).
 
 <a name="BaseEvent.UnmarshalAddon"></a>
-### func \(BaseEvent\) UnmarshalAddon
+### func \(BaseEvent\) [UnmarshalAddon](<https://github.com/adventures-team/go-tp/blob/master/event.go#L207>)
 
 ```go
 func (BaseEvent) UnmarshalAddon(incompatible)
@@ -320,7 +320,7 @@ func (BaseEvent) UnmarshalAddon(incompatible)
 UnmarshalAddon \- не поддерживается. Тип BaseEvent не предназначен для передачи по протоколу
 
 <a name="BaseEvent.UnmarshalIProto"></a>
-### func \(BaseEvent\) UnmarshalIProto
+### func \(BaseEvent\) [UnmarshalIProto](<https://github.com/adventures-team/go-tp/blob/master/event.go#L201>)
 
 ```go
 func (BaseEvent) UnmarshalIProto(incompatible)
@@ -329,7 +329,7 @@ func (BaseEvent) UnmarshalIProto(incompatible)
 UnmarshalIProto \- не поддерживается. Тип BaseEvent не предназначен для передачи по протоколу
 
 <a name="Builder"></a>
-## type Builder
+## type [Builder](<https://github.com/adventures-team/go-tp/blob/master/queue.go#L132-L134>)
 
 Builder \- при поддержке этого интерфейса типом события, метод Build вызывается при добавлении события в очередь. Можно использовать для автозаполнения часто используемых полей \(время создания, etc\). Аналог в перле \- builder/default \(для отдельных полей\)
 
@@ -340,7 +340,7 @@ type Builder interface {
 ```
 
 <a name="DisableMarshaler"></a>
-## type DisableMarshaler
+## type [DisableMarshaler](<https://github.com/adventures-team/go-tp/blob/master/queue.go#L156>)
 
 DisableMarshaler \- встраивание этого типа в структуру отключает сериализацию средствами iproto
 
@@ -349,7 +349,7 @@ type DisableMarshaler struct{}
 ```
 
 <a name="DisableMarshaler.MarshalIProto"></a>
-### func \(DisableMarshaler\) MarshalIProto
+### func \(DisableMarshaler\) [MarshalIProto](<https://github.com/adventures-team/go-tp/blob/master/queue.go#L558>)
 
 ```go
 func (DisableMarshaler) MarshalIProto(buf []byte) ([]byte, error)
@@ -358,7 +358,7 @@ func (DisableMarshaler) MarshalIProto(buf []byte) ([]byte, error)
 MarshalIProto \- не делает ничего
 
 <a name="DisableMarshaler.MarshalerDisabled"></a>
-### func \(DisableMarshaler\) MarshalerDisabled
+### func \(DisableMarshaler\) [MarshalerDisabled](<https://github.com/adventures-team/go-tp/blob/master/queue.go#L567>)
 
 ```go
 func (DisableMarshaler) MarshalerDisabled()
@@ -367,7 +367,7 @@ func (DisableMarshaler) MarshalerDisabled()
 
 
 <a name="DisableMarshaler.UnmarshalIProto"></a>
-### func \(DisableMarshaler\) UnmarshalIProto
+### func \(DisableMarshaler\) [UnmarshalIProto](<https://github.com/adventures-team/go-tp/blob/master/queue.go#L563>)
 
 ```go
 func (DisableMarshaler) UnmarshalIProto(buf []byte) ([]byte, error)
@@ -376,7 +376,7 @@ func (DisableMarshaler) UnmarshalIProto(buf []byte) ([]byte, error)
 UnmarshalIProto \- не делает ничего
 
 <a name="Event"></a>
-## type Event
+## type [Event](<https://github.com/adventures-team/go-tp/blob/master/event.go#L25-L82>)
 
 Event \- интерфейс обработчика очереди. Структура обработчика должна встраивать тип BaseEvent.
 
@@ -444,7 +444,7 @@ type Event interface {
 ```
 
 <a name="EventIDBuilder"></a>
-## type EventIDBuilder
+## type [EventIDBuilder](<https://github.com/adventures-team/go-tp/blob/master/queue.go#L138-L140>)
 
 EventIDBuilder \- события, поддерживающие этот интерфейс, могут генерить ID события сами \(аналог в перле \- generate\_id\). По дефолту, ID событий генерит queued. Поля, автозаполненные при помощи Build\(\), можно использовать в методе BuildEventID\(\)
 
@@ -455,7 +455,7 @@ type EventIDBuilder interface {
 ```
 
 <a name="EventWithCreationTime"></a>
-## type EventWithCreationTime
+## type [EventWithCreationTime](<https://github.com/adventures-team/go-tp/blob/master/middleware.go#L24-L27>)
 
 EventWithCreationTime \- событие, встраивающее \[addons.CreationTime\].
 
@@ -469,7 +469,7 @@ type EventWithCreationTime interface {
 ```
 
 <a name="Handler"></a>
-## type Handler
+## type [Handler](<https://github.com/adventures-team/go-tp/blob/master/middleware.go#L17>)
 
 
 
@@ -478,7 +478,7 @@ type Handler[EvType Event, EvSlice ~[]EvType] func(context.Context, EvSlice) err
 ```
 
 <a name="WithMaxAge"></a>
-### func WithMaxAge
+### func [WithMaxAge](<https://github.com/adventures-team/go-tp/blob/master/middleware.go#L40>)
 
 ```go
 func WithMaxAge[EvType EventWithCreationTime, EvSlice ~[]EvType](handler Handler[EvType, EvSlice]) Handler[EvType, EvSlice]
@@ -499,7 +499,7 @@ tp.Register(q, tp.WithMaxAge(func (ctx context.Context, events []MyEvent) error 
 ```
 
 <a name="WithRetry"></a>
-### func WithRetry
+### func [WithRetry](<https://github.com/adventures-team/go-tp/blob/master/middleware.go#L156>)
 
 ```go
 func WithRetry[EvType RetryableEvent, EvSlice ~[]EvType](handler Handler[EvType, EvSlice], opts ...RetryOption) Handler[EvType, EvSlice]
@@ -562,7 +562,7 @@ tp.Register(q, tp.WithRetry(func (ctx context.Context, events []MyEvent) error {
 ```
 
 <a name="WithRetry2"></a>
-### func WithRetry2
+### func [WithRetry2](<https://github.com/adventures-team/go-tp/blob/master/middleware.go#L376>)
 
 ```go
 func WithRetry2[EvType RetryableEvent2, EvSlice ~[]EvType](handler Handler[EvType, EvSlice], opts ...Retry2Option) Handler[EvType, EvSlice]
@@ -571,7 +571,7 @@ func WithRetry2[EvType RetryableEvent2, EvSlice ~[]EvType](handler Handler[EvTyp
 
 
 <a name="IgnoreDuplicateItems"></a>
-## type IgnoreDuplicateItems
+## type [IgnoreDuplicateItems](<https://github.com/adventures-team/go-tp/blob/master/queue.go#L151-L153>)
 
 IgnoreDuplicateItems \- для событий, вернувших true, игнорируются дубли по ID сообщения \(выставляется флаг FlagIgnoreWrongItem\). Следует использовать вместе с EventIDBuilder, если нужна идемпотентность ID. Перловый аналог называется так же.
 
@@ -582,7 +582,7 @@ type IgnoreDuplicateItems interface {
 ```
 
 <a name="InitOption"></a>
-## type InitOption
+## type [InitOption](<https://github.com/adventures-team/go-tp/blob/master/init.go#L28>)
 
 InitOption \- [WithInstanceName](<#WithInstanceName>), [WithLogger](<#WithLogger>), [WithMetrics](<#WithMetrics>), [WithLogLevelConfig](<#WithLogLevelConfig>)
 
@@ -591,7 +591,7 @@ type InitOption func(*InitOptions)
 ```
 
 <a name="WithInstanceName"></a>
-### func WithInstanceName
+### func [WithInstanceName](<https://github.com/adventures-team/go-tp/blob/master/init.go#L33>)
 
 ```go
 func WithInstanceName(instanceName string) InitOption
@@ -602,7 +602,7 @@ WithInstanceName устанавливает имя инстанса.
 По умолчанию, для обработчиков читается из командной строки из флага \-instance, для продюсеров \- DefaultProducerInstance \("producer"\)
 
 <a name="WithLogLevelConfig"></a>
-### func WithLogLevelConfig
+### func [WithLogLevelConfig](<https://github.com/adventures-team/go-tp/blob/master/init.go#L72>)
 
 ```go
 func WithLogLevelConfig(lc advslog.LevelConfig) InitOption
@@ -618,7 +618,7 @@ WithLogLevelConfig включает пер\-пакетные уровни лог
 - \[advslog.Init\] выполняется один раз на процесс: если приложение уже вызывало его без опций, поднастройка не применится \- опция должна попасть в самый первый Init.
 
 <a name="WithLogger"></a>
-### func WithLogger
+### func [WithLogger](<https://github.com/adventures-team/go-tp/blob/master/init.go#L42>)
 
 ```go
 func WithLogger(logger *slog.Logger) InitOption
@@ -629,7 +629,7 @@ WithLogger устанавливает логгер.
 По умолчанию, вызывается \[advslog.Init\].
 
 <a name="WithMetrics"></a>
-### func WithMetrics
+### func [WithMetrics](<https://github.com/adventures-team/go-tp/blob/master/init.go#L49>)
 
 ```go
 func WithMetrics(ms advmetricsset.Set) InitOption
@@ -638,7 +638,7 @@ func WithMetrics(ms advmetricsset.Set) InitOption
 WithMetrics подключает сбор метрик.
 
 <a name="InitOptions"></a>
-## type InitOptions
+## type [InitOptions](<https://github.com/adventures-team/go-tp/blob/master/init.go#L20-L25>)
 
 InitOptions \- тип напрямую использовать не надо. Не сделан приватным для упрощения написания тестов.
 
@@ -649,7 +649,7 @@ type InitOptions struct {
 ```
 
 <a name="MarshalerDisabled"></a>
-## type MarshalerDisabled
+## type [MarshalerDisabled](<https://github.com/adventures-team/go-tp/blob/master/queue.go#L159-L161>)
 
 MarshalerDisabled \- для проверки, отключен ли у типа маршалер средствами DisableMarshaler
 
@@ -660,7 +660,7 @@ type MarshalerDisabled interface {
 ```
 
 <a name="Middleware"></a>
-## type Middleware
+## type [Middleware](<https://github.com/adventures-team/go-tp/blob/master/middleware.go#L19>)
 
 
 
@@ -669,7 +669,7 @@ type Middleware[EvType Event, EvSlice ~[]EvType] func(Handler[EvType, EvSlice]) 
 ```
 
 <a name="Queue"></a>
-## type Queue
+## type [Queue](<https://github.com/adventures-team/go-tp/blob/master/queue.go#L38-L69>)
 
 Queue \- высокоуровневое API очередей.
 
@@ -711,7 +711,7 @@ type Queue interface {
 ```
 
 <a name="InitProducer"></a>
-### func InitProducer
+### func [InitProducer](<https://github.com/adventures-team/go-tp/blob/master/init.go#L187>)
 
 ```go
 func InitProducer[T queueconfig.OnlineConf](conf queueconfig.OnlineConfWithSubtree[T], opts ...InitOption) Queue
@@ -760,7 +760,7 @@ func (svc *Service) PostUserDataHandler(...) {
 В случае ошибки инициализации происходит выход с логгированием на уровне FATAL. Предполагается вызов из функции main.
 
 <a name="NewQueue"></a>
-### func NewQueue
+### func [NewQueue](<https://github.com/adventures-team/go-tp/blob/master/queue.go#L193>)
 
 ```go
 func NewQueue(ctx context.Context, conf *queueconfig.Config, opts ...queuedclient.DialOption) (Queue, error)
@@ -771,7 +771,7 @@ NewQueue создаёт объект для высокоуровневой ра�
 Опции передаются в \[queuedclient.Dial\]; в частности, \[queuedclient.WithMetricsSet\] включает транспортные метрики iproto\_\* \(реестр подключается при создании клиента\).
 
 <a name="QueueIDType"></a>
-## type QueueIDType
+## type [QueueIDType](<https://github.com/adventures-team/go-tp/blob/master/queue.go#L30>)
 
 QueueIDType \- тип id очереди. Используем type alias \- просто для удобства восприятия, "настоящий" тип \(с методами, и громоздким приведением типов\) нам не нужен.
 
@@ -780,7 +780,7 @@ type QueueIDType = uint16
 ```
 
 <a name="QueuedClient"></a>
-## type QueuedClient
+## type [QueuedClient](<https://github.com/adventures-team/go-tp/blob/master/queue.go#L73-L127>)
 
 QueuedClient \- интерфейс низкоуровневого API очередей \(клиента queued\). Реализован в \[queuedclient.QueuedClient\] \(там же \- более подробное описание методов\).
 
@@ -811,6 +811,9 @@ type QueuedClient interface {
     // SetActivationTime устанавливает время активации для указанных событий.
     SetActivationTime(ctx context.Context, queueID uint16, atime time.Time, eventIDs []queuedproto.EventID) error
 
+    // QueueStat запрашивает статистику очереди queueID изо всех шардов одновременно (результат - по шардам).
+    QueueStat(ctx context.Context, queueID uint16) ([]queuedproto.RespQueueStat, error)
+
     // ShardNum возвращает количество сконфигурированных шардов queued.
     ShardNum() uint
 
@@ -840,7 +843,7 @@ type QueuedClient interface {
 ```
 
 <a name="Retry2Option"></a>
-## type Retry2Option
+## type [Retry2Option](<https://github.com/adventures-team/go-tp/blob/master/middleware.go#L339>)
 
 
 
@@ -849,7 +852,7 @@ type Retry2Option func(*retry2Opt)
 ```
 
 <a name="OnRetry2"></a>
-### func OnRetry2
+### func [OnRetry2](<https://github.com/adventures-team/go-tp/blob/master/middleware.go#L342>)
 
 ```go
 func OnRetry2[T RetryableEvent2](f func(T)) Retry2Option
@@ -858,7 +861,7 @@ func OnRetry2[T RetryableEvent2](f func(T)) Retry2Option
 OnRetry2 аналог OnRetry для WithRetry2
 
 <a name="OnRetry2Exhausted"></a>
-### func OnRetry2Exhausted
+### func [OnRetry2Exhausted](<https://github.com/adventures-team/go-tp/blob/master/middleware.go#L352>)
 
 ```go
 func OnRetry2Exhausted[T RetryableEvent2](f func(T, string)) Retry2Option
@@ -867,7 +870,7 @@ func OnRetry2Exhausted[T RetryableEvent2](f func(T, string)) Retry2Option
 OnRetry2Exhausted аналог OnRetryExhausted для WithRetry2. В обработчик так же передаётся имя счётчика — cnt
 
 <a name="Retry2CounterNames"></a>
-### func Retry2CounterNames
+### func [Retry2CounterNames](<https://github.com/adventures-team/go-tp/blob/master/middleware.go#L362>)
 
 ```go
 func Retry2CounterNames(retry1, retry2 string) Retry2Option
@@ -876,7 +879,7 @@ func Retry2CounterNames(retry1, retry2 string) Retry2Option
 Retry2CounterNames позволяет задать альтернативные имена для настроек счётчиков в онлайнконфе. По умолчанию, "1" и "2".
 
 <a name="RetryOption"></a>
-## type RetryOption
+## type [RetryOption](<https://github.com/adventures-team/go-tp/blob/master/middleware.go#L79>)
 
 RetryOption \- [OnRetry](<#OnRetry>), [OnRetryExhausted](<#OnRetryExhausted>)
 
@@ -885,7 +888,7 @@ type RetryOption func(*retryOpt)
 ```
 
 <a name="OnRetry"></a>
-### func OnRetry
+### func [OnRetry](<https://github.com/adventures-team/go-tp/blob/master/middleware.go#L88>)
 
 ```go
 func OnRetry[T RetryableEvent](f func(T)) RetryOption
@@ -894,7 +897,7 @@ func OnRetry[T RetryableEvent](f func(T)) RetryOption
 OnRetry определяет пользовательский обработчик, который будет вызван при ретрае. Используется для реализации кастомной обработки события при ретрае, будь то логгирование, отправка метрики и т.п.
 
 <a name="OnRetryExhausted"></a>
-### func OnRetryExhausted
+### func [OnRetryExhausted](<https://github.com/adventures-team/go-tp/blob/master/middleware.go#L98>)
 
 ```go
 func OnRetryExhausted[T RetryableEvent](f func(T)) RetryOption
@@ -903,7 +906,7 @@ func OnRetryExhausted[T RetryableEvent](f func(T)) RetryOption
 OnRetryExhausted определяет пользовательский обработчик, который будет вызван при исчерпании лимита ретраев. Используется для реализации кастомной обработки события при ретрае, будь то логгирование, отправка метрики и т.п.
 
 <a name="RetryableEvent"></a>
-## type RetryableEvent
+## type [RetryableEvent](<https://github.com/adventures-team/go-tp/blob/master/middleware.go#L70-L76>)
 
 RetryableEvent \- событие, встраивающее \[addons.Retryable\]. Поддерживает middleware [WithRetry](<#WithRetry>).
 
@@ -918,7 +921,7 @@ type RetryableEvent interface {
 ```
 
 <a name="RetryableEvent2"></a>
-## type RetryableEvent2
+## type [RetryableEvent2](<https://github.com/adventures-team/go-tp/blob/master/middleware.go#L327-L337>)
 
 RetryableEvent2 \- событие, встраивающее \[addons.Retryable2\]. Поддерживает middleware [WithRetry2](<#WithRetry2>).
 
@@ -937,7 +940,7 @@ type RetryableEvent2 interface {
 ```
 
 <a name="StandaloneMaster"></a>
-## type StandaloneMaster
+## type [StandaloneMaster](<https://github.com/adventures-team/go-tp/blob/master/standalone.go#L35-L41>)
 
 StandaloneMaster \- управление пулом обработчиков очередей при помощи onlineconf. Поддерживает все методы типа [Queue](<#Queue>).
 
@@ -951,7 +954,7 @@ type StandaloneMaster struct {
 ```
 
 <a name="InitProcessor"></a>
-### func InitProcessor
+### func [InitProcessor](<https://github.com/adventures-team/go-tp/blob/master/init.go#L108>)
 
 ```go
 func InitProcessor[T queueconfig.OnlineConf](conf queueconfig.OnlineConfWithSubtree[T], opts ...InitOption) *StandaloneMaster
@@ -983,7 +986,7 @@ func main() {
 В случае ошибки инициализации происходит выход с логгированием на уровне FATAL. Предполагается вызов из функции main.
 
 <a name="NewStandaloneManager"></a>
-### func NewStandaloneManager
+### func [NewStandaloneManager](<https://github.com/adventures-team/go-tp/blob/master/standalone.go#L47>)
 
 ```go
 func NewStandaloneManager(queue Queue, pool *workerpool.WorkerPool, logger *slog.Logger) *StandaloneMaster
@@ -994,7 +997,7 @@ NewStandaloneManager создаёт новый объект для управл�
 Это \- низкоуровневый интерфейс. Для типового кейса следует юзать обёртку [InitProcessor](<#InitProcessor>).
 
 <a name="StandaloneMaster.Run"></a>
-### func \(\*StandaloneMaster\) Run
+### func \(\*StandaloneMaster\) [Run](<https://github.com/adventures-team/go-tp/blob/master/standalone.go#L245>)
 
 ```go
 func (qm *StandaloneMaster) Run()
@@ -1005,7 +1008,7 @@ Run \- для обработчиков очередей. Запуск управ
 При возврате \(после остановки пула\) горутина менеджера конфига тоже останавливается, Run дожидается её выхода \(иначе она продолжала бы жить и логгировать после Stop \- в тестах это приводило к панике "Log in goroutine after test has completed"\).
 
 <a name="StandaloneMaster.Stop"></a>
-### func \(\*StandaloneMaster\) Stop
+### func \(\*StandaloneMaster\) [Stop](<https://github.com/adventures-team/go-tp/blob/master/standalone.go#L351>)
 
 ```go
 func (qm *StandaloneMaster) Stop()
@@ -1014,7 +1017,7 @@ func (qm *StandaloneMaster) Stop()
 Stop \- враппер для WorkerPool.Stop. Останавливает обработку новых событий, по завершению запущенных обработчиков, метод Manage выходит.
 
 <a name="Stat"></a>
-## type Stat
+## type [Stat](<https://github.com/adventures-team/go-tp/blob/master/queue_worker.go#L28-L31>)
 
 Stat is used by managed master. Not an application metrics.
 
@@ -1025,7 +1028,7 @@ type Stat struct {
 ```
 
 <a name="Stat.Errors"></a>
-### func \(\*Stat\) Errors
+### func \(\*Stat\) [Errors](<https://github.com/adventures-team/go-tp/blob/master/queue_worker.go#L55>)
 
 ```go
 func (s *Stat) Errors() uint32
@@ -1034,7 +1037,7 @@ func (s *Stat) Errors() uint32
 
 
 <a name="Stat.Processed"></a>
-### func \(\*Stat\) Processed
+### func \(\*Stat\) [Processed](<https://github.com/adventures-team/go-tp/blob/master/queue_worker.go#L51>)
 
 ```go
 func (s *Stat) Processed() uint32
@@ -1043,7 +1046,7 @@ func (s *Stat) Processed() uint32
 
 
 <a name="Unpacker"></a>
-## type Unpacker
+## type [Unpacker](<https://github.com/adventures-team/go-tp/blob/master/queue.go#L144-L146>)
 
 Unpacker \- если у события объявлен метод Unpack, он вызывается при поступлении события после его распаковки. Можно использовать для извлечения полей, запакованных в EventID.
 
@@ -1054,7 +1057,7 @@ type Unpacker interface {
 ```
 
 <a name="VersionType"></a>
-## type VersionType
+## type [VersionType](<https://github.com/adventures-team/go-tp/blob/master/queue.go#L33>)
 
 VersionType \- id версии событий.
 
@@ -1174,7 +1177,7 @@ var (
 ```
 
 <a name="Decode"></a>
-## func Decode
+## func [Decode](<https://github.com/adventures-team/go-tp/blob/master/encodings/encodings.go#L50>)
 
 ```go
 func Decode(format Format, encoded []byte, valPtr iproto.Unmarshaler) error
@@ -1185,7 +1188,7 @@ Decode декодирует encoded в valPtr, который должен бы�
 TODO проверить хотя бы в API верхнего уровня, что не будет паники, если передать по значению. Когда устаканятся дженерики \- потребовать указатель на этапе компиляции.
 
 <a name="Encode"></a>
-## func Encode
+## func [Encode](<https://github.com/adventures-team/go-tp/blob/master/encodings/encodings.go#L38>)
 
 ```go
 func Encode(format Format, version uint8, val iproto.Marshaler) ([]byte, error)
@@ -1194,7 +1197,7 @@ func Encode(format Format, version uint8, val iproto.Marshaler) ([]byte, error)
 Encode кодирует данные val в указанном формате и версии. val может быть как значением, так и указателем.
 
 <a name="Format"></a>
-## type Format
+## type [Format](<https://github.com/adventures-team/go-tp/blob/master/encodings/encodings.go#L12>)
 
 Format \- тип ID формата сообщения. Все форматы должны начинаться с uint8 с номером версии.
 
@@ -1212,7 +1215,7 @@ const (
 ```
 
 <a name="Detect"></a>
-### func Detect
+### func [Detect](<https://github.com/adventures-team/go-tp/blob/master/encodings/encodings.go#L59>)
 
 ```go
 func Detect(v any) Format
@@ -1241,7 +1244,7 @@ const AllocSize = 64
 ```
 
 <a name="AllocBytes"></a>
-## func AllocBytes
+## func [AllocBytes](<https://github.com/adventures-team/go-tp/blob/master/internal/alloc.go#L7>)
 
 ```go
 func AllocBytes() []byte
@@ -1307,6 +1310,7 @@ update_batch_size              UpdateBatchSize strconv.ParseInt
 
 - [Constants](<#constants>)
 - [Variables](<#variables>)
+- [func ParseQueueIDs\(str string\) \(\[\]uint16, error\)](<#ParseQueueIDs>)
 - [type ConfError](<#ConfError>)
   - [func \(ce \*ConfError\) Error\(\) string](<#ConfError.Error>)
   - [func \(ce \*ConfError\) LogValue\(\) slog.Value](<#ConfError.LogValue>)
@@ -1394,8 +1398,17 @@ var (
 var CSVRegex = regexp.MustCompile(`\s*,\s*`)
 ```
 
+<a name="ParseQueueIDs"></a>
+## func [ParseQueueIDs](<https://github.com/adventures-team/go-tp/blob/master/queueconfig/settings.go#L126>)
+
+```go
+func ParseQueueIDs(str string) ([]uint16, error)
+```
+
+ParseQueueIDs разбирает список ID очередей в формате параметра queue\_ids: ID через запятую \(пробелы вокруг запятых допустимы, см. [CSVRegex](<#CSVRegex>)\), пустые элементы пропускаются. Пустая строка \- пустой список, не ошибка. Ошибка разбора элемента возвращается как [ConfError](<#ConfError>) с Path "queue\_ids" и ошибочным элементом в Value.
+
 <a name="ConfError"></a>
-## type ConfError
+## type [ConfError](<https://github.com/adventures-team/go-tp/blob/master/queueconfig/error.go#L24-L30>)
 
 ConfError \- тип для ошибок, который можно как вернуть юзеру \- так и эффективно записать в лог. Преобразование в строку делается, только если это потребовано явно \(вызовом метода Error\), а не по факту возврата ошибки \(как это обычно принято\).
 
@@ -1412,7 +1425,7 @@ type ConfError struct {
 ```
 
 <a name="ConfError.Error"></a>
-### func \(\*ConfError\) Error
+### func \(\*ConfError\) [Error](<https://github.com/adventures-team/go-tp/blob/master/queueconfig/error.go#L57>)
 
 ```go
 func (ce *ConfError) Error() string
@@ -1421,7 +1434,7 @@ func (ce *ConfError) Error() string
 Error преобразует ошибку в строку. Value пишется, если ошибка \- не ErrNotFound, даже если значение пустое \(чтобы сообщить о том, что пустое значение для данного параметра не является валидным\).
 
 <a name="ConfError.LogValue"></a>
-### func \(\*ConfError\) LogValue
+### func \(\*ConfError\) [LogValue](<https://github.com/adventures-team/go-tp/blob/master/queueconfig/error.go#L79>)
 
 ```go
 func (ce *ConfError) LogValue() slog.Value
@@ -1439,7 +1452,7 @@ default:   если есть значение по умолчанию
 ```
 
 <a name="ConfError.Unwrap"></a>
-### func \(\*ConfError\) Unwrap
+### func \(\*ConfError\) [Unwrap](<https://github.com/adventures-team/go-tp/blob/master/queueconfig/error.go#L51>)
 
 ```go
 func (ce *ConfError) Unwrap() error
@@ -1448,7 +1461,7 @@ func (ce *ConfError) Unwrap() error
 Unwrap возвращает Err для работы с errors.Is и т.д.
 
 <a name="Config"></a>
-## type Config
+## type [Config](<https://github.com/adventures-team/go-tp/blob/master/queueconfig/config.go#L49-L54>)
 
 Config \- настройки обработчика очередей. Можно пользоваться, как обычным объектом с интерфейсом OnlineConf для получения настроек относительно корня проекта. Также предусмотрены методы для получения настроек per\-instance и pre\-queue.
 
@@ -1460,7 +1473,7 @@ type Config struct {
 ```
 
 <a name="New"></a>
-### func New
+### func [New](<https://github.com/adventures-team/go-tp/blob/master/queueconfig/config.go#L57>)
 
 ```go
 func New[T OnlineConf](conf OnlineConfWithSubtree[T], instanceName string) *Config
@@ -1469,7 +1482,7 @@ func New[T OnlineConf](conf OnlineConfWithSubtree[T], instanceName string) *Conf
 New возвращает новый объект конфига.
 
 <a name="Config.ClearErrCache"></a>
-### func \(\*Config\) ClearErrCache
+### func \(\*Config\) [ClearErrCache](<https://github.com/adventures-team/go-tp/blob/master/queueconfig/log.go#L10>)
 
 ```go
 func (c *Config) ClearErrCache()
@@ -1478,7 +1491,7 @@ func (c *Config) ClearErrCache()
 ClearErrCache очищает кеш ошибочных путей. Вызывать при перезагрузке конфига.
 
 <a name="Config.DeferTime"></a>
-### func \(\*Config\) DeferTime
+### func \(\*Config\) [DeferTime](<https://github.com/adventures-team/go-tp/blob/master/queueconfig/settings.go#L204>)
 
 ```go
 func (c *Config) DeferTime(ctx context.Context, queueID uint16) time.Duration
@@ -1487,7 +1500,7 @@ func (c *Config) DeferTime(ctx context.Context, queueID uint16) time.Duration
 DeferTime получает defer\_time для указанной очереди. Dалидное значение возвращается всегда \(default: DefaultDeferTime\), ошибку надо просто напечатать в лог. К времени добавляется рандомное значение, максимум defer\_time\_jitter \(default: DefaultDeferTimeJitter\)
 
 <a name="Config.FetchBatchSize"></a>
-### func \(\*Config\) FetchBatchSize
+### func \(\*Config\) [FetchBatchSize](<https://github.com/adventures-team/go-tp/blob/master/queueconfig/settings.go#L233>)
 
 ```go
 func (c *Config) FetchBatchSize(ctx context.Context, queueID uint16) int
@@ -1496,7 +1509,7 @@ func (c *Config) FetchBatchSize(ctx context.Context, queueID uint16) int
 FetchBatchSize получает fetch\_batch\_size для указанной очереди. Если оно не задано, возвращается DefaultFetchBatchSize
 
 <a name="Config.GetDuration"></a>
-### func \(\*Config\) GetDuration
+### func \(\*Config\) [GetDuration](<https://github.com/adventures-team/go-tp/blob/master/queueconfig/config.go#L242>)
 
 ```go
 func (c *Config) GetDuration(ctx context.Context, confPath string, dfl time.Duration) time.Duration
@@ -1505,7 +1518,7 @@ func (c *Config) GetDuration(ctx context.Context, confPath string, dfl time.Dura
 GetDuration получает длительность по указанному глобальному \(не per\-instance\) пути. Если путь не найден \- возвращается дефолт. В случае ошибки парзинга \- в лог пишется об этом, и возвращается дефолт.
 
 <a name="Config.InitialDelay"></a>
-### func \(\*Config\) InitialDelay
+### func \(\*Config\) [InitialDelay](<https://github.com/adventures-team/go-tp/blob/master/queueconfig/settings.go#L221>)
 
 ```go
 func (c *Config) InitialDelay(ctx context.Context, queueID uint16) time.Duration
@@ -1514,7 +1527,7 @@ func (c *Config) InitialDelay(ctx context.Context, queueID uint16) time.Duration
 InitialDelay получает initial\_delay для указанной очереди. По умолчанию: DefaultInitialDelay.
 
 <a name="Config.LogLevel"></a>
-### func \(\*Config\) LogLevel
+### func \(\*Config\) [LogLevel](<https://github.com/adventures-team/go-tp/blob/master/queueconfig/settings.go#L151>)
 
 ```go
 func (c *Config) LogLevel(ctx context.Context) slog.Level
@@ -1523,7 +1536,7 @@ func (c *Config) LogLevel(ctx context.Context) slog.Level
 LogLevel получает log\_level. По умолчанию: DefaultLogLevel.
 
 <a name="Config.MaxAge"></a>
-### func \(\*Config\) MaxAge
+### func \(\*Config\) [MaxAge](<https://github.com/adventures-team/go-tp/blob/master/queueconfig/settings.go#L257>)
 
 ```go
 func (c *Config) MaxAge(queueID uint16) (uint32, error)
@@ -1532,7 +1545,7 @@ func (c *Config) MaxAge(queueID uint16) (uint32, error)
 MaxAge возвращает max\_age для указанной очереди, или глобально заданное значение. Используется для middleware \[tp.WithMaxAge\]
 
 <a name="Config.OOMCheckPeriod"></a>
-### func \(\*Config\) OOMCheckPeriod
+### func \(\*Config\) [OOMCheckPeriod](<https://github.com/adventures-team/go-tp/blob/master/queueconfig/settings.go#L60>)
 
 ```go
 func (c *Config) OOMCheckPeriod(ctx context.Context) time.Duration
@@ -1541,7 +1554,7 @@ func (c *Config) OOMCheckPeriod(ctx context.Context) time.Duration
 OOMCheckPeriod получает oom\_check\_period. По умолчанию: DefaultOOMCheckPeriod.
 
 <a name="Config.OOMHardLimit"></a>
-### func \(\*Config\) OOMHardLimit
+### func \(\*Config\) [OOMHardLimit](<https://github.com/adventures-team/go-tp/blob/master/queueconfig/settings.go#L27>)
 
 ```go
 func (c *Config) OOMHardLimit(ctx context.Context) uint64
@@ -1550,7 +1563,7 @@ func (c *Config) OOMHardLimit(ctx context.Context) uint64
 OOMHardLimit получает oom\_hard\_limit. По умолчанию \- 0 \(проверку нужно пропустить\).
 
 <a name="Config.OOMSoftDownscaleRate"></a>
-### func \(\*Config\) OOMSoftDownscaleRate
+### func \(\*Config\) [OOMSoftDownscaleRate](<https://github.com/adventures-team/go-tp/blob/master/queueconfig/settings.go#L37>)
 
 ```go
 func (c *Config) OOMSoftDownscaleRate(ctx context.Context) float64
@@ -1559,7 +1572,7 @@ func (c *Config) OOMSoftDownscaleRate(ctx context.Context) float64
 OOMSoftDownscaleRate получает oom\_soft\_downscale\_rate. По умолчанию: DefaultDownscaleRate.
 
 <a name="Config.OOMSoftLimit"></a>
-### func \(\*Config\) OOMSoftLimit
+### func \(\*Config\) [OOMSoftLimit](<https://github.com/adventures-team/go-tp/blob/master/queueconfig/settings.go#L17>)
 
 ```go
 func (c *Config) OOMSoftLimit(ctx context.Context) uint64
@@ -1568,16 +1581,16 @@ func (c *Config) OOMSoftLimit(ctx context.Context) uint64
 OOMSoftLimit получает oom\_soft\_limit. По умолчанию \- 0 \(проверку нужно пропустить\).
 
 <a name="Config.QueueIDs"></a>
-### func \(\*Config\) QueueIDs
+### func \(\*Config\) [QueueIDs](<https://github.com/adventures-team/go-tp/blob/master/queueconfig/settings.go#L113>)
 
 ```go
 func (c *Config) QueueIDs() ([]uint16, error)
 ```
 
-QueueIDs получает queue\_ids, который задаётся в виде разделённых через запятую интов \(см. CSVRegex\). Если задан пустой список \(пустая строка\), ошибкой это не считается \(требуется холостой запуск, либо остановка всех запущенных очередей\)
+QueueIDs получает queue\_ids, который задаётся в виде разделённых через запятую интов \(см. [ParseQueueIDs](<#ParseQueueIDs>)\). Если задан пустой список \(пустая строка\), ошибкой это не считается \(требуется холостой запуск, либо остановка всех запущенных очередей\)
 
 <a name="Config.RetryCoeff"></a>
-### func \(\*Config\) RetryCoeff
+### func \(\*Config\) [RetryCoeff](<https://github.com/adventures-team/go-tp/blob/master/queueconfig/settings.go#L319>)
 
 ```go
 func (c *Config) RetryCoeff(queueID uint16, retrySuffix string) (time.Duration, error)
@@ -1586,7 +1599,7 @@ func (c *Config) RetryCoeff(queueID uint16, retrySuffix string) (time.Duration, 
 RetryCoeff возвращает коэффициент retry\_coeff для \[tp.WithRetry\] и \[tp.WithRetry2\] в режимах RetryLinear и RetryExponential
 
 <a name="Config.RetryDelay"></a>
-### func \(\*Config\) RetryDelay
+### func \(\*Config\) [RetryDelay](<https://github.com/adventures-team/go-tp/blob/master/queueconfig/settings.go#L314>)
 
 ```go
 func (c *Config) RetryDelay(queueID uint16, retrySuffix string) (time.Duration, error)
@@ -1595,7 +1608,7 @@ func (c *Config) RetryDelay(queueID uint16, retrySuffix string) (time.Duration, 
 RetryDelay возвращает задержку retry\_delay для \[tp.WithRetry\] и \[tp.WithRetry2\]
 
 <a name="Config.RetryExp"></a>
-### func \(\*Config\) RetryExp
+### func \(\*Config\) [RetryExp](<https://github.com/adventures-team/go-tp/blob/master/queueconfig/settings.go#L325>)
 
 ```go
 func (c *Config) RetryExp(queueID uint16, retrySuffix string) (float64, error)
@@ -1604,7 +1617,7 @@ func (c *Config) RetryExp(queueID uint16, retrySuffix string) (float64, error)
 RetryExp возвращает экспоненту retry\_exp для \[tp.WithRetry\] и \[tp.WithRetry2\] в режиме RetryExponential. По умолчанию, возвращается значение 2.
 
 <a name="Config.RetryLimit"></a>
-### func \(\*Config\) RetryLimit
+### func \(\*Config\) [RetryLimit](<https://github.com/adventures-team/go-tp/blob/master/queueconfig/settings.go#L308>)
 
 ```go
 func (c *Config) RetryLimit(queueID uint16, retrySuffix string) (uint32, error)
@@ -1613,7 +1626,7 @@ func (c *Config) RetryLimit(queueID uint16, retrySuffix string) (uint32, error)
 RetryLimit возвращает лимит повторных попыток retry\_limit для \[tp.WithRetry\] и \[tp.WithRetry2\]
 
 <a name="Config.RetryType"></a>
-### func \(\*Config\) RetryType
+### func \(\*Config\) [RetryType](<https://github.com/adventures-team/go-tp/blob/master/queueconfig/settings.go#L285>)
 
 ```go
 func (c *Config) RetryType(queueID uint16) (int, error)
@@ -1622,7 +1635,7 @@ func (c *Config) RetryType(queueID uint16) (int, error)
 RetryType возвращает тип задержки повтора retry\_type, заданный для указанной очереди, или глобально. Используется для \[tp.WithRetry\] и \[tp.WithRetry2\]. По умолчанию, возвращается [RetryConstant](<#RetryConstant>)
 
 <a name="Config.SlotsCount"></a>
-### func \(\*Config\) SlotsCount
+### func \(\*Config\) [SlotsCount](<https://github.com/adventures-team/go-tp/blob/master/queueconfig/settings.go#L93>)
 
 ```go
 func (c *Config) SlotsCount(ctx context.Context) (int, error)
@@ -1631,7 +1644,7 @@ func (c *Config) SlotsCount(ctx context.Context) (int, error)
 SlotsCount получает slots\_count
 
 <a name="Config.Subscribe"></a>
-### func \(\*Config\) Subscribe
+### func \(\*Config\) [Subscribe](<https://github.com/adventures-team/go-tp/blob/master/queueconfig/config.go#L66>)
 
 ```go
 func (c *Config) Subscribe() (chan struct{}, error)
@@ -1640,7 +1653,7 @@ func (c *Config) Subscribe() (chan struct{}, error)
 Subscribe подписывается на изменения внутри поддерева /tp/go
 
 <a name="Config.UpdateBatchSize"></a>
-### func \(\*Config\) UpdateBatchSize
+### func \(\*Config\) [UpdateBatchSize](<https://github.com/adventures-team/go-tp/blob/master/queueconfig/settings.go#L245>)
 
 ```go
 func (c *Config) UpdateBatchSize(ctx context.Context, queueID uint16) int
@@ -1649,7 +1662,7 @@ func (c *Config) UpdateBatchSize(ctx context.Context, queueID uint16) int
 UpdateBatchSize возвращает update\_batch\_size для указанной очереди. Если оно не задано, возвращается DefaultUpdateBatchSize
 
 <a name="Config.WorkersCount"></a>
-### func \(\*Config\) WorkersCount
+### func \(\*Config\) [WorkersCount](<https://github.com/adventures-team/go-tp/blob/master/queueconfig/settings.go#L178>)
 
 ```go
 func (c *Config) WorkersCount(ctx context.Context, queueID uint16) (int, error)
@@ -1658,7 +1671,7 @@ func (c *Config) WorkersCount(ctx context.Context, queueID uint16) (int, error)
 WorkersCount получает workers для указанной очереди, но не больше workers\_max\_per\_queue
 
 <a name="Config.WorkersMaxCount"></a>
-### func \(\*Config\) WorkersMaxCount
+### func \(\*Config\) [WorkersMaxCount](<https://github.com/adventures-team/go-tp/blob/master/queueconfig/settings.go#L78>)
 
 ```go
 func (c *Config) WorkersMaxCount() (int, error)
@@ -1675,7 +1688,7 @@ WorkersMaxCount получает workers\_max.
 ```
 
 <a name="OnlineConf"></a>
-## type OnlineConf
+## type [OnlineConf](<https://github.com/adventures-team/go-tp/blob/master/queueconfig/config.go#L25-L37>)
 
 OnlineConf \- зависимость от онлайнконфа: часть интерфейса onlineconf\-go/v2 \(Module/Subtree\), которая нужна tp.
 
@@ -1696,7 +1709,7 @@ type OnlineConf interface {
 ```
 
 <a name="OnlineConfWithSubtree"></a>
-## type OnlineConfWithSubtree
+## type [OnlineConfWithSubtree](<https://github.com/adventures-team/go-tp/blob/master/queueconfig/config.go#L42-L45>)
 
 OnlineConfWithSubtree \- зависимость от онлайнконфа с методом Subtree. Соответствует как интерфейсу библиотеки onlineconf\-go/v2, так и mock\-интерфейсу, который используется для тестов.
 
@@ -1732,6 +1745,7 @@ Multicast/broadcast методы отправляют запросы в указ
 
 - [Constants](<#constants>)
 - [Variables](<#variables>)
+- [func CalcShard\(eventID uint64, shardNum uint\) uint](<#CalcShard>)
 - [func GetPID\(conf queueconfig.OnlineConf\) \(uint32, error\)](<#GetPID>)
 - [type DialOption](<#DialOption>)
   - [func WithMetricsSet\(ms advmetricsset.Set\) DialOption](<#WithMetricsSet>)
@@ -1757,6 +1771,7 @@ Multicast/broadcast методы отправляют запросы в указ
   - [func \(qc \*QueuedClient\) MakeUnicastRequest\(ctx context.Context, shard uint, req queuedproto.Request\) \(usedShard uint, respBytes \[\]byte, err error\)](<#QueuedClient.MakeUnicastRequest>)
   - [func \(qc \*QueuedClient\) MetricsSet\(\) advmetricsset.Set](<#QueuedClient.MetricsSet>)
   - [func \(qc \*QueuedClient\) Publish\(ctx context.Context, queueID uint16, eventID queuedproto.EventID, flags uint32, eventData \[\]byte, opts ...PublishOption\) \(queuedproto.EventID, error\)](<#QueuedClient.Publish>)
+  - [func \(qc \*QueuedClient\) QueueStat\(ctx context.Context, queueID uint16\) \(\[\]queuedproto.RespQueueStat, error\)](<#QueuedClient.QueueStat>)
   - [func \(qc \*QueuedClient\) Replace\(ctx context.Context, queueID uint16, eventID queuedproto.EventID, eventData \[\]byte, opts ...PublishOption\) \(bool, error\)](<#QueuedClient.Replace>)
   - [func \(qc \*QueuedClient\) SetActivationTime\(ctx context.Context, queueID uint16, atime time.Time, eventIDs \[\]queuedproto.EventID\) error](<#QueuedClient.SetActivationTime>)
   - [func \(qc \*QueuedClient\) SetMetricsSet\(ms advmetricsset.Set\)](<#QueuedClient.SetMetricsSet>)
@@ -1821,6 +1836,18 @@ const (
 )
 ```
 
+<a name="QueueStatVersion"></a>QueueStatVersion \- версия запроса статистики очереди \(поле Version в \[queuedproto.ReqQueueStat\]\). Это CURRENT\_GET\_QUEUE\_STAT\_VERSION из исходников queued:
+
+```
+static const UCHAR8 CURRENT_GET_QUEUE_STAT_VERSION = 1;
+```
+
+TODO перенести в go\-queuedproto рядом с ReqQueueStat при следующем обновлении модуля.
+
+```go
+const QueueStatVersion = 1
+```
+
 ## Variables
 
 <a name="ErrNoServers"></a>
@@ -1841,8 +1868,19 @@ var (
 )
 ```
 
+<a name="CalcShard"></a>
+## func [CalcShard](<https://github.com/adventures-team/go-tp/blob/master/queuedclient/shard.go#L14>)
+
+```go
+func CalcShard(eventID uint64, shardNum uint) uint
+```
+
+CalcShard распределяет события по шардам в зависимости от хеша от ID события. Совместимо с перлом \(алгоритм хеширования \- crc от строкового десятичного представления eventID, распределение по шардам \- остаток от деления\).
+
+Так выбирают шард tp.BaseEvent.Shard и tp.Queue.Publish для событий с явно заданным ID \- по этому же правилу событие с известным ID следует искать \(и класть\) в шардированном queued.
+
 <a name="GetPID"></a>
-## func GetPID
+## func [GetPID](<https://github.com/adventures-team/go-tp/blob/master/queuedclient/getpid.go#L21>)
 
 ```go
 func GetPID(conf queueconfig.OnlineConf) (uint32, error)
@@ -1858,7 +1896,7 @@ GetPID \- хак для получения ID, обеспечивающего у
 Чтобы генерить рандомный "pid" всегда, можно задать в онлайнконфе /queueds/main/min\_pid больше максимально возможного pid для платформы \(32768 для linux, 99999 для \*bsd \- поэтому лучше вписывать "совсем много", если планируется тестировать на макбуках без докера\)
 
 <a name="DialOption"></a>
-## type DialOption
+## type [DialOption](<https://github.com/adventures-team/go-tp/blob/master/queuedclient/client.go#L87>)
 
 DialOption \- опции [Dial](<#Dial>): [WithMetricsSet](<#WithMetricsSet>).
 
@@ -1867,7 +1905,7 @@ type DialOption func(*dialOptions)
 ```
 
 <a name="WithMetricsSet"></a>
-### func WithMetricsSet
+### func [WithMetricsSet](<https://github.com/adventures-team/go-tp/blob/master/queuedclient/client.go#L97>)
 
 ```go
 func WithMetricsSet(ms advmetricsset.Set) DialOption
@@ -1876,7 +1914,7 @@ func WithMetricsSet(ms advmetricsset.Set) DialOption
 WithMetricsSet включает сбор транспортных метрик iproto\_\* в указанный Set. Реестр метрик подключается при создании клиента, поэтому Set должен быть известен на момент вызова [Dial](<#Dial>) \(в отличие от [QueuedClient.SetMetricsSet](<#QueuedClient.SetMetricsSet>), который лишь сохраняет Set для прикладных метрик уровня очередей\).
 
 <a name="ErrMulti"></a>
-## type ErrMulti
+## type [ErrMulti](<https://github.com/adventures-team/go-tp/blob/master/queuedclient/error.go#L34>)
 
 ErrMulti \- набор ошибок от нескольких шардов.
 
@@ -1891,7 +1929,7 @@ type ErrMulti []error
 ```
 
 <a name="ErrMulti.Append"></a>
-### func \(\*ErrMulti\) Append
+### func \(\*ErrMulti\) [Append](<https://github.com/adventures-team/go-tp/blob/master/queuedclient/error.go#L50>)
 
 ```go
 func (em *ErrMulti) Append(err error)
@@ -1900,7 +1938,7 @@ func (em *ErrMulti) Append(err error)
 Append добавляет ошибку в список.
 
 <a name="ErrMulti.Error"></a>
-### func \(ErrMulti\) Error
+### func \(ErrMulti\) [Error](<https://github.com/adventures-team/go-tp/blob/master/queuedclient/error.go#L39>)
 
 ```go
 func (em ErrMulti) Error() string
@@ -1909,7 +1947,7 @@ func (em ErrMulti) Error() string
 Error возвращает список ошибок через запятую.
 
 <a name="ErrMulti.ToError"></a>
-### func \(ErrMulti\) ToError
+### func \(ErrMulti\) [ToError](<https://github.com/adventures-team/go-tp/blob/master/queuedclient/error.go#L55>)
 
 ```go
 func (em ErrMulti) ToError() error
@@ -1918,7 +1956,7 @@ func (em ErrMulti) ToError() error
 ToError преобразует мульти\-ошибку в стандартный тип error. Если ошибок 0 \- возвращается nil.
 
 <a name="PublishOption"></a>
-## type PublishOption
+## type [PublishOption](<https://github.com/adventures-team/go-tp/blob/master/queuedclient/api.go#L209>)
 
 PublishOption \- опции [QueuedClient.Publish](<#QueuedClient.Publish>): [PublishActivationTime](<#PublishActivationTime>) и [PublishInitialDelay](<#PublishInitialDelay>).
 
@@ -1927,7 +1965,7 @@ type PublishOption func(*PublishOptions)
 ```
 
 <a name="PublishActivationTime"></a>
-### func PublishActivationTime
+### func [PublishActivationTime](<https://github.com/adventures-team/go-tp/blob/master/queuedclient/api.go#L212>)
 
 ```go
 func PublishActivationTime(t time.Time) PublishOption
@@ -1936,7 +1974,7 @@ func PublishActivationTime(t time.Time) PublishOption
 PublishActivationTime устанавливает время обработки нового события. Если не установлено \- см. [PublishInitialDelay](<#PublishInitialDelay>)
 
 <a name="PublishInitialDelay"></a>
-### func PublishInitialDelay
+### func [PublishInitialDelay](<https://github.com/adventures-team/go-tp/blob/master/queuedclient/api.go#L220>)
 
 ```go
 func PublishInitialDelay(d time.Duration) PublishOption
@@ -1945,7 +1983,7 @@ func PublishInitialDelay(d time.Duration) PublishOption
 PublishInitialDelay устанавливает задержку обработки нового события. Если не установлено \- используется заданное в конфиге значение.
 
 <a name="PublishOptions"></a>
-## type PublishOptions
+## type [PublishOptions](<https://github.com/adventures-team/go-tp/blob/master/queuedclient/api.go#L227-L231>)
 
 
 
@@ -1956,7 +1994,7 @@ type PublishOptions struct {
 ```
 
 <a name="QueuedClient"></a>
-## type QueuedClient
+## type [QueuedClient](<https://github.com/adventures-team/go-tp/blob/master/queuedclient/client.go#L76-L84>)
 
 QueuedClient \- низкоуровневый клиент queued.
 
@@ -1970,7 +2008,7 @@ type QueuedClient struct {
 ```
 
 <a name="Dial"></a>
-### func Dial
+### func [Dial](<https://github.com/adventures-team/go-tp/blob/master/queuedclient/client.go#L114>)
 
 ```go
 func Dial(ctx context.Context, conf *queueconfig.Config, opts ...DialOption) (*QueuedClient, error)
@@ -1983,7 +2021,7 @@ Dial создаёт клиент queued по списку серверов из 
 Список серверов отслеживается по подписке онлайнконфа: смена адресов в /queueds/multi применяется без перезапуска \(соединения со старыми адресами закрываются, с новыми \- открываются\). Изменение числа шардов при этом требует перезапуска \- оно игнорируется запущенным tp с предупреждением в лог \(см. iprotoSource\).
 
 <a name="QueuedClient.Defer"></a>
-### func \(\*QueuedClient\) Defer
+### func \(\*QueuedClient\) [Defer](<https://github.com/adventures-team/go-tp/blob/master/queuedclient/api.go#L149>)
 
 ```go
 func (qc *QueuedClient) Defer(ctx context.Context, queueID uint16, delay time.Duration, eventIDs []queuedproto.EventID) error
@@ -1996,7 +2034,7 @@ Defer устанавливает задержку обработки для ук
 Обновления производятся пачками по update\_batch\_size событий.
 
 <a name="QueuedClient.Delete"></a>
-### func \(\*QueuedClient\) Delete
+### func \(\*QueuedClient\) [Delete](<https://github.com/adventures-team/go-tp/blob/master/queuedclient/api.go#L123>)
 
 ```go
 func (qc *QueuedClient) Delete(ctx context.Context, queueID uint16, eventIDs []queuedproto.EventID) error
@@ -2005,7 +2043,7 @@ func (qc *QueuedClient) Delete(ctx context.Context, queueID uint16, eventIDs []q
 Delete удаляет указанные события параллельно изо всех необходимых шардов пачками по update\_batch\_size событий. TODO может быть, игнорить \[queuedproto.ErrItemLocked\] и просто писать его в лог?
 
 <a name="QueuedClient.GetActive"></a>
-### func \(\*QueuedClient\) GetActive
+### func \(\*QueuedClient\) [GetActive](<https://github.com/adventures-team/go-tp/blob/master/queuedclient/api.go#L22>)
 
 ```go
 func (qc *QueuedClient) GetActive(ctx context.Context, queueID uint16, count int) (queuedproto.ItemList, error)
@@ -2020,7 +2058,7 @@ GetActive получает активные события из очереди q
 Ретраи в случае ошибок не производятся.
 
 <a name="QueuedClient.GetByIDs"></a>
-### func \(\*QueuedClient\) GetByIDs
+### func \(\*QueuedClient\) [GetByIDs](<https://github.com/adventures-team/go-tp/blob/master/queuedclient/api.go#L102>)
 
 ```go
 func (qc *QueuedClient) GetByIDs(ctx context.Context, queueID uint16, eventIDs []queuedproto.EventID) (queuedproto.ItemList, error)
@@ -2031,7 +2069,7 @@ GetByIDs запрашивает события из очереди queueID с у
 Ретраи в случае ошибок не производятся.
 
 <a name="QueuedClient.GetByIDsBroadcast"></a>
-### func \(\*QueuedClient\) GetByIDsBroadcast
+### func \(\*QueuedClient\) [GetByIDsBroadcast](<https://github.com/adventures-team/go-tp/blob/master/queuedclient/api.go#L42>)
 
 ```go
 func (qc *QueuedClient) GetByIDsBroadcast(ctx context.Context, queueID uint16, eventIDs []uint64) (queuedproto.ItemList, error)
@@ -2042,7 +2080,7 @@ GetByIDsBroadcast запрашивает события из очереди queu
 Ретраи в случае ошибок не производятся.
 
 <a name="QueuedClient.IsHealthy"></a>
-### func \(\*QueuedClient\) IsHealthy
+### func \(\*QueuedClient\) [IsHealthy](<https://github.com/adventures-team/go-tp/blob/master/queuedclient/client.go#L192>)
 
 ```go
 func (qc *QueuedClient) IsHealthy() bool
@@ -2053,7 +2091,7 @@ IsHealthy сообщает о работоспособности кластер�
 Соединения устанавливаются по требованию и в фоне, поэтому "холодный" клиент сразу после Dial считается здоровым \- метод отражает именно наличие проблем, а не факт установленных TCP\-соединений.
 
 <a name="QueuedClient.IsOnline"></a>
-### func \(\*QueuedClient\) IsOnline
+### func \(\*QueuedClient\) [IsOnline](<https://github.com/adventures-team/go-tp/blob/master/queuedclient/client.go#L220>)
 
 ```go
 func (qc *QueuedClient) IsOnline() bool
@@ -2064,7 +2102,7 @@ IsOnline проверяет доступность кластера queued.
 Deprecated: метод больше не проверяет наличие живых TCP\-соединений со всеми шардами \(go\-iprotoconn устанавливает соединения по требованию и в фоне\) \- он эквивалентен [QueuedClient.IsHealthy](<#QueuedClient.IsHealthy>), который и следует использовать.
 
 <a name="QueuedClient.MakeBroadcastRequest"></a>
-### func \(\*QueuedClient\) MakeBroadcastRequest
+### func \(\*QueuedClient\) [MakeBroadcastRequest](<https://github.com/adventures-team/go-tp/blob/master/queuedclient/request.go#L167>)
 
 ```go
 func (qc *QueuedClient) MakeBroadcastRequest(ctx context.Context, req queuedproto.Request, resFunc ResultFunc) error
@@ -2081,7 +2119,7 @@ resFunc вызывается из разных горутин и должна б
 TODO раскопипастить broad/multicast запросы \- когда полностью определимся с их логикой.
 
 <a name="QueuedClient.MakeMulticastRequest"></a>
-### func \(\*QueuedClient\) MakeMulticastRequest
+### func \(\*QueuedClient\) [MakeMulticastRequest](<https://github.com/adventures-team/go-tp/blob/master/queuedclient/request.go#L229>)
 
 ```go
 func (qc *QueuedClient) MakeMulticastRequest(ctx context.Context, batchSize int, eventIDs []queuedproto.EventID, reqFunc RequestFunc, resFunc ResultFunc) error
@@ -2098,7 +2136,7 @@ resFunc вызывается из разных горутин и должна б
 Возврат ошибки не говорит о том, что запрос не выполнен нигде \- кол\-во успешно выполненных запросов \(и полученных данных\) следует осуществлять в resFunc.
 
 <a name="QueuedClient.MakeUnicastRequest"></a>
-### func \(\*QueuedClient\) MakeUnicastRequest
+### func \(\*QueuedClient\) [MakeUnicastRequest](<https://github.com/adventures-team/go-tp/blob/master/queuedclient/request.go#L130>)
 
 ```go
 func (qc *QueuedClient) MakeUnicastRequest(ctx context.Context, shard uint, req queuedproto.Request) (usedShard uint, respBytes []byte, err error)
@@ -2111,7 +2149,7 @@ MakeUnicastRequest посылает запрос req к указанному ш�
 Если задан shard == [BalanceShard](<#ConfServers>), шард выбирается по round robin. Если запрос гарантированно не был отправлен \(\[iprotoconn.RequestNotExecuted\] \- например, у шарда открыт circuit breaker\), пробуется следующий шард \- это безопасно даже для неидемпотентных запросов.
 
 <a name="QueuedClient.MetricsSet"></a>
-### func \(\*QueuedClient\) MetricsSet
+### func \(\*QueuedClient\) [MetricsSet](<https://github.com/adventures-team/go-tp/blob/master/queuedclient/client.go#L174>)
 
 ```go
 func (qc *QueuedClient) MetricsSet() advmetricsset.Set
@@ -2120,7 +2158,7 @@ func (qc *QueuedClient) MetricsSet() advmetricsset.Set
 
 
 <a name="QueuedClient.Publish"></a>
-### func \(\*QueuedClient\) Publish
+### func \(\*QueuedClient\) [Publish](<https://github.com/adventures-team/go-tp/blob/master/queuedclient/api.go#L251>)
 
 ```go
 func (qc *QueuedClient) Publish(ctx context.Context, queueID uint16, eventID queuedproto.EventID, flags uint32, eventData []byte, opts ...PublishOption) (queuedproto.EventID, error)
@@ -2138,8 +2176,21 @@ ID запроса \(queuedproto.ReqAddItem.ReqID\) для всех ретрае�
 
 Ошибки обработки результата \(iproto.Unmarshal\) не приводят к ретраям, т.к., скорее всего, являются ошибками прикладного уровня.
 
+<a name="QueuedClient.QueueStat"></a>
+### func \(\*QueuedClient\) [QueueStat](<https://github.com/adventures-team/go-tp/blob/master/queuedclient/stat.go#L29>)
+
+```go
+func (qc *QueuedClient) QueueStat(ctx context.Context, queueID uint16) ([]queuedproto.RespQueueStat, error)
+```
+
+QueueStat запрашивает статистику очереди queueID \(\[queuedproto.ReqQueueStat\]\) изо всех шардов одновременно. Результат \- по шардам \(индекс \- номер шарда, нумерация с 0\). Шард, в котором такой очереди нет \(\[queuedproto.ErrUnknownQueueType\]\), даёт нулевую статистику.
+
+В отличие от [QueuedClient.GetActive](<#QueuedClient.GetActive>), частичный результат не возвращается: если статистику не удалось получить хотя бы с одного шарда, возвращается ошибка \- для проверки "очередь пуста" неполные данные бесполезны.
+
+Ретраи в случае ошибок не производятся.
+
 <a name="QueuedClient.Replace"></a>
-### func \(\*QueuedClient\) Replace
+### func \(\*QueuedClient\) [Replace](<https://github.com/adventures-team/go-tp/blob/master/queuedclient/api.go#L303>)
 
 ```go
 func (qc *QueuedClient) Replace(ctx context.Context, queueID uint16, eventID queuedproto.EventID, eventData []byte, opts ...PublishOption) (bool, error)
@@ -2152,7 +2203,7 @@ Replace заменяет существующее событие в очеред
 Возвращается признак установки времени активации, и ошибка.
 
 <a name="QueuedClient.SetActivationTime"></a>
-### func \(\*QueuedClient\) SetActivationTime
+### func \(\*QueuedClient\) [SetActivationTime](<https://github.com/adventures-team/go-tp/blob/master/queuedclient/api.go#L186>)
 
 ```go
 func (qc *QueuedClient) SetActivationTime(ctx context.Context, queueID uint16, atime time.Time, eventIDs []queuedproto.EventID) error
@@ -2161,7 +2212,7 @@ func (qc *QueuedClient) SetActivationTime(ctx context.Context, queueID uint16, a
 SetActivationTime устанавливает время активации для указанных событий. Обновления производятся пачками по update\_batch\_size событий.
 
 <a name="QueuedClient.SetMetricsSet"></a>
-### func \(\*QueuedClient\) SetMetricsSet
+### func \(\*QueuedClient\) [SetMetricsSet](<https://github.com/adventures-team/go-tp/blob/master/queuedclient/client.go#L181>)
 
 ```go
 func (qc *QueuedClient) SetMetricsSet(ms advmetricsset.Set)
@@ -2170,7 +2221,7 @@ func (qc *QueuedClient) SetMetricsSet(ms advmetricsset.Set)
 SetMetricsSet сохраняет Set для прикладных метрик \(tp\_events\_\* и т.д., см. Queue\). Транспортные метрики iproto\_\* этим методом не включаются \- реестр подключается только при создании клиента опцией [WithMetricsSet](<#WithMetricsSet>).
 
 <a name="QueuedClient.ShardNum"></a>
-### func \(\*QueuedClient\) ShardNum
+### func \(\*QueuedClient\) [ShardNum](<https://github.com/adventures-team/go-tp/blob/master/queuedclient/client.go#L160>)
 
 ```go
 func (qc *QueuedClient) ShardNum() uint
@@ -2179,7 +2230,7 @@ func (qc *QueuedClient) ShardNum() uint
 ShardNum возвращает количество шардов, указанных в /queueds/multi.
 
 <a name="RequestFunc"></a>
-## type RequestFunc
+## type [RequestFunc](<https://github.com/adventures-team/go-tp/blob/master/queuedclient/request.go#L20>)
 
 RequestFunc вызывается функцией [QueuedClient.MakeMulticastRequest](<#QueuedClient.MakeMulticastRequest>) для формирования запроса для указанных ID \(относящихся к одному шарду\)
 
@@ -2188,7 +2239,7 @@ type RequestFunc func(eventIDs []uint64) queuedproto.Request
 ```
 
 <a name="ResultFunc"></a>
-## type ResultFunc
+## type [ResultFunc](<https://github.com/adventures-team/go-tp/blob/master/queuedclient/request.go#L26>)
 
 ResultFunc вызывается функциями [QueuedClient.MakeBroadcastRequest](<#QueuedClient.MakeBroadcastRequest>) и [QueuedClient.MakeMulticastRequest](<#QueuedClient.MakeMulticastRequest>) для сохранения результата, полученного из указанного шарда. Результат надо сохранять либо через замыкание \- либо передавать в качестве этой функции bound method объекта, куда сохраняются данные.
 
@@ -2230,7 +2281,7 @@ var (
 ```
 
 <a name="Pool"></a>
-## type Pool
+## type [Pool](<https://github.com/adventures-team/go-tp/blob/master/slotpool/pool.go#L19-L23>)
 
 
 
@@ -2241,7 +2292,7 @@ type Pool struct {
 ```
 
 <a name="New"></a>
-### func New
+### func [New](<https://github.com/adventures-team/go-tp/blob/master/slotpool/pool.go#L45>)
 
 ```go
 func New(slotsCount int) *Pool
@@ -2250,7 +2301,7 @@ func New(slotsCount int) *Pool
 New starts a pool of slotsCount slots
 
 <a name="Pool.AddSlot"></a>
-### func \(\*Pool\) AddSlot
+### func \(\*Pool\) [AddSlot](<https://github.com/adventures-team/go-tp/blob/master/slotpool/pool.go#L62>)
 
 ```go
 func (p *Pool) AddSlot()
@@ -2259,7 +2310,7 @@ func (p *Pool) AddSlot()
 AddSlot adds new slot to the pool.
 
 <a name="Pool.AssignSlot"></a>
-### func \(\*Pool\) AssignSlot
+### func \(\*Pool\) [AssignSlot](<https://github.com/adventures-team/go-tp/blob/master/slotpool/pool.go#L129>)
 
 ```go
 func (p *Pool) AssignSlot(id uint32, w Work) error
@@ -2270,7 +2321,7 @@ AssignSlot adds work for the slot.
 AssignSlot drops pending work and exectue new one after the current work is completed.
 
 <a name="Pool.Finish"></a>
-### func \(\*Pool\) Finish
+### func \(\*Pool\) [Finish](<https://github.com/adventures-team/go-tp/blob/master/slotpool/pool.go#L181>)
 
 ```go
 func (p *Pool) Finish()
@@ -2279,7 +2330,7 @@ func (p *Pool) Finish()
 Finish stops pool
 
 <a name="Pool.ReleaseSlot"></a>
-### func \(\*Pool\) ReleaseSlot
+### func \(\*Pool\) [ReleaseSlot](<https://github.com/adventures-team/go-tp/blob/master/slotpool/pool.go#L159>)
 
 ```go
 func (p *Pool) ReleaseSlot(id uint32) error
@@ -2288,7 +2339,7 @@ func (p *Pool) ReleaseSlot(id uint32) error
 ReleaseSlot removes work from the slot.
 
 <a name="Pool.RemoveSlot"></a>
-### func \(\*Pool\) RemoveSlot
+### func \(\*Pool\) [RemoveSlot](<https://github.com/adventures-team/go-tp/blob/master/slotpool/pool.go#L108>)
 
 ```go
 func (p *Pool) RemoveSlot()
@@ -2297,7 +2348,7 @@ func (p *Pool) RemoveSlot()
 RemoveSlot releases last slot and remove it.
 
 <a name="Pool.SlotStates"></a>
-### func \(\*Pool\) SlotStates
+### func \(\*Pool\) [SlotStates](<https://github.com/adventures-team/go-tp/blob/master/slotpool/pool.go#L204>)
 
 ```go
 func (p *Pool) SlotStates() []SlotState
@@ -2306,7 +2357,7 @@ func (p *Pool) SlotStates() []SlotState
 
 
 <a name="SlotState"></a>
-## type SlotState
+## type [SlotState](<https://github.com/adventures-team/go-tp/blob/master/slotpool/pool.go#L37-L42>)
 
 
 
@@ -2320,7 +2371,7 @@ type SlotState struct {
 ```
 
 <a name="Work"></a>
-## type Work
+## type [Work](<https://github.com/adventures-team/go-tp/blob/master/slotpool/pool.go#L14-L17>)
 
 
 
@@ -2384,7 +2435,7 @@ const (
 ```
 
 <a name="JobTypeID"></a>
-## type JobTypeID
+## type [JobTypeID](<https://github.com/adventures-team/go-tp/blob/master/workerpool/pool.go#L40>)
 
 JobTypeID \- здесь работой называется очередь, на случай выноса функцонала пула воркеров из проекта очередей.
 
@@ -2393,7 +2444,7 @@ type JobTypeID = uint16
 ```
 
 <a name="Poller"></a>
-## type Poller
+## type [Poller](<https://github.com/adventures-team/go-tp/blob/master/workerpool/pool.go#L48-L51>)
 
 Poller используется для опроса ресурса с указанным ID.
 
@@ -2409,7 +2460,7 @@ type Poller interface {
 ```
 
 <a name="Stopper"></a>
-## type Stopper
+## type [Stopper](<https://github.com/adventures-team/go-tp/blob/master/workerpool/pool.go#L56-L58>)
 
 Stopper \- если poller поддерживает также этот интерфейс, при запросе остановки вызывается метод Stop.
 
@@ -2422,7 +2473,7 @@ type Stopper interface {
 ```
 
 <a name="Worker"></a>
-## type Worker
+## type [Worker](<https://github.com/adventures-team/go-tp/blob/master/workerpool/pool.go#L68-L71>)
 
 Worker возвращается методом Poller.Poll, метод Work осуществляет выполнение задания.
 
@@ -2436,7 +2487,7 @@ type Worker interface {
 ```
 
 <a name="WorkerPool"></a>
-## type WorkerPool
+## type [WorkerPool](<https://github.com/adventures-team/go-tp/blob/master/workerpool/pool.go#L95-L116>)
 
 WorkerPool \- управляемый пул воркеров
 
@@ -2448,7 +2499,7 @@ type WorkerPool struct {
 ```
 
 <a name="New"></a>
-### func New
+### func [New](<https://github.com/adventures-team/go-tp/blob/master/workerpool/pool.go#L120>)
 
 ```go
 func New(poller Poller, logger *slog.Logger) *WorkerPool
@@ -2457,7 +2508,7 @@ func New(poller Poller, logger *slog.Logger) *WorkerPool
 New создаёт новый пул воркеров
 
 <a name="WorkerPool.Run"></a>
-### func \(\*WorkerPool\) Run
+### func \(\*WorkerPool\) [Run](<https://github.com/adventures-team/go-tp/blob/master/workerpool/manage.go#L12>)
 
 ```go
 func (wp *WorkerPool) Run()
@@ -2466,7 +2517,7 @@ func (wp *WorkerPool) Run()
 Run управляет запуском заданий. В случае паники об этом пишется в лог, и обработка возобновляется. Возврат из метода происходит при вызове Stop.
 
 <a name="WorkerPool.SetDryPollDelay"></a>
-### func \(\*WorkerPool\) SetDryPollDelay
+### func \(\*WorkerPool\) [SetDryPollDelay](<https://github.com/adventures-team/go-tp/blob/master/workerpool/api.go#L25>)
 
 ```go
 func (wp *WorkerPool) SetDryPollDelay(dryPollDelay time.Duration)
@@ -2475,7 +2526,7 @@ func (wp *WorkerPool) SetDryPollDelay(dryPollDelay time.Duration)
 SetDryPollDelay \- устанавливает задержку после maxDryPolls пустых запросов \(не вернувших новые записи\) \(default: 50 мсек\)
 
 <a name="WorkerPool.SetIdleDelay"></a>
-### func \(\*WorkerPool\) SetIdleDelay
+### func \(\*WorkerPool\) [SetIdleDelay](<https://github.com/adventures-team/go-tp/blob/master/workerpool/api.go#L30>)
 
 ```go
 func (wp *WorkerPool) SetIdleDelay(idleDelay time.Duration)
@@ -2484,7 +2535,7 @@ func (wp *WorkerPool) SetIdleDelay(idleDelay time.Duration)
 SetIdleDelay \- устанавливает задержку опроса по умолчанию, если других задержек нет \(default: 5 секунд\)
 
 <a name="WorkerPool.SetMaxDryPolls"></a>
-### func \(\*WorkerPool\) SetMaxDryPolls
+### func \(\*WorkerPool\) [SetMaxDryPolls](<https://github.com/adventures-team/go-tp/blob/master/workerpool/api.go#L20>)
 
 ```go
 func (wp *WorkerPool) SetMaxDryPolls(maxDryPolls int)
@@ -2493,7 +2544,7 @@ func (wp *WorkerPool) SetMaxDryPolls(maxDryPolls int)
 SetMaxDryPolls \- устанавливает максимальное кол\-во пустых опросов очереди, после которых будет осуществлена задержка опроса этой очереди на dryPollDelay \(default: 20 раз\)
 
 <a name="WorkerPool.SetMetricsSet"></a>
-### func \(\*WorkerPool\) SetMetricsSet
+### func \(\*WorkerPool\) [SetMetricsSet](<https://github.com/adventures-team/go-tp/blob/master/workerpool/pool.go#L139>)
 
 ```go
 func (wp *WorkerPool) SetMetricsSet(ms advmetricsset.Set)
@@ -2502,7 +2553,7 @@ func (wp *WorkerPool) SetMetricsSet(ms advmetricsset.Set)
 
 
 <a name="WorkerPool.SetWorkerCount"></a>
-### func \(\*WorkerPool\) SetWorkerCount
+### func \(\*WorkerPool\) [SetWorkerCount](<https://github.com/adventures-team/go-tp/blob/master/workerpool/api.go#L12>)
 
 ```go
 func (wp *WorkerPool) SetWorkerCount(jobID JobTypeID, count int)
@@ -2511,7 +2562,7 @@ func (wp *WorkerPool) SetWorkerCount(jobID JobTypeID, count int)
 SetWorkerCount устанавливает кол\-во воркеров count для работы jobID. Если горутин для выполнения работ всех типов не хватает \- новые запускаются сразу, если есть лишние \- горутины выходят, только если есть простаивающие горутины. Если за время выполнения работы горутины перестали быть "лишними" \(вызвали SetWorkerCount с новыми параметрами\), выходить они не будут \(условие выхода проверяется по завершении работы\).
 
 <a name="WorkerPool.Stop"></a>
-### func \(\*WorkerPool\) Stop
+### func \(\*WorkerPool\) [Stop](<https://github.com/adventures-team/go-tp/blob/master/workerpool/api.go#L40>)
 
 ```go
 func (wp *WorkerPool) Stop()
@@ -2522,7 +2573,7 @@ Stop останавливает обработку. После выхода вс
 Сигнал передаётся закрытием канала: неблокирующая отправка в небуферизованный канал молча терялась, если Run в этот момент не стоял в select \(например, крутился в busy\-ветке планирования\) \- и пул навсегда оставался работать.
 
 <a name="WorkerStat"></a>
-## type WorkerStat
+## type [WorkerStat](<https://github.com/adventures-team/go-tp/blob/master/workerpool/pool.go#L60-L63>)
 
 
 
@@ -2531,6 +2582,92 @@ type WorkerStat interface {
     Processed() uint32
     Errors() uint32
 }
+```
+
+# queued\-mover
+
+```go
+import "github.com/adventures-team/go-tp/cmd/queued-mover"
+```
+
+queued\-mover переносит события очередей из одного кластера queued \(источник, A\) в другой \(приёмник, B\): читает активные события из шардов A, публикует их в B как есть \(тело события не декодируется\) и удаляет из A. Логика \- пакет internal/mover, краткое описание \- в docs/README.md.
+
+### Запуск
+
+```
+queued-mover -subtree /project/queued-mover [-module <name|path>]
+```
+
+Ключи командной строки:
+
+- \-subtree \- обязательный: поддерево onlineconf с настройками утилиты; без него \- usage и код выхода 2.
+- \-module \- модуль onlineconf: имя в /usr/local/etc/onlineconf или путь к cdb\-файлу \(значение со слешем\). По умолчанию \- переменная окружения CDB\_CONFIG\_FILE, если она не задана или пуста \- TREE.
+
+Остальные настройки \- только в onlineconf, большинство перечитывается на лету.
+
+### Конфигурация
+
+Кластеры задаются в поддеревьях src и dst в формате ключа queueds этого проекта: список шардов через запятую в queueds/multi и необязательные параметры соединения рядом \(queueds/multi/timeout и т.д., см. константы queuedclient.Conf\*\):
+
+```
+$Root/src/queueds/multi   = queued-old-1:20000,queued-old-2:20000
+$Root/dst/queueds/multi   = queued-new-1:20000,queued-new-2:20000
+$Root/queue_ids           = 1122,1123   # очереди для переноса, формат /tp/go/queue_ids (обязателен)
+$Root/one_shot            = 0           # 1 - выйти, когда во всех очередях A не осталось событий
+$Root/preserve_ids        = 0           # 1 - сохранять ID событий (см. ниже)
+$Root/workers             = 1           # горутин на очередь
+$Root/fetch_batch_size    = 100         # событий за один запрос с каждого шарда A
+$Root/initial_delay       = 0           # задержка активации перенесённого события в B
+$Root/defer_time          = 1m          # на сколько откладывать в A событие, не попавшее в B
+$Root/poll_delay          = 1s          # пауза после пустой выборки и после пачки с ошибками
+$Root/stat_period         = 1m          # период строки прогресса и перечитывания queue_ids/workers
+$Root/log_level           = info
+```
+
+Длительности: голое число \- секунды, иначе синтаксис time.ParseDuration.
+
+### Режимы
+
+По умолчанию утилита работает как сервис: переносит события по мере их появления и активации в A, пока не получит SIGTERM/SIGINT \(текущие итерации доводятся до конца: каждое выбранное событие удаляется из A или откладывается в A\). SIGHUP перечитывает queue\_ids, workers и log\_level; изменения остальных параметров действуют и так.
+
+С one\_shot = 1 утилита выходит, когда во всех очередях из queue\_ids по статистике A не осталось событий \- ни активных, ни отложенных, ни заблокированных. Отложенные события переносятся по мере их активации \(queued отдаёт клиенту только активные события\), поэтому утилита ждёт их; события, заблокированные другими клиентами или оставшиеся заблокированными после аварийного завершения, переносятся после снятия блокировки по таймауту queued. Продюсеры должны быть переключены на B до запуска: проверка \- снимок.
+
+Гарантия \- at\-least\-once: сначала публикация в B, потом удаление из A, падение между ними даёт повтор переноса после переактивации события в A \(дубль в B с новыми ID, идемпотентный повтор с сохранением ID\).
+
+### ID событий
+
+По умолчанию события создаются в B с новыми ID \(их назначает queued B, шард \- по round robin\), коллизии невозможны.
+
+preserve\_ids = 1 \- переносить события с исходными ID: событие кладётся в шард B по тому же правилу, что tp.Queue.Publish для событий с явным ID \(queuedclient.CalcShard\). Если в B под этим ID уже есть событие с тем же телом \- это дубль \(например, предыдущий запуск упал между публикацией и удалением\), он считается перенесённым; с другим телом \- коллизия ID: событие остаётся в A и повторяется до вмешательства оператора.
+
+Внимание: сохранение ID может привести к коллизиям ID в кластере B \- как при переносе, так и позже. queued назначает ID автоинкрементом отдельно в каждом шарде, поэтому: \(1\) события из разных шардов A могут иметь одинаковые ID \- при переносе они попадают в один шард B, второе из них не переносится и остаётся в A с ошибкой collision в логе; \(2\) ID, выданные queued B после переноса \(или уже выданные раньше\), могут совпасть с перенесёнными: публикация такого события в B завершится ошибкой "wrong item", а с IgnoreDuplicateItems \(FlagIgnoreWrongItem\) будет молча проигнорирована \- событие продюсера пропадёт. Включайте только когда ID событий генерирует приложение \(tp.EventIDBuilder\), они уникальны и обязаны сохраниться \- например, в ID упакованы данные \(tp.Unpacker\) или по ID обеспечивается идемпотентность.
+
+### Коды выхода
+
+```
+0 - штатное завершение: сигнал в режиме сервиса, все очереди пусты в one-shot
+1 - ошибка: конфиг, модуль onlineconf, соединение с queued
+2 - ошибка командной строки
+3 - one-shot прерван сигналом до опустошения очередей
+```
+
+## Index
+
+- [Constants](<#constants>)
+
+
+## Constants
+
+<a name="EnvModule"></a>
+
+```go
+const (
+    // EnvModule - переменная окружения с модулем onlineconf: значение -module по умолчанию.
+    EnvModule = "CDB_CONFIG_FILE"
+
+    // DefaultModule - модуль onlineconf, если не заданы ни -module, ни EnvModule.
+    DefaultModule = "TREE"
+)
 ```
 
 # queued\-stresser
@@ -2569,7 +2706,7 @@ const AdminRespOK = "Ok"
 ```
 
 <a name="SleepContext"></a>
-## func SleepContext
+## func [SleepContext](<https://github.com/adventures-team/go-tp/blob/master/cmd/queued-stresser/main.go#L186>)
 
 ```go
 func SleepContext(ctx context.Context, delay time.Duration)
@@ -2578,7 +2715,7 @@ func SleepContext(ctx context.Context, delay time.Duration)
 SleepContext should be moved to myutils or even to the official time package \)
 
 <a name="Admin"></a>
-## type Admin
+## type [Admin](<https://github.com/adventures-team/go-tp/blob/master/cmd/queued-stresser/admin.go#L15-L18>)
 
 Admin \- queued admin port client.
 
@@ -2589,7 +2726,7 @@ type Admin struct {
 ```
 
 <a name="NewAdmin"></a>
-### func NewAdmin
+### func [NewAdmin](<https://github.com/adventures-team/go-tp/blob/master/cmd/queued-stresser/admin.go#L21>)
 
 ```go
 func NewAdmin(ctx context.Context, opt *Options) (Admin, error)
@@ -2598,7 +2735,7 @@ func NewAdmin(ctx context.Context, opt *Options) (Admin, error)
 NewAdmin connects opt.AdminPort.
 
 <a name="Admin.Close"></a>
-### func \(Admin\) Close
+### func \(Admin\) [Close](<https://github.com/adventures-team/go-tp/blob/master/cmd/queued-stresser/admin.go#L42>)
 
 ```go
 func (adm Admin) Close()
@@ -2607,7 +2744,7 @@ func (adm Admin) Close()
 Close calls the underlying Close call ignoring the result.
 
 <a name="Admin.DestroyStorage"></a>
-### func \(Admin\) DestroyStorage
+### func \(Admin\) [DestroyStorage](<https://github.com/adventures-team/go-tp/blob/master/cmd/queued-stresser/admin.go#L48>)
 
 ```go
 func (adm Admin) DestroyStorage(_ context.Context, queueID int) error
@@ -2616,7 +2753,7 @@ func (adm Admin) DestroyStorage(_ context.Context, queueID int) error
 DestroyStorage performs the \`set destroy\_storage\` command. TODO handle context cancellation
 
 <a name="ConnPool"></a>
-## type ConnPool
+## type [ConnPool](<https://github.com/adventures-team/go-tp/blob/master/cmd/queued-stresser/stress.go#L26-L40>)
 
 ConnPool represents stress test connection pool state.
 
@@ -2629,7 +2766,7 @@ type ConnPool struct {
 ```
 
 <a name="NewConnPool"></a>
-### func NewConnPool
+### func [NewConnPool](<https://github.com/adventures-team/go-tp/blob/master/cmd/queued-stresser/stress.go#L84>)
 
 ```go
 func NewConnPool(opt *Options) *ConnPool
@@ -2638,7 +2775,7 @@ func NewConnPool(opt *Options) *ConnPool
 NewConnPool initializes ConnPool. Each new pool comes with the unique random pid.
 
 <a name="ConnPool.GetDelay"></a>
-### func \(\*ConnPool\) GetDelay
+### func \(\*ConnPool\) [GetDelay](<https://github.com/adventures-team/go-tp/blob/master/cmd/queued-stresser/stress.go#L125>)
 
 ```go
 func (cp *ConnPool) GetDelay() time.Duration
@@ -2647,7 +2784,7 @@ func (cp *ConnPool) GetDelay() time.Duration
 GetDelay returns the current duration of delay performed after each request.
 
 <a name="ConnPool.Run"></a>
-### func \(\*ConnPool\) Run
+### func \(\*ConnPool\) [Run](<https://github.com/adventures-team/go-tp/blob/master/cmd/queued-stresser/stress.go#L131>)
 
 ```go
 func (cp *ConnPool) Run(ctx context.Context)
@@ -2656,7 +2793,7 @@ func (cp *ConnPool) Run(ctx context.Context)
 Run the connection pool until the context is cancelled. Connections are restarted on protocol\- and connection\-level errors.
 
 <a name="ConnPool.SampleDuration"></a>
-### func \(\*ConnPool\) SampleDuration
+### func \(\*ConnPool\) [SampleDuration](<https://github.com/adventures-team/go-tp/blob/master/cmd/queued-stresser/stress.go#L110>)
 
 ```go
 func (cp *ConnPool) SampleDuration() (total time.Duration, maximum time.Duration)
@@ -2665,7 +2802,7 @@ func (cp *ConnPool) SampleDuration() (total time.Duration, maximum time.Duration
 SampleDuration returns the total/maximum durations of all requests sent since the previous SampleDuration call.
 
 <a name="ConnPool.SampleSize"></a>
-### func \(\*ConnPool\) SampleSize
+### func \(\*ConnPool\) [SampleSize](<https://github.com/adventures-team/go-tp/blob/master/cmd/queued-stresser/stress.go#L105>)
 
 ```go
 func (cp *ConnPool) SampleSize() uint64
@@ -2674,7 +2811,7 @@ func (cp *ConnPool) SampleSize() uint64
 SampleSize returns the total size of all requests sent since the previous SampleSize call.
 
 <a name="ConnPool.SetDelay"></a>
-### func \(\*ConnPool\) SetDelay
+### func \(\*ConnPool\) [SetDelay](<https://github.com/adventures-team/go-tp/blob/master/cmd/queued-stresser/stress.go#L120>)
 
 ```go
 func (cp *ConnPool) SetDelay(delay time.Duration)
@@ -2683,7 +2820,7 @@ func (cp *ConnPool) SetDelay(delay time.Duration)
 SetDelay sets the duration of delay performed after each request.
 
 <a name="ConnPool.TotalCount"></a>
-### func \(\*ConnPool\) TotalCount
+### func \(\*ConnPool\) [TotalCount](<https://github.com/adventures-team/go-tp/blob/master/cmd/queued-stresser/stress.go#L100>)
 
 ```go
 func (cp *ConnPool) TotalCount() uint32
@@ -2692,7 +2829,7 @@ func (cp *ConnPool) TotalCount() uint32
 TotalCount atomically reads current request ID \(i.e. total request count\).
 
 <a name="Options"></a>
-## type Options
+## type [Options](<https://github.com/adventures-team/go-tp/blob/master/cmd/queued-stresser/main.go#L26-L38>)
 
 Options represents command line options.
 
@@ -2712,6 +2849,161 @@ type Options struct {
 }
 ```
 
+# mover
+
+```go
+import "github.com/adventures-team/go-tp/internal/mover"
+```
+
+Package mover \- логика утилиты queued\-mover: перенос событий очередей из одного кластера queued \(источник, A\) в другой \(приёмник, B\) поверх \[queuedclient\].
+
+Воркер каждой очереди в цикле получает активные события из A \(Client.GetActive\), публикует их в B как есть \(Client.Publish, тело события не декодируется\) и удаляет из A \(Client.Delete\); события, которые опубликовать не удалось, откладываются в A \(Client.Defer\) и переносятся позже. Супервизор \([Mover.Run](<#Mover.Run>)\) запускает воркеры по списку очередей из onlineconf, перечитывает настройки на лету, пишет прогресс в лог и в режиме one\-shot завершает работу, когда во всех очередях A не осталось событий.
+
+Запуск, конфигурация и гарантии описаны в godoc cmd/queued\-mover и в docs/README.md.
+
+## Index
+
+- [Constants](<#constants>)
+- [Variables](<#variables>)
+- [type Client](<#Client>)
+- [type Conf](<#Conf>)
+- [type Mover](<#Mover>)
+  - [func New\(conf Conf, src, dst Client, logger \*slog.Logger\) \*Mover](<#New>)
+  - [func \(m \*Mover\) Reload\(\)](<#Mover.Reload>)
+  - [func \(m \*Mover\) Run\(ctx context.Context\) error](<#Mover.Run>)
+
+
+## Constants
+
+<a name="ConfQueueIDs"></a>Пути параметров утилиты относительно её поддерева onlineconf \(описание \- godoc cmd/queued\-mover\).
+
+```go
+const (
+    ConfQueueIDs       = "/queue_ids"        // очереди для переноса, формат /tp/go/queue_ids
+    ConfOneShot        = "/one_shot"         // выйти, когда все очереди пусты
+    ConfPreserveIDs    = "/preserve_ids"     // сохранять ID событий
+    ConfWorkers        = "/workers"          // воркеров на очередь
+    ConfFetchBatchSize = "/fetch_batch_size" // событий за один GetActive с каждого шарда
+    ConfInitialDelay   = "/initial_delay"    // задержка активации перенесённого события в B
+    ConfDeferTime      = "/defer_time"       // на сколько откладывать в A неперенесённое событие
+    ConfPollDelay      = "/poll_delay"       // пауза после пустой выборки и после пачки с ошибками
+    ConfStatPeriod     = "/stat_period"      // период строки прогресса и перечитывания queue_ids/workers
+    ConfLogLevel       = "/log_level"        // уровень логгирования
+)
+```
+
+<a name="DefaultWorkers"></a>Значения по умолчанию.
+
+```go
+const (
+    DefaultWorkers        = 1
+    DefaultFetchBatchSize = 100
+    DefaultInitialDelay   = time.Duration(0)
+    DefaultDeferTime      = time.Minute
+    DefaultPollDelay      = time.Second
+    DefaultStatPeriod     = time.Minute
+    DefaultLogLevel       = slog.LevelInfo
+)
+```
+
+## Variables
+
+<a name="ErrInterrupted"></a>ErrInterrupted \- режим one\-shot прерван остановкой до опустошения всех очередей.
+
+```go
+var ErrInterrupted = errors.New("interrupted before all queues were drained")
+```
+
+<a name="ErrNegative"></a>ErrNegative \- длительность не может быть отрицательной.
+
+```go
+var ErrNegative = errors.New("value must not be negative")
+```
+
+<a name="Client"></a>
+## type [Client](<https://github.com/adventures-team/go-tp/blob/master/internal/mover/client.go#L14-L36>)
+
+Client \- подмножество методов \[queuedclient.QueuedClient\], которым пользуется утилита. Интерфейс \- ради моков в тестах \(test/mock/mover\).
+
+```go
+type Client interface {
+    // ShardNum возвращает количество шардов кластера.
+    ShardNum() uint
+
+    // GetActive получает активные события очереди изо всех шардов (count - на шард).
+    GetActive(ctx context.Context, queueID uint16, count int) (queuedproto.ItemList, error)
+
+    // GetByIDs запрашивает события с указанными ID из указанных в них шардов.
+    GetByIDs(ctx context.Context, queueID uint16, eventIDs []queuedproto.EventID) (queuedproto.ItemList, error)
+
+    // Publish отправляет событие в очередь (ID 0 - назначает queued, [queuedclient.BalanceShard] - шард по round robin).
+    Publish(ctx context.Context, queueID uint16, eventID queuedproto.EventID, flags uint32, eventData []byte,
+        opts ...queuedclient.PublishOption) (queuedproto.EventID, error)
+
+    // Delete удаляет события из очереди.
+    Delete(ctx context.Context, queueID uint16, eventIDs []queuedproto.EventID) error
+
+    // Defer откладывает события на указанное время.
+    Defer(ctx context.Context, queueID uint16, delay time.Duration, eventIDs []queuedproto.EventID) error
+
+    // QueueStat запрашивает статистику очереди по шардам.
+    QueueStat(ctx context.Context, queueID uint16) ([]queuedproto.RespQueueStat, error)
+}
+```
+
+<a name="Conf"></a>
+## type [Conf](<https://github.com/adventures-team/go-tp/blob/master/internal/mover/config.go#L19-L25>)
+
+Conf \- поддерево onlineconf с настройками утилиты: нужная утилите часть интерфейса \[onlineconf.Subtree\]. Пути параметров \- относительно этого поддерева.
+
+```go
+type Conf interface {
+    GetStringIfExists(path string) (string, bool)
+    GetIntErr(path string) (int, error)
+    GetBool(path string, dfl bool) bool
+    GetDurationErr(path string) (time.Duration, error)
+    SubscribeSubtree(path string) (chan struct{}, error)
+}
+```
+
+<a name="Mover"></a>
+## type [Mover](<https://github.com/adventures-team/go-tp/blob/master/internal/mover/mover.go#L23-L35>)
+
+Mover \- супервизор переноса: держит набор очередей из queue\_ids с их воркерами, перечитывает настройки, пишет строку прогресса и в режиме one\-shot решает, когда очереди опустошены.
+
+```go
+type Mover struct {
+    // contains filtered or unexported fields
+}
+```
+
+<a name="New"></a>
+### func [New](<https://github.com/adventures-team/go-tp/blob/master/internal/mover/mover.go#L56>)
+
+```go
+func New(conf Conf, src, dst Client, logger *slog.Logger) *Mover
+```
+
+New создаёт супервизор: conf \- поддерево onlineconf с настройками утилиты, src и dst \- клиенты кластеров A \(источник\) и B \(приёмник\).
+
+<a name="Mover.Reload"></a>
+### func \(\*Mover\) [Reload](<https://github.com/adventures-team/go-tp/blob/master/internal/mover/mover.go#L70>)
+
+```go
+func (m *Mover) Reload()
+```
+
+Reload просит супервизор перечитать queue\_ids, workers и log\_level \(например, по SIGHUP\). Остальные параметры читаются при каждом использовании и в перечитывании не нуждаются.
+
+<a name="Mover.Run"></a>
+### func \(\*Mover\) [Run](<https://github.com/adventures-team/go-tp/blob/master/internal/mover/mover.go#L81>)
+
+```go
+func (m *Mover) Run(ctx context.Context) error
+```
+
+Run выполняет перенос до отмены ctx \(режим сервиса\) или до опустошения всех очередей \(режим one\-shot, nil\). Отмена ctx в режиме one\-shot до опустошения очередей \- [ErrInterrupted](<#ErrInterrupted>); ошибка в обязательных параметрах при старте возвращается как есть. Остановка дожидается завершения текущих итераций воркеров.
+
 # managedmaster
 
 ```go
@@ -2730,7 +3022,7 @@ import "github.com/adventures-team/go-tp/managed/master"
 
 
 <a name="ManagedMaster"></a>
-## type ManagedMaster
+## type [ManagedMaster](<https://github.com/adventures-team/go-tp/blob/master/managed/master/master.go#L49-L59>)
 
 
 
@@ -2741,7 +3033,7 @@ type ManagedMaster struct {
 ```
 
 <a name="NewManagedMaster"></a>
-### func NewManagedMaster
+### func [NewManagedMaster](<https://github.com/adventures-team/go-tp/blob/master/managed/master/master.go#L61>)
 
 ```go
 func NewManagedMaster(queue Queue, pool Pool, poller workerpool.Poller, logger *slog.Logger) *ManagedMaster
@@ -2750,7 +3042,7 @@ func NewManagedMaster(queue Queue, pool Pool, poller workerpool.Poller, logger *
 
 
 <a name="ManagedMaster.AssignSlot"></a>
-### func \(\*ManagedMaster\) AssignSlot
+### func \(\*ManagedMaster\) [AssignSlot](<https://github.com/adventures-team/go-tp/blob/master/managed/master/master.go#L87>)
 
 ```go
 func (mm *ManagedMaster) AssignSlot(slotID, queueID uint32) error
@@ -2759,7 +3051,7 @@ func (mm *ManagedMaster) AssignSlot(slotID, queueID uint32) error
 
 
 <a name="ManagedMaster.Stats"></a>
-### func \(\*ManagedMaster\) Stats
+### func \(\*ManagedMaster\) [Stats](<https://github.com/adventures-team/go-tp/blob/master/managed/master/master.go#L196>)
 
 ```go
 func (mm *ManagedMaster) Stats() qmclient.StatsData
@@ -2768,7 +3060,7 @@ func (mm *ManagedMaster) Stats() qmclient.StatsData
 
 
 <a name="Pool"></a>
-## type Pool
+## type [Pool](<https://github.com/adventures-team/go-tp/blob/master/managed/master/master.go#L28-L35>)
 
 
 
@@ -2784,7 +3076,7 @@ type Pool interface {
 ```
 
 <a name="Queue"></a>
-## type Queue
+## type [Queue](<https://github.com/adventures-team/go-tp/blob/master/managed/master/master.go#L24-L26>)
 
 
 
@@ -2795,7 +3087,7 @@ type Queue interface {
 ```
 
 <a name="SlotStat"></a>
-## type SlotStat
+## type [SlotStat](<https://github.com/adventures-team/go-tp/blob/master/managed/master/master.go#L37-L47>)
 
 
 
@@ -2854,7 +3146,7 @@ const MaxIProtoLen = 1 << 20
 ```
 
 <a name="Client"></a>
-## type Client
+## type [Client](<https://github.com/adventures-team/go-tp/blob/master/managed/qmclient/qmclient.go#L107-L111>)
 
 
 
@@ -2865,7 +3157,7 @@ type Client struct {
 ```
 
 <a name="NewClient"></a>
-### func NewClient
+### func [NewClient](<https://github.com/adventures-team/go-tp/blob/master/managed/qmclient/qmclient.go#L113>)
 
 ```go
 func NewClient(endpoint string, assignSlot func(slotID, queueID uint32) error, stats func() StatsData) *Client
@@ -2874,7 +3166,7 @@ func NewClient(endpoint string, assignSlot func(slotID, queueID uint32) error, s
 
 
 <a name="Client.Run"></a>
-### func \(\*Client\) Run
+### func \(\*Client\) [Run](<https://github.com/adventures-team/go-tp/blob/master/managed/qmclient/qmclient.go#L169>)
 
 ```go
 func (c *Client) Run(ctx context.Context)
@@ -2883,7 +3175,7 @@ func (c *Client) Run(ctx context.Context)
 Run поддерживает соединение с менеджером очередей и обслуживает его команды \(обратный RPC: соединение устанавливает клиент, запросы шлёт менеджер\). Возврат \- по отмене ctx.
 
 <a name="QueueExtendedStat"></a>
-## type QueueExtendedStat
+## type [QueueExtendedStat](<https://github.com/adventures-team/go-tp/blob/master/managed/qmclient/qmclient.go#L69-L76>)
 
 
 
@@ -2899,7 +3191,7 @@ type QueueExtendedStat struct {
 ```
 
 <a name="QueueStat"></a>
-## type QueueStat
+## type [QueueStat](<https://github.com/adventures-team/go-tp/blob/master/managed/qmclient/qmclient.go#L78-L87>)
 
 
 
@@ -2917,7 +3209,7 @@ type QueueStat struct {
 ```
 
 <a name="SetQueue"></a>
-## type SetQueue
+## type [SetQueue](<https://github.com/adventures-team/go-tp/blob/master/managed/qmclient/qmclient.go#L94-L98>)
 
 
 
@@ -2930,7 +3222,7 @@ type SetQueue struct {
 ```
 
 <a name="SetQueueRequest"></a>
-## type SetQueueRequest
+## type [SetQueueRequest](<https://github.com/adventures-team/go-tp/blob/master/managed/qmclient/qmclient.go#L90-L92>)
 
 
 
@@ -2941,7 +3233,7 @@ type SetQueueRequest struct {
 ```
 
 <a name="SetQueueRequest.Cmd"></a>
-### func \(SetQueueRequest\) Cmd
+### func \(SetQueueRequest\) [Cmd](<https://github.com/adventures-team/go-tp/blob/master/managed/qmclient/qmclient.go#L33>)
 
 ```go
 func (SetQueueRequest) Cmd() uint32
@@ -2950,7 +3242,7 @@ func (SetQueueRequest) Cmd() uint32
 Cmd возвращает код команды для типизированного мультиплексора go\-iprotoconn.
 
 <a name="SetQueueRequest.MarshalIProto"></a>
-### func \(SetQueueRequest\) MarshalIProto
+### func \(SetQueueRequest\) [MarshalIProto](<https://github.com/adventures-team/go-tp/blob/master/managed/qmclient/qmclient_generated.go#L21>)
 
 ```go
 func (recvSetQueueRequest SetQueueRequest) MarshalIProto(buf []byte) ([]byte, error)
@@ -2959,7 +3251,7 @@ func (recvSetQueueRequest SetQueueRequest) MarshalIProto(buf []byte) ([]byte, er
 
 
 <a name="SetQueueRequest.UnmarshalIProto"></a>
-### func \(\*SetQueueRequest\) UnmarshalIProto
+### func \(\*SetQueueRequest\) [UnmarshalIProto](<https://github.com/adventures-team/go-tp/blob/master/managed/qmclient/qmclient_generated.go#L30>)
 
 ```go
 func (recv_SetQueueRequest *SetQueueRequest) UnmarshalIProto(buf []byte) ([]byte, error)
@@ -2968,7 +3260,7 @@ func (recv_SetQueueRequest *SetQueueRequest) UnmarshalIProto(buf []byte) ([]byte
 
 
 <a name="SetQueueResponse"></a>
-## type SetQueueResponse
+## type [SetQueueResponse](<https://github.com/adventures-team/go-tp/blob/master/managed/qmclient/qmclient.go#L101-L105>)
 
 
 
@@ -2981,7 +3273,7 @@ type SetQueueResponse struct {
 ```
 
 <a name="SetQueueResponse.MarshalIProto"></a>
-### func \(SetQueueResponse\) MarshalIProto
+### func \(SetQueueResponse\) [MarshalIProto](<https://github.com/adventures-team/go-tp/blob/master/managed/qmclient/qmclient_generated.go#L62>)
 
 ```go
 func (recvSetQueueResponse SetQueueResponse) MarshalIProto(buf []byte) ([]byte, error)
@@ -2990,7 +3282,7 @@ func (recvSetQueueResponse SetQueueResponse) MarshalIProto(buf []byte) ([]byte, 
 
 
 <a name="SetQueueResponse.UnmarshalIProto"></a>
-### func \(\*SetQueueResponse\) UnmarshalIProto
+### func \(\*SetQueueResponse\) [UnmarshalIProto](<https://github.com/adventures-team/go-tp/blob/master/managed/qmclient/qmclient_generated.go#L155>)
 
 ```go
 func (recv_SetQueueResponse *SetQueueResponse) UnmarshalIProto(buf []byte) ([]byte, error)
@@ -2999,7 +3291,7 @@ func (recv_SetQueueResponse *SetQueueResponse) UnmarshalIProto(buf []byte) ([]by
 
 
 <a name="SlotStat"></a>
-## type SlotStat
+## type [SlotStat](<https://github.com/adventures-team/go-tp/blob/master/managed/qmclient/qmclient.go#L52-L67>)
 
 
 
@@ -3023,7 +3315,7 @@ type SlotStat struct {
 ```
 
 <a name="StatsData"></a>
-## type StatsData
+## type [StatsData](<https://github.com/adventures-team/go-tp/blob/master/managed/qmclient/qmclient.go#L42-L50>)
 
 
 
@@ -3040,7 +3332,7 @@ type StatsData struct {
 ```
 
 <a name="StatsRequest"></a>
-## type StatsRequest
+## type [StatsRequest](<https://github.com/adventures-team/go-tp/blob/master/managed/qmclient/qmclient.go#L24>)
 
 StatsRequest \- запрос статистики от менеджера очередей. Тело запроса игнорируется \(историческое поведение перлового протокола\).
 
@@ -3049,7 +3341,7 @@ type StatsRequest struct{}
 ```
 
 <a name="StatsRequest.Cmd"></a>
-### func \(StatsRequest\) Cmd
+### func \(StatsRequest\) [Cmd](<https://github.com/adventures-team/go-tp/blob/master/managed/qmclient/qmclient.go#L27>)
 
 ```go
 func (StatsRequest) Cmd() uint32
@@ -3058,7 +3350,7 @@ func (StatsRequest) Cmd() uint32
 Cmd возвращает код команды для типизированного мультиплексора go\-iprotoconn.
 
 <a name="StatsRequest.UnmarshalIProto"></a>
-### func \(\*StatsRequest\) UnmarshalIProto
+### func \(\*StatsRequest\) [UnmarshalIProto](<https://github.com/adventures-team/go-tp/blob/master/managed/qmclient/qmclient.go#L30>)
 
 ```go
 func (*StatsRequest) UnmarshalIProto(buf []byte) ([]byte, error)
@@ -3067,7 +3359,7 @@ func (*StatsRequest) UnmarshalIProto(buf []byte) ([]byte, error)
 UnmarshalIProto игнорирует тело запроса.
 
 <a name="StatsResponse"></a>
-## type StatsResponse
+## type [StatsResponse](<https://github.com/adventures-team/go-tp/blob/master/managed/qmclient/qmclient.go#L36-L40>)
 
 
 
@@ -3080,7 +3372,7 @@ type StatsResponse struct {
 ```
 
 <a name="StatsResponse.MarshalIProto"></a>
-### func \(StatsResponse\) MarshalIProto
+### func \(StatsResponse\) [MarshalIProto](<https://github.com/adventures-team/go-tp/blob/master/managed/qmclient/qmclient_generated.go#L561>)
 
 ```go
 func (recvStatsResponse StatsResponse) MarshalIProto(buf []byte) ([]byte, error)
@@ -3089,7 +3381,7 @@ func (recvStatsResponse StatsResponse) MarshalIProto(buf []byte) ([]byte, error)
 
 
 <a name="StatsResponse.UnmarshalIProto"></a>
-### func \(\*StatsResponse\) UnmarshalIProto
+### func \(\*StatsResponse\) [UnmarshalIProto](<https://github.com/adventures-team/go-tp/blob/master/managed/qmclient/qmclient_generated.go#L649>)
 
 ```go
 func (recv_StatsResponse *StatsResponse) UnmarshalIProto(buf []byte) ([]byte, error)
@@ -3125,7 +3417,7 @@ Package stats provides functionality for tracking and managing statistical data 
 
 
 <a name="QueueCounters"></a>
-## type QueueCounters
+## type [QueueCounters](<https://github.com/adventures-team/go-tp/blob/master/managed/stats/stats.go#L52-L60>)
 
 
 
@@ -3142,7 +3434,7 @@ type QueueCounters struct {
 ```
 
 <a name="QueueStat"></a>
-## type QueueStat
+## type [QueueStat](<https://github.com/adventures-team/go-tp/blob/master/managed/stats/stats.go#L63-L70>)
 
 QueueStat represents the statistics of a queue.
 
@@ -3158,7 +3450,7 @@ type QueueStat struct {
 ```
 
 <a name="Slot"></a>
-## type Slot
+## type [Slot](<https://github.com/adventures-team/go-tp/blob/master/managed/stats/stats.go#L40-L50>)
 
 Slot represents a slot and its associated statistics.
 
@@ -3169,7 +3461,7 @@ type Slot struct {
 ```
 
 <a name="New"></a>
-### func New
+### func [New](<https://github.com/adventures-team/go-tp/blob/master/managed/stats/stats.go#L85>)
 
 ```go
 func New(id uint32) *Slot
@@ -3178,7 +3470,7 @@ func New(id uint32) *Slot
 New creates a new slot with the given ID and initializes its parameters.
 
 <a name="Slot.AddQueueErrors"></a>
-### func \(\*Slot\) AddQueueErrors
+### func \(\*Slot\) [AddQueueErrors](<https://github.com/adventures-team/go-tp/blob/master/managed/stats/stats.go#L173>)
 
 ```go
 func (s *Slot) AddQueueErrors(queueID, n uint32)
@@ -3187,7 +3479,7 @@ func (s *Slot) AddQueueErrors(queueID, n uint32)
 AddQueueErrors adds the provided number to the queue errors.
 
 <a name="Slot.AddQueueProcessed"></a>
-### func \(\*Slot\) AddQueueProcessed
+### func \(\*Slot\) [AddQueueProcessed](<https://github.com/adventures-team/go-tp/blob/master/managed/stats/stats.go#L164>)
 
 ```go
 func (s *Slot) AddQueueProcessed(queueID, n uint32)
@@ -3196,7 +3488,7 @@ func (s *Slot) AddQueueProcessed(queueID, n uint32)
 AddQueueProcessed adds the provided number to the queue processed.
 
 <a name="Slot.AddQueueWaitTime"></a>
-### func \(\*Slot\) AddQueueWaitTime
+### func \(\*Slot\) [AddQueueWaitTime](<https://github.com/adventures-team/go-tp/blob/master/managed/stats/stats.go#L146>)
 
 ```go
 func (s *Slot) AddQueueWaitTime(queueID uint32, t float64)
@@ -3205,7 +3497,7 @@ func (s *Slot) AddQueueWaitTime(queueID uint32, t float64)
 AddQueueWaitTime adds the provided time to the queue waitTime.
 
 <a name="Slot.AddQueueWorkTime"></a>
-### func \(\*Slot\) AddQueueWorkTime
+### func \(\*Slot\) [AddQueueWorkTime](<https://github.com/adventures-team/go-tp/blob/master/managed/stats/stats.go#L155>)
 
 ```go
 func (s *Slot) AddQueueWorkTime(queueID uint32, t float64)
@@ -3214,7 +3506,7 @@ func (s *Slot) AddQueueWorkTime(queueID uint32, t float64)
 AddQueueWorkTime adds the provided time to the queue workTime.
 
 <a name="Slot.IncrementQueueLoop"></a>
-### func \(\*Slot\) IncrementQueueLoop
+### func \(\*Slot\) [IncrementQueueLoop](<https://github.com/adventures-team/go-tp/blob/master/managed/stats/stats.go#L137>)
 
 ```go
 func (s *Slot) IncrementQueueLoop(queueID uint32)
@@ -3223,7 +3515,7 @@ func (s *Slot) IncrementQueueLoop(queueID uint32)
 IncrementQueueLoop increments the slot loop count by 1.
 
 <a name="Slot.IncrementSlotError"></a>
-### func \(\*Slot\) IncrementSlotError
+### func \(\*Slot\) [IncrementSlotError](<https://github.com/adventures-team/go-tp/blob/master/managed/stats/stats.go#L96>)
 
 ```go
 func (s *Slot) IncrementSlotError()
@@ -3232,7 +3524,7 @@ func (s *Slot) IncrementSlotError()
 IncrementSlotError increments the slot error count by 1.
 
 <a name="Slot.SetQueueID"></a>
-### func \(\*Slot\) SetQueueID
+### func \(\*Slot\) [SetQueueID](<https://github.com/adventures-team/go-tp/blob/master/managed/stats/stats.go#L104>)
 
 ```go
 func (s *Slot) SetQueueID(id uint32)
@@ -3241,7 +3533,7 @@ func (s *Slot) SetQueueID(id uint32)
 SetQueueID sets the queue ID for the slot and handles queue switching logic.
 
 <a name="Slot.SetState"></a>
-### func \(\*Slot\) SetState
+### func \(\*Slot\) [SetState](<https://github.com/adventures-team/go-tp/blob/master/managed/stats/stats.go#L129>)
 
 ```go
 func (s *Slot) SetState(state State)
@@ -3250,7 +3542,7 @@ func (s *Slot) SetState(state State)
 SetState sets the state of the slot.
 
 <a name="Slot.Stat"></a>
-### func \(\*Slot\) Stat
+### func \(\*Slot\) [Stat](<https://github.com/adventures-team/go-tp/blob/master/managed/stats/stats.go#L182>)
 
 ```go
 func (s *Slot) Stat() SlotStat
@@ -3259,7 +3551,7 @@ func (s *Slot) Stat() SlotStat
 Stat returns the current statistics of the slot, including its queues.
 
 <a name="SlotStat"></a>
-## type SlotStat
+## type [SlotStat](<https://github.com/adventures-team/go-tp/blob/master/managed/stats/stats.go#L73-L82>)
 
 SlotStat represents the statistics of a slot.
 
@@ -3277,7 +3569,7 @@ type SlotStat struct {
 ```
 
 <a name="State"></a>
-## type State
+## type [State](<https://github.com/adventures-team/go-tp/blob/master/managed/stats/stats.go#L11>)
 
 State represents the state of a slot.
 

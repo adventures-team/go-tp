@@ -108,7 +108,7 @@ func (c *Config) SlotsCount(ctx context.Context) (int, error) {
 	return count, err
 }
 
-// QueueIDs получает queue_ids, который задаётся в виде разделённых через запятую интов (см. CSVRegex).
+// QueueIDs получает queue_ids, который задаётся в виде разделённых через запятую интов (см. [ParseQueueIDs]).
 // Если задан пустой список (пустая строка), ошибкой это не считается (требуется холостой запуск, либо остановка всех запущенных очередей)
 func (c *Config) QueueIDs() ([]uint16, error) {
 	str, err := c.getStringPerInstance("/queue_ids")
@@ -116,6 +116,14 @@ func (c *Config) QueueIDs() ([]uint16, error) {
 		return nil, err
 	}
 
+	return ParseQueueIDs(str)
+}
+
+// ParseQueueIDs разбирает список ID очередей в формате параметра queue_ids: ID через запятую
+// (пробелы вокруг запятых допустимы, см. [CSVRegex]), пустые элементы пропускаются.
+// Пустая строка - пустой список, не ошибка. Ошибка разбора элемента возвращается как [ConfError]
+// с Path "queue_ids" и ошибочным элементом в Value.
+func ParseQueueIDs(str string) ([]uint16, error) {
 	strIDs := CSVRegex.Split(str, -1)
 	queueIDs := make([]uint16, 0, len(strIDs))
 
@@ -136,7 +144,7 @@ func (c *Config) QueueIDs() ([]uint16, error) {
 		queueIDs = append(queueIDs, uint16(id))
 	}
 
-	return queueIDs, nil // пустой список - не ошибка (значит надо остановить все запущенные очереди)
+	return queueIDs, nil
 }
 
 // LogLevel получает log_level. По умолчанию: DefaultLogLevel.
